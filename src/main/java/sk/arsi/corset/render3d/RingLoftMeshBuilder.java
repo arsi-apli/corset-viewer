@@ -615,4 +615,191 @@ public final class RingLoftMeshBuilder {
         };
         return palette[idx % palette.length];
     }
+
+    public static List<MeshView> buildHalfCorsetMeshesTextured(
+            List<PanelCurves> panels,
+            BuildConfig cfg,
+            java.util.function.Function<PanelCurves, javafx.scene.image.Image> textureForPanel
+    ) {
+        if (panels == null || panels.isEmpty()) {
+            return new ArrayList<>();
+        }
+        if (cfg.panelSubdiv < 1) {
+            throw new IllegalArgumentException("panelSubdiv must be >= 1");
+        }
+
+        int panelCount = panels.size();
+        int rings = cfg.offsetsMm.length;
+        int waistRing = findClosestToZero(cfg.offsetsMm);
+
+        // --- (toto nechaj presne ako máš v kruhovej verzii) ---
+        double[][] wPanel = new double[rings][panelCount];
+        boolean[][] valid = new boolean[rings][panelCount];
+
+        for (int k = 0; k < rings; k++) {
+            double offset = cfg.offsetsMm[k];
+            for (int i = 0; i < panelCount; i++) {
+                PanelCurves p = panels.get(i);
+                double waistY = estimateWaistY(p.getWaist());
+
+                SeamPolyline leftSeam = SeamUtils.buildSeamPolyline(
+                        toPts(p.getSeamToPrevUp()),
+                        toPts(p.getSeamToPrevDown()),
+                        waistY
+                );
+                SeamPolyline rightSeam = SeamUtils.buildSeamPolyline(
+                        toPts(p.getSeamToNextUp()),
+                        toPts(p.getSeamToNextDown()),
+                        waistY
+                );
+
+                double targetY = waistY - offset;
+                Pt2 L = sampleAtY(leftSeam, targetY);
+                Pt2 R = sampleAtY(rightSeam, targetY);
+
+                if (L == null || R == null) {
+                    valid[k][i] = false;
+                    wPanel[k][i] = 0.0;
+                } else {
+                    valid[k][i] = true;
+                    wPanel[k][i] = R.minus(L).len();
+                }
+            }
+        }
+
+        double[] cHalf = new double[rings];
+        double[] radiusMm = new double[rings];
+        for (int k = 0; k < rings; k++) {
+            double sum = 0.0;
+            for (int i = 0; i < panelCount; i++) {
+                if (valid[k][i]) {
+                    sum += wPanel[k][i];
+                }
+            }
+            cHalf[k] = sum;
+        }
+
+        double cHalfWaist = cHalf[waistRing];
+        if (cHalfWaist <= 1e-9) {
+            throw new IllegalStateException("Waist half-circumference is zero.");
+        }
+        double waistRadiusMm = cHalfWaist / Math.PI;
+
+        for (int k = 0; k < rings; k++) {
+            radiusMm[k] = (cHalf[k] > 1e-6) ? (cHalf[k] / Math.PI) : waistRadiusMm;
+        }
+
+        double[][] sStart = new double[rings][panelCount];
+        for (int k = 0; k < rings; k++) {
+            double cum = 0.0;
+            for (int i = 0; i < panelCount; i++) {
+                sStart[k][i] = cum;
+                if (valid[k][i]) {
+                    cum += wPanel[k][i];
+                }
+            }
+        }
+        // --- koniec “nezmenenej” časti ---
+
+        List<MeshView> out = new ArrayList<>();
+        int cols = cfg.panelSubdiv + 1;
+
+        for (int panelIndex = 0; panelIndex < panelCount; panelIndex++) {
+            TriangleMesh mesh = new TriangleMesh();
+
+            // 1:1 mapping: každý vertex má svoj texCoord
+            // takže texCoord index == vertex index
+            int[][] vId = new int[rings][cols];
+            boolean[] ringOk = new boolean[rings];
+
+            for (int k = 0; k < rings; k++) {
+                ringOk[k] = valid[k][panelIndex];
+
+                double C = cHalf[k];
+                double rMm = radiusMm[k];
+                double offset = cfg.offsetsMm[k];
+                double y3 = -offset * cfg.scale;
+
+                double denom = (C > 1e-9) ? C : cHalfWaist;
+
+                double s0 = sStart[k][panelIndex];
+                double w = valid[k][panelIndex] ? wPanel[k][panelIndex] : 0.0;
+                double s1 = s0 + w;
+
+                double theta0 = cfg.thetaStartRad + (s0 / denom) * Math.PI;
+                double theta1 = cfg.thetaStartRad + (s1 / denom) * Math.PI;
+
+                if (!valid[k][panelIndex]) {
+                    // degenerované na waist ring (ako máš)
+                    int wk = waistRing;
+                    double wC = cHalf[wk];
+                    double wDen = (wC > 1e-9) ? wC : cHalfWaist;
+
+                    double ws0 = sStart[wk][panelIndex];
+                    double ww = valid[wk][panelIndex] ? wPanel[wk][panelIndex] : 0.0;
+                    double ws1 = ws0 + ww;
+
+                    theta0 = cfg.thetaStartRad + (ws0 / wDen) * Math.PI;
+                    theta1 = cfg.thetaStartRad + (ws1 / wDen) * Math.PI;
+                    rMm = waistRadiusMm;
+                    y3 = 0.0;
+                }
+
+                for (int s = 0; s < cols; s++) {
+                    double a = (double) s / (double) (cols - 1);
+                    double th = lerp(theta0, theta1, a);
+
+                    double x = (rMm * Math.cos(th)) * cfg.scale;
+                    double z = (rMm * Math.sin(th)) * cfg.scale;
+
+                    // UV:
+                    float u = (float) a;
+                    float v = (float) ((double) k / (double) (rings - 1));
+                    // JavaFX textúry majú (0,0) hore, takže ak chceš “top=0”, nechaj tak,
+                    // ak bude otočené, prehoď na (1 - v).
+                    // v = 1.0f - v;
+
+                    int idx = mesh.getPoints().size() / 3;
+                    mesh.getPoints().addAll((float) x, (float) y3, (float) z);
+                    mesh.getTexCoords().addAll(u, v);
+
+                    vId[k][s] = idx;
+                }
+            }
+
+            // faces: pointIndex, texIndex (tu sú rovnaké)
+            for (int k = 0; k < rings - 1; k++) {
+                if (!ringOk[k] || !ringOk[k + 1]) {
+                    continue;
+                }
+
+                for (int s = 0; s < cols - 1; s++) {
+                    int v00 = vId[k][s];
+                    int v01 = vId[k][s + 1];
+                    int v10 = vId[k + 1][s];
+                    int v11 = vId[k + 1][s + 1];
+
+                    mesh.getFaces().addAll(v00, v00, v01, v01, v11, v11);
+                    mesh.getFaces().addAll(v00, v00, v11, v11, v10, v10);
+                }
+            }
+
+            MeshView mv = new MeshView(mesh);
+
+            PhongMaterial mat = new PhongMaterial(Color.WHITE);
+            javafx.scene.image.Image img = textureForPanel.apply(panels.get(panelIndex));
+            if (img != null) {
+                mat.setDiffuseMap(img);
+                // voliteľne:
+                // mat.setSpecularColor(Color.color(0.15,0.15,0.15));
+            } else {
+                mat.setDiffuseColor(pickColor(panelIndex));
+            }
+
+            mv.setMaterial(mat);
+            out.add(mv);
+        }
+
+        return out;
+    }
 }

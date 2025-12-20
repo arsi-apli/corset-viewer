@@ -23,6 +23,7 @@ import java.util.List;
 import sk.arsi.corset.geom.SeamUtils;
 import sk.arsi.corset.geom.SeamUtils.Pt2;
 import sk.arsi.corset.geom.SeamUtils.SeamPolyline;
+import sk.arsi.corset.render3d.PanelTextureFactory;
 
 public final class Corset3DView {
 
@@ -95,7 +96,11 @@ public final class Corset3DView {
         RingLoftMeshBuilder.BuildConfig cfg
                 = new RingLoftMeshBuilder.BuildConfig(offsets, -Math.PI / 2.0, 1.0, 12);
 
-        List<MeshView> meshes = RingLoftMeshBuilder.buildHalfCorsetMeshes(panels, cfg);
+        List<MeshView> meshes = RingLoftMeshBuilder.buildHalfCorsetMeshesTextured(
+                panels,
+                cfg,
+                p -> PanelTextureFactory.buildPanelTexture(p, cfg, 1024)
+        );
         for (int i = 0; i < meshes.size(); i++) {
             modelGroup.getChildren().add(meshes.get(i));
         }
