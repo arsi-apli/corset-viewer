@@ -43,18 +43,20 @@ public final class FxApp extends Application {
         Canvas2DView view2d = new Canvas2DView();
         view2d.setPanels(panels);
 
-//        // --- 3D ---
-//        Corset3DView view3d = new Corset3DView();
-//        view3d.setPanels(panels);
+        // --- Pseudo 3D ---
+        Pseudo3DView viewPseudo3d = new Pseudo3DView();
+        viewPseudo3d.setPanels(panels);
+
         // --- Tabs ---
         Tab tab2d = new Tab("2D");
         tab2d.setClosable(false);
         tab2d.setContent(view2d.getNode());
 
-//        Tab tab3d = new Tab("3D");
-//        tab3d.setClosable(false);
-//        tab3d.setContent(view3d.getNode());
-        TabPane tabs = new TabPane(tab2d);
+        Tab tabPseudo3d = new Tab("Pseudo 3D");
+        tabPseudo3d.setClosable(false);
+        tabPseudo3d.setContent(viewPseudo3d.getNode());
+
+        TabPane tabs = new TabPane(tab2d, tabPseudo3d);
 
         BorderPane root = new BorderPane();
         root.setCenter(tabs);
