@@ -108,14 +108,24 @@ class ChainLayoutEngineTest {
             Arrays.asList(new Pt(xStart, 125.0), new Pt(xEnd, 125.0))
         );
         
-        Curve2D seamUp = new Curve2D(
-            id.name() + "_SEAM_UP",
+        Curve2D seamToPrevUp = new Curve2D(
+            id.name() + "_SEAM_PREV_UP",
             Arrays.asList(new Pt(xStart, 50.0), new Pt(xStart, 125.0))
         );
         
-        Curve2D seamDown = new Curve2D(
-            id.name() + "_SEAM_DOWN",
+        Curve2D seamToPrevDown = new Curve2D(
+            id.name() + "_SEAM_PREV_DOWN",
             Arrays.asList(new Pt(xStart, 125.0), new Pt(xStart, 200.0))
+        );
+        
+        Curve2D seamToNextUp = new Curve2D(
+            id.name() + "_SEAM_NEXT_UP",
+            Arrays.asList(new Pt(xEnd, 50.0), new Pt(xEnd, 125.0))
+        );
+        
+        Curve2D seamToNextDown = new Curve2D(
+            id.name() + "_SEAM_NEXT_DOWN",
+            Arrays.asList(new Pt(xEnd, 125.0), new Pt(xEnd, 200.0))
         );
         
         return new PanelCurves(
@@ -123,10 +133,10 @@ class ChainLayoutEngineTest {
             top,
             bottom,
             waist,
-            seamUp,
-            seamDown,
-            seamUp,
-            seamDown
+            seamToPrevUp,
+            seamToPrevDown,
+            seamToNextUp,
+            seamToNextDown
         );
     }
 }

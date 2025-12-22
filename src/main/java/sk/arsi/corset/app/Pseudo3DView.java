@@ -175,8 +175,8 @@ public final class Pseudo3DView {
             double dx = e.getX() - lastMouseX;
             double dy = e.getY() - lastMouseY;
 
-            offsetX = offsetX + dx;
-            offsetY = offsetY + dy;
+            offsetX += dx;
+            offsetY += dy;
 
             lastMouseX = e.getX();
             lastMouseY = e.getY();

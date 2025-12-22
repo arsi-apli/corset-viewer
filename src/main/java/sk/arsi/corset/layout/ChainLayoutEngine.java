@@ -185,22 +185,10 @@ public final class ChainLayoutEngine {
                 double angleRad = anglePrev - angleLocal;
 
                 // 4. Create transform: rotate around joint, then translate to align joints
-                // First, translate joint to origin
-                double tx1 = -jointX;
-                double ty1 = -jointY;
-
-                // Apply rotation around origin
-                double cos = Math.cos(angleRad);
-                double sin = Math.sin(angleRad);
-
-                // After rotation, joint is still at origin (0,0)
-                // Now translate to prev joint position
-                double tx2 = prevJointX;
-                double ty2 = prevJointY;
-
-                // Combined transform
-                double tx = tx1 * cos - ty1 * sin + tx2;
-                double ty = tx1 * sin + ty1 * cos + ty2;
+                // After rotation around jointX, jointY, the joint stays at (jointX, jointY)
+                // We need to translate so the joint moves to (prevJointX, prevJointY)
+                double tx = prevJointX - jointX;
+                double ty = prevJointY - jointY;
 
                 transform = new Transform2D(angleRad, jointX, jointY, tx, ty);
 
