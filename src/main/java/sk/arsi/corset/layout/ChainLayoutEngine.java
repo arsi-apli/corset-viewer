@@ -263,8 +263,12 @@ public final class ChainLayoutEngine {
         Pt prevWaistRight = extremeByX(prevPanel.getWaist(), false);
         Pt curWaistLeft = extremeByX(curPanel.getWaist(), true);
         
-        if (prevWaistRight == null || curWaistLeft == null) {
-            logger.debug("Skipping seam snap: waist points not available");
+        if (prevWaistRight == null) {
+            logger.debug("Skipping seam snap: prevWaistRight not available");
+            return curTransform;
+        }
+        if (curWaistLeft == null) {
+            logger.debug("Skipping seam snap: curWaistLeft not available");
             return curTransform;
         }
         
@@ -357,16 +361,6 @@ public final class ChainLayoutEngine {
         // Get first and last points
         Pt first = points.get(0);
         Pt last = points.get(points.size() - 1);
-        
-        if (first == null && last == null) {
-            return null;
-        }
-        if (first == null) {
-            return last;
-        }
-        if (last == null) {
-            return first;
-        }
         
         double firstY = first.getY();
         double lastY = last.getY();
