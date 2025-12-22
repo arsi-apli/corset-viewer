@@ -100,6 +100,23 @@ public final class Pseudo3DView {
         redraw();
     }
 
+    /**
+     * Returns the current edge mode (TOP or BOTTOM).
+     */
+    public EdgeMode getEdgeMode() {
+        return edgeMode;
+    }
+
+    /**
+     * Sets the edge mode without triggering a full rebuild.
+     * Useful for preserving state during reload.
+     */
+    public void setEdgeMode(EdgeMode mode) {
+        if (mode != null) {
+            this.edgeMode = mode;
+        }
+    }
+
     private void initUi() {
         Button btnTop = new Button("TOP");
         Button btnBottom = new Button("BOTTOM");
