@@ -257,9 +257,28 @@ public final class ChainLayoutEngine {
             return curTransform;
         }
         
-        // Get anchor points (last point of each seam curve)
-        Pt prevAnchorLocal = getSeamAnchor(prevSeam);
-        Pt curAnchorLocal = getSeamAnchor(curSeam);
+        // Get waist Y values for endpoint selection
+        Curve2D prevWaist = prevPanel.getWaist();
+        Curve2D curWaist = curPanel.getWaist();
+        
+        if (prevWaist == null || curWaist == null) {
+            logger.debug("Skipping seam snap: waist curves not available");
+            return curTransform;
+        }
+        
+        // For prev panel, use waistRight (right join)
+        Pt prevWaistRef = extremeByX(prevWaist, false);
+        // For cur panel, use waistLeft (left join)
+        Pt curWaistRef = extremeByX(curWaist, true);
+        
+        if (prevWaistRef == null || curWaistRef == null) {
+            logger.debug("Skipping seam snap: waist reference points not available");
+            return curTransform;
+        }
+        
+        // Select anchor points based on waistY comparison
+        Pt prevAnchorLocal = selectSeamEndpoint(prevSeam, prevWaistRef.getY(), mode);
+        Pt curAnchorLocal = selectSeamEndpoint(curSeam, curWaistRef.getY(), mode);
         
         if (prevAnchorLocal == null || curAnchorLocal == null) {
             logger.debug("Skipping seam snap: anchor points not available");
@@ -321,17 +340,61 @@ public final class ChainLayoutEngine {
     }
     
     /**
-     * Get the anchor point (last point) from a seam curve.
+     * Select the appropriate endpoint from a seam curve based on waistY comparison.
+     * 
+     * @param seam The seam curve
+     * @param waistY The Y coordinate of the waist reference point
+     * @param mode Edge mode (TOP or BOTTOM)
+     * @return The selected endpoint
      */
-    private Pt getSeamAnchor(Curve2D seam) {
+    private Pt selectSeamEndpoint(Curve2D seam, double waistY, EdgeMode mode) {
         if (seam == null) {
             return null;
         }
+        
         List<Pt> points = seam.getPoints();
         if (points == null || points.isEmpty()) {
             return null;
         }
-        return points.get(points.size() - 1);
+        
+        // Get candidate endpoints: first and last
+        Pt first = points.get(0);
+        Pt last = points.get(points.size() - 1);
+        
+        if (first == null || last == null) {
+            return null;
+        }
+        
+        double firstY = first.getY();
+        double lastY = last.getY();
+        
+        if (mode == EdgeMode.TOP) {
+            // TOP mode: prefer endpoint with Y < waistY
+            boolean firstSatisfies = firstY < waistY;
+            boolean lastSatisfies = lastY < waistY;
+            
+            if (firstSatisfies && !lastSatisfies) {
+                return first;
+            } else if (!firstSatisfies && lastSatisfies) {
+                return last;
+            } else {
+                // Both satisfy or neither satisfies: choose smaller Y
+                return (firstY < lastY) ? first : last;
+            }
+        } else {
+            // BOTTOM mode: prefer endpoint with Y > waistY
+            boolean firstSatisfies = firstY > waistY;
+            boolean lastSatisfies = lastY > waistY;
+            
+            if (firstSatisfies && !lastSatisfies) {
+                return first;
+            } else if (!firstSatisfies && lastSatisfies) {
+                return last;
+            } else {
+                // Both satisfy or neither satisfies: choose larger Y
+                return (firstY > lastY) ? first : last;
+            }
+        }
     }
 
     /**

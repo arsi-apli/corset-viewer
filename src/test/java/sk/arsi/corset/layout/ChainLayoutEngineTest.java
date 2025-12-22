@@ -220,6 +220,71 @@ class ChainLayoutEngineTest {
             "Translation Y should be incremented");
     }
 
+    @Test
+    void testSeamEndpointSelection_topMode_avoidsWaistEndpoint() {
+        ChainLayoutEngine engine = new ChainLayoutEngine();
+        
+        // Create panels where seam curves end at waist Y
+        // This simulates the problematic case mentioned in the issue
+        PanelCurves panelA = createPanelWithSeamsEndingAtWaist(PanelId.A, 0.0, 100.0);
+        PanelCurves panelB = createPanelWithSeamsEndingAtWaist(PanelId.B, 0.0, 100.0);
+        List<PanelCurves> panels = Arrays.asList(panelA, panelB);
+
+        List<LayoutResult> results = engine.computeLayout(panels, EdgeMode.TOP);
+
+        assertEquals(2, results.size(), "Expected two layout results");
+        
+        // Get transforms
+        Transform2D transformA = results.get(0).getTransform();
+        Transform2D transformB = results.get(1).getTransform();
+        
+        // For TOP mode with seams ending at waist, the algorithm should select
+        // the endpoint with smaller Y (the top endpoint at Y=50, not the waist at Y=125)
+        Pt seamAEndpoint = transformA.apply(panelA.getSeamToNextUp().getFirst());
+        Pt seamBEndpoint = transformB.apply(panelB.getSeamToPrevUp().getFirst());
+        
+        assertNotNull(seamAEndpoint, "Panel A seam endpoint should not be null");
+        assertNotNull(seamBEndpoint, "Panel B seam endpoint should not be null");
+        
+        // The endpoints should be aligned
+        assertEquals(seamAEndpoint.getX(), seamBEndpoint.getX(), 0.001,
+            "Seam endpoints should align in X coordinate");
+        assertEquals(seamAEndpoint.getY(), seamBEndpoint.getY(), 0.001,
+            "Seam endpoints should align in Y coordinate");
+    }
+
+    @Test
+    void testSeamEndpointSelection_bottomMode_avoidsWaistEndpoint() {
+        ChainLayoutEngine engine = new ChainLayoutEngine();
+        
+        // Create panels where seam curves start at waist Y
+        PanelCurves panelA = createPanelWithSeamsStartingAtWaist(PanelId.A, 0.0, 100.0);
+        PanelCurves panelB = createPanelWithSeamsStartingAtWaist(PanelId.B, 0.0, 100.0);
+        List<PanelCurves> panels = Arrays.asList(panelA, panelB);
+
+        List<LayoutResult> results = engine.computeLayout(panels, EdgeMode.BOTTOM);
+
+        assertEquals(2, results.size(), "Expected two layout results");
+        
+        // Get transforms
+        Transform2D transformA = results.get(0).getTransform();
+        Transform2D transformB = results.get(1).getTransform();
+        
+        // For BOTTOM mode with seams starting at waist, the algorithm should select
+        // the endpoint with larger Y (the bottom endpoint at Y=200, not the waist at Y=125)
+        Pt seamAEndpoint = transformA.apply(panelA.getSeamToNextDown().getLast());
+        Pt seamBEndpoint = transformB.apply(panelB.getSeamToPrevDown().getLast());
+        
+        assertNotNull(seamAEndpoint, "Panel A seam endpoint should not be null");
+        assertNotNull(seamBEndpoint, "Panel B seam endpoint should not be null");
+        
+        // The endpoints should be aligned
+        assertEquals(seamAEndpoint.getX(), seamBEndpoint.getX(), 0.001,
+            "Seam endpoints should align in X coordinate");
+        assertEquals(seamAEndpoint.getY(), seamBEndpoint.getY(), 0.001,
+            "Seam endpoints should align in Y coordinate");
+    }
+
     private PanelCurves createPanelWithSeams(PanelId id, double xStart, double xEnd) {
         // Create panel with proper seam curves that have endpoints
         Curve2D top = new Curve2D(
@@ -243,6 +308,107 @@ class ChainLayoutEngineTest {
             Arrays.asList(new Pt(xStart, 50.0), new Pt(xStart, 100.0), new Pt(xStart, 125.0))
         );
         
+        Curve2D seamToPrevDown = new Curve2D(
+            id.name() + "_SEAM_PREV_DOWN",
+            Arrays.asList(new Pt(xStart, 125.0), new Pt(xStart, 150.0), new Pt(xStart, 200.0))
+        );
+        
+        Curve2D seamToNextUp = new Curve2D(
+            id.name() + "_SEAM_NEXT_UP",
+            Arrays.asList(new Pt(xEnd, 50.0), new Pt(xEnd, 100.0), new Pt(xEnd, 125.0))
+        );
+        
+        Curve2D seamToNextDown = new Curve2D(
+            id.name() + "_SEAM_NEXT_DOWN",
+            Arrays.asList(new Pt(xEnd, 125.0), new Pt(xEnd, 150.0), new Pt(xEnd, 200.0))
+        );
+        
+        return new PanelCurves(
+            id,
+            top,
+            bottom,
+            waist,
+            seamToPrevUp,
+            seamToPrevDown,
+            seamToNextUp,
+            seamToNextDown
+        );
+    }
+
+    private PanelCurves createPanelWithSeamsEndingAtWaist(PanelId id, double xStart, double xEnd) {
+        // Create panel where seam UP curves end at waist (problematic case)
+        Curve2D top = new Curve2D(
+            id.name() + "_TOP",
+            Arrays.asList(new Pt(xStart, 50.0), new Pt(xEnd, 50.0))
+        );
+        
+        Curve2D bottom = new Curve2D(
+            id.name() + "_BOTTOM",
+            Arrays.asList(new Pt(xStart, 200.0), new Pt(xEnd, 200.0))
+        );
+        
+        Curve2D waist = new Curve2D(
+            id.name() + "_WAIST",
+            Arrays.asList(new Pt(xStart, 125.0), new Pt(xEnd, 125.0))
+        );
+        
+        // UP seams go from top to waist (first=top, last=waist)
+        Curve2D seamToPrevUp = new Curve2D(
+            id.name() + "_SEAM_PREV_UP",
+            Arrays.asList(new Pt(xStart, 50.0), new Pt(xStart, 100.0), new Pt(xStart, 125.0))
+        );
+        
+        Curve2D seamToPrevDown = new Curve2D(
+            id.name() + "_SEAM_PREV_DOWN",
+            Arrays.asList(new Pt(xStart, 125.0), new Pt(xStart, 150.0), new Pt(xStart, 200.0))
+        );
+        
+        Curve2D seamToNextUp = new Curve2D(
+            id.name() + "_SEAM_NEXT_UP",
+            Arrays.asList(new Pt(xEnd, 50.0), new Pt(xEnd, 100.0), new Pt(xEnd, 125.0))
+        );
+        
+        Curve2D seamToNextDown = new Curve2D(
+            id.name() + "_SEAM_NEXT_DOWN",
+            Arrays.asList(new Pt(xEnd, 125.0), new Pt(xEnd, 150.0), new Pt(xEnd, 200.0))
+        );
+        
+        return new PanelCurves(
+            id,
+            top,
+            bottom,
+            waist,
+            seamToPrevUp,
+            seamToPrevDown,
+            seamToNextUp,
+            seamToNextDown
+        );
+    }
+
+    private PanelCurves createPanelWithSeamsStartingAtWaist(PanelId id, double xStart, double xEnd) {
+        // Create panel where seam DOWN curves start at waist (problematic case)
+        Curve2D top = new Curve2D(
+            id.name() + "_TOP",
+            Arrays.asList(new Pt(xStart, 50.0), new Pt(xEnd, 50.0))
+        );
+        
+        Curve2D bottom = new Curve2D(
+            id.name() + "_BOTTOM",
+            Arrays.asList(new Pt(xStart, 200.0), new Pt(xEnd, 200.0))
+        );
+        
+        Curve2D waist = new Curve2D(
+            id.name() + "_WAIST",
+            Arrays.asList(new Pt(xStart, 125.0), new Pt(xEnd, 125.0))
+        );
+        
+        // UP seams for completeness
+        Curve2D seamToPrevUp = new Curve2D(
+            id.name() + "_SEAM_PREV_UP",
+            Arrays.asList(new Pt(xStart, 50.0), new Pt(xStart, 100.0), new Pt(xStart, 125.0))
+        );
+        
+        // DOWN seams go from waist to bottom (first=waist, last=bottom)
         Curve2D seamToPrevDown = new Curve2D(
             id.name() + "_SEAM_PREV_DOWN",
             Arrays.asList(new Pt(xStart, 125.0), new Pt(xStart, 150.0), new Pt(xStart, 200.0))
