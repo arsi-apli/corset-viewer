@@ -1,22 +1,37 @@
 package sk.arsi.corset.app;
 
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.scene.Scene;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.layout.BorderPane;
 import javafx.stage.Stage;
+import sk.arsi.corset.io.SvgFileWatcher;
+import sk.arsi.corset.io.SvgPanelLoader;
 import sk.arsi.corset.model.PanelCurves;
-import sk.arsi.corset.svg.PathSampler;
-import sk.arsi.corset.svg.PatternContract;
-import sk.arsi.corset.svg.PatternExtractor;
-import sk.arsi.corset.svg.SvgDocument;
-import sk.arsi.corset.svg.SvgLoader;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public final class FxApp extends Application {
+
+    private Canvas2DView view2d;
+    private Pseudo3DView viewPseudo3d;
+
+    private Path svgPath;
+
+    private SvgFileWatcher watcher;
+
+    private final ExecutorService reloadExec = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "svg-reload-worker");
+        t.setDaemon(true);
+        return t;
+    });
+
+    private final SvgPanelLoader panelLoader = new SvgPanelLoader(0.2, 0.5);
 
     @Override
     public void start(Stage stage) throws Exception {
@@ -25,26 +40,16 @@ public final class FxApp extends Application {
             throw new IllegalArgumentException("Expected 1 arg: path to SVG");
         }
 
-        Path svgPath = Path.of(args.get(0));
+        svgPath = Path.of(args.get(0));
 
-        SvgLoader loader = new SvgLoader();
-        SvgDocument doc = loader.load(svgPath);
-
-        PatternContract contract = new PatternContract();
-        PathSampler sampler = new PathSampler();
-        PatternExtractor extractor = new PatternExtractor(contract, sampler);
-
-        double flatnessMm = 0.2;
-        double resampleStepMm = 0.5;
-
-        List<PanelCurves> panels = extractor.extractPanels(doc, flatnessMm, resampleStepMm);
+        List<PanelCurves> panels = panelLoader.loadPanelsWithRetry(svgPath, 3, 250);
 
         // --- 2D ---
-        Canvas2DView view2d = new Canvas2DView();
+        view2d = new Canvas2DView();
         view2d.setPanels(panels);
 
         // --- Pseudo 3D ---
-        Pseudo3DView viewPseudo3d = new Pseudo3DView();
+        viewPseudo3d = new Pseudo3DView();
         viewPseudo3d.setPanels(panels);
 
         // --- Tabs ---
@@ -65,6 +70,68 @@ public final class FxApp extends Application {
         stage.setTitle("Corset Viewer");
         stage.setScene(scene);
         stage.show();
+
+        startWatching(svgPath);
+
+        // stop watcher cleanly on window close
+        stage.setOnCloseRequest(e -> stopResources());
+    }
+
+    private void startWatching(Path path) {
+        stopWatching();
+
+        watcher = new SvgFileWatcher(
+                path,
+                800, // debounce for Inkscape multi-write
+                this::reloadSvgAsync
+        );
+
+        try {
+            watcher.start();
+        } catch (Exception ignored) {
+            // if watcher can't start, app still works without auto-reload
+        }
+    }
+
+    private void stopWatching() {
+        if (watcher != null) {
+            watcher.stop();
+            watcher = null;
+        }
+    }
+
+    private void reloadSvgAsync() {
+        final Path path = svgPath;
+        if (path == null) {
+            return;
+        }
+
+        reloadExec.submit(() -> {
+            try {
+                List<PanelCurves> panels = panelLoader.loadPanelsWithRetry(path, 3, 250);
+
+                Platform.runLater(() -> {
+                    if (view2d != null) {
+                        view2d.setPanels(panels);
+                    }
+                    if (viewPseudo3d != null) {
+                        viewPseudo3d.setPanels(panels);
+                    }
+                });
+            } catch (Exception ignored) {
+                // ignore transient parse failures during save
+            }
+        });
+    }
+
+    private void stopResources() {
+        stopWatching();
+        reloadExec.shutdownNow();
+    }
+
+    @Override
+    public void stop() {
+        stopResources();
     }
 
     public static void main(String[] args) {
