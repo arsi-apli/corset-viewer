@@ -257,9 +257,23 @@ public final class ChainLayoutEngine {
             return curTransform;
         }
         
-        // Get anchor points (last point of each seam curve)
-        Pt prevAnchorLocal = getSeamAnchor(prevSeam);
-        Pt curAnchorLocal = getSeamAnchor(curSeam);
+        // Get waist Y coordinates for endpoint selection
+        // For prev panel, use waistRight (right extreme of waist curve)
+        // For cur panel, use waistLeft (left extreme of waist curve)
+        Pt prevWaistRight = extremeByX(prevPanel.getWaist(), false);
+        Pt curWaistLeft = extremeByX(curPanel.getWaist(), true);
+        
+        if (prevWaistRight == null || curWaistLeft == null) {
+            logger.debug("Skipping seam snap: waist points not available");
+            return curTransform;
+        }
+        
+        double prevWaistY = prevWaistRight.getY();
+        double curWaistY = curWaistLeft.getY();
+        
+        // Select anchor points based on waistY and mode
+        Pt prevAnchorLocal = selectSeamEndpoint(prevSeam, prevWaistY, mode);
+        Pt curAnchorLocal = selectSeamEndpoint(curSeam, curWaistY, mode);
         
         if (prevAnchorLocal == null || curAnchorLocal == null) {
             logger.debug("Skipping seam snap: anchor points not available");
@@ -321,9 +335,17 @@ public final class ChainLayoutEngine {
     }
     
     /**
-     * Get the anchor point (last point) from a seam curve.
+     * Select seam endpoint based on waistY and edge mode.
+     * 
+     * For TOP mode: prefer endpoint with y < waistY; if both/none satisfy, pick endpoint with smaller y.
+     * For BOTTOM mode: prefer endpoint with y > waistY; if both/none satisfy, pick endpoint with larger y.
+     * 
+     * @param seam Seam curve to select endpoint from
+     * @param waistY Y coordinate of waist at the seam side
+     * @param mode Edge mode (TOP or BOTTOM)
+     * @return Selected endpoint, or null if seam has no points
      */
-    private Pt getSeamAnchor(Curve2D seam) {
+    private Pt selectSeamEndpoint(Curve2D seam, double waistY, EdgeMode mode) {
         if (seam == null) {
             return null;
         }
@@ -331,7 +353,51 @@ public final class ChainLayoutEngine {
         if (points == null || points.isEmpty()) {
             return null;
         }
-        return points.get(points.size() - 1);
+        
+        // Get first and last points
+        Pt first = points.get(0);
+        Pt last = points.get(points.size() - 1);
+        
+        if (first == null && last == null) {
+            return null;
+        }
+        if (first == null) {
+            return last;
+        }
+        if (last == null) {
+            return first;
+        }
+        
+        double firstY = first.getY();
+        double lastY = last.getY();
+        
+        if (mode == EdgeMode.TOP) {
+            // TOP mode: prefer y < waistY, else smaller y
+            boolean firstBelowWaist = firstY < waistY;
+            boolean lastBelowWaist = lastY < waistY;
+            
+            if (firstBelowWaist && !lastBelowWaist) {
+                return first;
+            }
+            if (lastBelowWaist && !firstBelowWaist) {
+                return last;
+            }
+            // Both satisfy or neither satisfies: pick smaller y
+            return (firstY < lastY) ? first : last;
+        } else {
+            // BOTTOM mode: prefer y > waistY, else larger y
+            boolean firstAboveWaist = firstY > waistY;
+            boolean lastAboveWaist = lastY > waistY;
+            
+            if (firstAboveWaist && !lastAboveWaist) {
+                return first;
+            }
+            if (lastAboveWaist && !firstAboveWaist) {
+                return last;
+            }
+            // Both satisfy or neither satisfies: pick larger y
+            return (firstY > lastY) ? first : last;
+        }
     }
 
     /**

@@ -158,9 +158,14 @@ class ChainLayoutEngineTest {
         Transform2D transformB = results.get(1).getTransform();
         
         // Verify seam endpoints are aligned
+        // In BOTTOM mode, should select endpoint with y > waistY (y=200, not y=125)
         // Panel A's seamToNext endpoint should align with Panel B's seamToPrev endpoint
-        Pt seamAEndpoint = transformA.apply(panelA.getSeamToNextDown().getLast());
-        Pt seamBEndpoint = transformB.apply(panelB.getSeamToPrevDown().getLast());
+        List<Pt> seamAPoints = panelA.getSeamToNextDown().getPoints();
+        List<Pt> seamBPoints = panelB.getSeamToPrevDown().getPoints();
+        
+        // With waistY-aware selection, should pick y=200 (last point) over y=125 (first point)
+        Pt seamAEndpoint = transformA.apply(seamAPoints.get(seamAPoints.size() - 1));
+        Pt seamBEndpoint = transformB.apply(seamBPoints.get(seamBPoints.size() - 1));
         
         assertNotNull(seamAEndpoint, "Panel A seam endpoint should not be null");
         assertNotNull(seamBEndpoint, "Panel B seam endpoint should not be null");
@@ -190,8 +195,13 @@ class ChainLayoutEngineTest {
         Transform2D transformB = results.get(1).getTransform();
         
         // Verify seam endpoints are aligned using UP seams in TOP mode
-        Pt seamAEndpoint = transformA.apply(panelA.getSeamToNextUp().getLast());
-        Pt seamBEndpoint = transformB.apply(panelB.getSeamToPrevUp().getLast());
+        // In TOP mode, should select endpoint with y < waistY (y=50, not y=125)
+        List<Pt> seamAPoints = panelA.getSeamToNextUp().getPoints();
+        List<Pt> seamBPoints = panelB.getSeamToPrevUp().getPoints();
+        
+        // With waistY-aware selection, should pick y=50 (first point) over y=125 (last point)
+        Pt seamAEndpoint = transformA.apply(seamAPoints.get(0));
+        Pt seamBEndpoint = transformB.apply(seamBPoints.get(0));
         
         assertNotNull(seamAEndpoint, "Panel A seam endpoint should not be null");
         assertNotNull(seamBEndpoint, "Panel B seam endpoint should not be null");
@@ -221,7 +231,8 @@ class ChainLayoutEngineTest {
     }
 
     private PanelCurves createPanelWithSeams(PanelId id, double xStart, double xEnd) {
-        // Create panel with proper seam curves that have endpoints
+        // Create panel with proper seam curves that have endpoints at both waist and top/bottom
+        // Waist is at y=125, top at y=50, bottom at y=200
         Curve2D top = new Curve2D(
             id.name() + "_TOP",
             Arrays.asList(new Pt(xStart, 50.0), new Pt(xEnd, 50.0))
@@ -237,7 +248,11 @@ class ChainLayoutEngineTest {
             Arrays.asList(new Pt(xStart, 125.0), new Pt(xEnd, 125.0))
         );
         
-        // Seam curves with meaningful endpoints
+        // Seam curves: UP seams go from top (y=50) to waist (y=125)
+        // DOWN seams go from waist (y=125) to bottom (y=200)
+        // With waistY-aware selection:
+        // - TOP mode should select the endpoint with y < waistY (y=50)
+        // - BOTTOM mode should select the endpoint with y > waistY (y=200)
         Curve2D seamToPrevUp = new Curve2D(
             id.name() + "_SEAM_PREV_UP",
             Arrays.asList(new Pt(xStart, 50.0), new Pt(xStart, 100.0), new Pt(xStart, 125.0))
