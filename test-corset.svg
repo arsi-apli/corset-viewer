@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="800">
+  <!-- Panel A curves -->
+  <path id="A_TOP" d="M 50,50 L 100,40 L 150,45 L 200,50" />
+  <path id="A_BOTTOM" d="M 50,200 L 100,210 L 150,205 L 200,200" />
+  <path id="A_WAIST" d="M 50,125 L 100,120 L 150,125 L 200,125" />
+  <path id="AA_UP" d="M 50,50 L 45,75 L 50,100" />
+  <path id="AA_DOWN" d="M 50,150 L 45,175 L 50,200" />
+  <path id="AB_UP" d="M 200,50 L 205,75 L 200,100" />
+  <path id="AB_DOWN" d="M 200,150 L 205,175 L 200,200" />
+  
+  <!-- Panel B curves -->
+  <path id="B_TOP" d="M 250,50 L 300,40 L 350,45 L 400,50" />
+  <path id="B_BOTTOM" d="M 250,200 L 300,210 L 350,205 L 400,200" />
+  <path id="B_WAIST" d="M 250,125 L 300,120 L 350,125 L 400,125" />
+  <path id="BA_UP" d="M 250,50 L 245,75 L 250,100" />
+  <path id="BA_DOWN" d="M 250,150 L 245,175 L 250,200" />
+  <path id="BC_UP" d="M 400,50 L 405,75 L 400,100" />
+  <path id="BC_DOWN" d="M 400,150 L 405,175 L 400,200" />
+  
+  <!-- Panel C curves -->
+  <path id="C_TOP" d="M 450,50 L 500,40 L 550,45 L 600,50" />
+  <path id="C_BOTTOM" d="M 450,200 L 500,210 L 550,205 L 600,200" />
+  <path id="C_WAIST" d="M 450,125 L 500,120 L 550,125 L 600,125" />
+  <path id="CB_UP" d="M 450,50 L 445,75 L 450,100" />
+  <path id="CB_DOWN" d="M 450,150 L 445,175 L 450,200" />
+  <path id="CD_UP" d="M 600,50 L 605,75 L 600,100" />
+  <path id="CD_DOWN" d="M 600,150 L 605,175 L 600,200" />
+  
+  <!-- Panel D curves -->
+  <path id="D_TOP" d="M 650,50 L 700,40 L 750,45 L 800,50" />
+  <path id="D_BOTTOM" d="M 650,200 L 700,210 L 750,205 L 800,200" />
+  <path id="D_WAIST" d="M 650,125 L 700,120 L 750,125 L 800,125" />
+  <path id="DC_UP" d="M 650,50 L 645,75 L 650,100" />
+  <path id="DC_DOWN" d="M 650,150 L 645,175 L 650,200" />
+  <path id="DE_UP" d="M 800,50 L 805,75 L 800,100" />
+  <path id="DE_DOWN" d="M 800,150 L 805,175 L 800,200" />
+  
+  <!-- Panel E curves -->
+  <path id="E_TOP" d="M 50,300 L 100,290 L 150,295 L 200,300" />
+  <path id="E_BOTTOM" d="M 50,450 L 100,460 L 150,455 L 200,450" />
+  <path id="E_WAIST" d="M 50,375 L 100,370 L 150,375 L 200,375" />
+  <path id="ED_UP" d="M 50,300 L 45,325 L 50,350" />
+  <path id="ED_DOWN" d="M 50,400 L 45,425 L 50,450" />
+  <path id="EF_UP" d="M 200,300 L 205,325 L 200,350" />
+  <path id="EF_DOWN" d="M 200,400 L 205,425 L 200,450" />
+  
+  <!-- Panel F curves -->
+  <path id="F_TOP" d="M 250,300 L 300,290 L 350,295 L 400,300" />
+  <path id="F_BOTTOM" d="M 250,450 L 300,460 L 350,455 L 400,450" />
+  <path id="F_WAIST" d="M 250,375 L 300,370 L 350,375 L 400,375" />
+  <path id="FE_UP" d="M 250,300 L 245,325 L 250,350" />
+  <path id="FE_DOWN" d="M 250,400 L 245,425 L 250,450" />
+  <path id="FF_UP" d="M 400,300 L 405,325 L 400,350" />
+  <path id="FF_DOWN" d="M 400,400 L 405,425 L 400,450" />
+</svg>
