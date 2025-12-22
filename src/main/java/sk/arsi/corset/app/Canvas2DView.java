@@ -236,7 +236,18 @@ public final class Canvas2DView {
         });
 
         root.addEventFilter(ScrollEvent.SCROLL, e -> {
-            double factor = e.getDeltaY() > 0 ? 1.1 : 1.0 / 1.1;
+            // Ak chceš zoom iba s Ctrl, odkomentuj:
+            // if (!e.isControlDown()) return;
+
+            double delta = e.getDeltaY();
+            if (delta == 0.0) {
+                delta = e.getTextDeltaY(); // trackpad / ctrl-gesture fallback
+            }
+            if (delta == 0.0) {
+                return;
+            }
+
+            double factor = delta > 0 ? 1.1 : 1.0 / 1.1;
 
             double mx = e.getX();
             double my = e.getY();
