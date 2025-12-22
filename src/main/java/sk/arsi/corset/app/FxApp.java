@@ -117,10 +117,10 @@ public final class FxApp extends Application {
                 // Update UI on JavaFX thread
                 Platform.runLater(() -> {
                     try {
-                        // Preserve Pseudo3D mode before updating panels
+                        // Set edge mode BEFORE setPanels() so it's used during rebuildLayout()
                         viewPseudo3d.setEdgeMode(currentEdgeMode);
                         
-                        // Update both views
+                        // Update both views (setPanels() triggers rebuild which uses edge mode)
                         view2d.setPanels(panels);
                         viewPseudo3d.setPanels(panels);
                         

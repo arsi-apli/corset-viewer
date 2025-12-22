@@ -108,8 +108,12 @@ public final class Pseudo3DView {
     }
 
     /**
-     * Sets the edge mode without triggering a full rebuild.
-     * Useful for preserving state during reload.
+     * Sets the edge mode for the next layout rebuild.
+     * This method only updates the field - it does not trigger a rebuild or redraw.
+     * It is designed for state restoration before calling setPanels(), which will
+     * perform the actual rebuild using the updated edge mode.
+     * 
+     * @param mode The edge mode to use (TOP or BOTTOM)
      */
     public void setEdgeMode(EdgeMode mode) {
         if (mode != null) {

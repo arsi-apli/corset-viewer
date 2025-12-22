@@ -203,14 +203,17 @@ public final class SvgFileWatcher {
     private void executeReloadWithRetry() {
         for (int attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt++) {
             try {
-                LOG.info("Reloading SVG file (attempt {}/{}): {}", attempt, MAX_RETRY_ATTEMPTS, filePath);
+                if (attempt == 1) {
+                    LOG.info("Reloading SVG file: {}", filePath);
+                } else {
+                    LOG.debug("Reloading SVG file (retry attempt {}/{}): {}", attempt, MAX_RETRY_ATTEMPTS, filePath);
+                }
                 reloadCallback.run();
                 LOG.info("Successfully reloaded SVG file");
                 return; // Success
             } catch (Exception e) {
-                LOG.warn("Reload attempt {}/{} failed: {}", attempt, MAX_RETRY_ATTEMPTS, e.getMessage());
-                
                 if (attempt < MAX_RETRY_ATTEMPTS) {
+                    LOG.debug("Reload attempt {}/{} failed: {}", attempt, MAX_RETRY_ATTEMPTS, e.getMessage());
                     try {
                         Thread.sleep(RETRY_DELAY_MS);
                     } catch (InterruptedException ie) {
