@@ -252,16 +252,18 @@ public final class Canvas2DView {
             double mx = e.getX();
             double my = e.getY();
 
-            double worldXBefore = screenToWorldX(mx);
-            double worldYBefore = screenToWorldY(my);
+            double oldScale = scale;
+            double newScale = clamp(scale * factor, 0.02, 200.0);
 
-            scale = clamp(scale * factor, 0.02, 200.0);
+// svetový bod pod kurzorom pred zoomom
+            double worldX = (mx - offsetX) / oldScale;
+            double worldY = (my - offsetY) / oldScale;
 
-            double worldXAfter = screenToWorldX(mx);
-            double worldYAfter = screenToWorldY(my);
+            scale = newScale;
 
-            offsetX = offsetX + (worldXBefore - worldXAfter) * scale;
-            offsetY = offsetY + (worldYBefore - worldYAfter) * scale;
+// udrž kurzor na tom istom bode
+            offsetX = mx - worldX * newScale;
+            offsetY = my - worldY * newScale;
 
             redraw();
             e.consume();
