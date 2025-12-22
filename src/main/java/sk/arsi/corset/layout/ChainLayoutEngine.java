@@ -18,6 +18,9 @@ public final class ChainLayoutEngine {
         BOTTOM
     }
 
+    // Fallback spacing when panel data is missing
+    private static final double FALLBACK_PANEL_SPACING_MM = 150.0;
+
     /**
      * Represents a 2D transform (rotation + translation).
      */
@@ -134,7 +137,7 @@ public final class ChainLayoutEngine {
             // Handle missing data
             if (waistLeft == null || waistRight == null || edgeLeft == null || edgeRight == null) {
                 // Fallback: simple translation
-                double tx = (prevJointWorld != null) ? prevJointWorld.getX() + 150.0 : 0.0;
+                double tx = (prevJointWorld != null) ? prevJointWorld.getX() + FALLBACK_PANEL_SPACING_MM : 0.0;
                 double ty = (prevJointWorld != null) ? prevJointWorld.getY() : 0.0;
                 Transform2D transform = new Transform2D(0.0, 0.0, 0.0, tx, ty);
                 results.add(new LayoutResult(panel, transform));
@@ -142,7 +145,7 @@ public final class ChainLayoutEngine {
                 if (waistRight != null) {
                     prevJointWorld = transform.apply(waistRight);
                 } else {
-                    prevJointWorld = new Pt(tx + 150.0, ty);
+                    prevJointWorld = new Pt(tx + FALLBACK_PANEL_SPACING_MM, ty);
                 }
                 prevEdgeRightWorld = null;
                 continue;

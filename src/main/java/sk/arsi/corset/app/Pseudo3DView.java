@@ -302,11 +302,19 @@ public final class Pseudo3DView {
         g.setLineWidth(width);
 
         Pt p0 = transform.apply(pts.get(0));
+        if (p0 == null) {
+            return;
+        }
+
         double sx0 = worldToScreenX(p0.getX());
         double sy0 = worldToScreenY(p0.getY());
 
         for (int i = 1; i < pts.size(); i++) {
             Pt p1 = transform.apply(pts.get(i));
+            if (p1 == null) {
+                continue;
+            }
+            
             double sx1 = worldToScreenX(p1.getX());
             double sy1 = worldToScreenY(p1.getY());
             g.strokeLine(sx0, sy0, sx1, sy1);
