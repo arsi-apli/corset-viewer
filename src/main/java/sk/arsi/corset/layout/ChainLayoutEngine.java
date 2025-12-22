@@ -6,12 +6,16 @@ import sk.arsi.corset.model.Pt;
 
 import java.util.ArrayList;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Computes chained panel layout for pseudo-3D visualization.
  * Chains panels along TOP or BOTTOM edge with rotation and translation.
  */
 public final class ChainLayoutEngine {
+
+    private static final Logger logger = LoggerFactory.getLogger(ChainLayoutEngine.class);
 
     public enum EdgeMode {
         TOP,
@@ -59,6 +63,14 @@ public final class ChainLayoutEngine {
             double outX = pivotX + rx + tx;
             double outY = pivotY + ry + ty;
             return new Pt(outX, outY);
+        }
+
+        /**
+         * Create a new transform with additional translation applied.
+         * The rotation and pivot remain the same.
+         */
+        public Transform2D withAdditionalTranslation(double deltaTx, double deltaTy) {
+            return new Transform2D(angleRad, pivotX, pivotY, tx + deltaTx, ty + deltaTy);
         }
 
         public double getAngleRad() {
@@ -120,6 +132,10 @@ public final class ChainLayoutEngine {
         // Track previous panel's joint and edge right in world space
         Pt prevJointWorld = null;
         Pt prevEdgeRightWorld = null;
+        
+        // Track previous panel and transform for seam snapping
+        PanelCurves prevPanel = null;
+        Transform2D prevTransform = null;
 
         for (int i = 0; i < panels.size(); i++) {
             PanelCurves panel = panels.get(i);
@@ -148,6 +164,8 @@ public final class ChainLayoutEngine {
                     prevJointWorld = new Pt(tx + FALLBACK_PANEL_SPACING_MM, ty);
                 }
                 prevEdgeRightWorld = null;
+                prevPanel = panel;
+                prevTransform = transform;
                 continue;
             }
 
@@ -194,6 +212,11 @@ public final class ChainLayoutEngine {
                 double ty = prevJointY - jointY;
 
                 transform = new Transform2D(angleRad, jointX, jointY, tx, ty);
+                
+                // 5. Apply seam-endpoint snapping (Variant 1)
+                if (prevPanel != null && prevTransform != null) {
+                    transform = applySeamSnapping(prevPanel, prevTransform, panel, transform, mode);
+                }
 
                 // Update world positions
                 prevJointWorld = transform.apply(waistRight);
@@ -201,9 +224,114 @@ public final class ChainLayoutEngine {
             }
 
             results.add(new LayoutResult(panel, transform));
+            prevPanel = panel;
+            prevTransform = transform;
         }
 
         return results;
+    }
+
+    /**
+     * Apply seam-endpoint snapping to align seam endpoints between adjacent panels.
+     * 
+     * @param prevPanel Previous panel in chain
+     * @param prevTransform Transform of previous panel
+     * @param curPanel Current panel in chain
+     * @param curTransform Current transform (before snapping)
+     * @param mode Edge mode (TOP or BOTTOM)
+     * @return Updated transform with seam snapping applied
+     */
+    private Transform2D applySeamSnapping(PanelCurves prevPanel, Transform2D prevTransform,
+                                          PanelCurves curPanel, Transform2D curTransform,
+                                          EdgeMode mode) {
+        // Determine which seam curves to use based on chain direction
+        // For A→F chain: prev uses seamToNext, cur uses seamToPrev
+        // For F→A chain: prev uses seamToPrev, cur uses seamToNext
+        // Since we don't track chain direction explicitly, we use seamToNext for prev
+        // and seamToPrev for cur (this matches A→F ordering)
+        Curve2D prevSeam = selectSeamCurve(prevPanel.getSeamToNextDown(), prevPanel.getSeamToNextUp(), mode);
+        Curve2D curSeam = selectSeamCurve(curPanel.getSeamToPrevDown(), curPanel.getSeamToPrevUp(), mode);
+        
+        if (prevSeam == null || curSeam == null) {
+            logger.debug("Skipping seam snap: seam curves not available");
+            return curTransform;
+        }
+        
+        // Get anchor points (last point of each seam curve)
+        Pt prevAnchorLocal = getSeamAnchor(prevSeam);
+        Pt curAnchorLocal = getSeamAnchor(curSeam);
+        
+        if (prevAnchorLocal == null || curAnchorLocal == null) {
+            logger.debug("Skipping seam snap: anchor points not available");
+            return curTransform;
+        }
+        
+        // Transform anchors to world space
+        Pt prevAnchorWorld = prevTransform.apply(prevAnchorLocal);
+        Pt curAnchorWorld = curTransform.apply(curAnchorLocal);
+        
+        if (prevAnchorWorld == null || curAnchorWorld == null) {
+            logger.debug("Skipping seam snap: failed to transform anchors");
+            return curTransform;
+        }
+        
+        // Compute delta to align anchors
+        double deltaX = prevAnchorWorld.getX() - curAnchorWorld.getX();
+        double deltaY = prevAnchorWorld.getY() - curAnchorWorld.getY();
+        
+        // Apply delta as additional translation
+        Transform2D snappedTransform = curTransform.withAdditionalTranslation(deltaX, deltaY);
+        
+        logger.debug("Applied seam snap: delta=({}, {})", deltaX, deltaY);
+        
+        return snappedTransform;
+    }
+    
+    /**
+     * Select the appropriate seam curve based on EdgeMode.
+     * For BOTTOM mode: prefer DOWN seam, fallback to UP.
+     * For TOP mode: prefer UP seam, fallback to DOWN.
+     */
+    private Curve2D selectSeamCurve(Curve2D seamDown, Curve2D seamUp, EdgeMode mode) {
+        if (mode == EdgeMode.BOTTOM) {
+            // BOTTOM mode: prefer DOWN seam
+            if (seamDown != null && hasValidPoints(seamDown)) {
+                return seamDown;
+            }
+            if (seamUp != null && hasValidPoints(seamUp)) {
+                return seamUp;
+            }
+        } else {
+            // TOP mode: prefer UP seam
+            if (seamUp != null && hasValidPoints(seamUp)) {
+                return seamUp;
+            }
+            if (seamDown != null && hasValidPoints(seamDown)) {
+                return seamDown;
+            }
+        }
+        return null;
+    }
+    
+    /**
+     * Check if a curve has valid points.
+     */
+    private boolean hasValidPoints(Curve2D curve) {
+        return curve != null && curve.getPoints() != null && !curve.getPoints().isEmpty();
+    }
+    
+    /**
+     * Get the anchor point (last point) from a seam curve.
+     */
+    private Pt getSeamAnchor(Curve2D seam) {
+        if (seam == null) {
+            return null;
+        }
+        List<Pt> points = seam.getPoints();
+        if (points == null || points.isEmpty()) {
+            return null;
+        }
+        return points.get(points.size() - 1);
     }
 
     /**
