@@ -5,14 +5,21 @@ import javafx.scene.Node;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Slider;
+import javafx.scene.control.TextArea;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
+import sk.arsi.corset.measure.MeasurementUtils;
 import sk.arsi.corset.model.Curve2D;
 import sk.arsi.corset.model.PanelCurves;
+import sk.arsi.corset.model.PanelId;
 import sk.arsi.corset.model.Pt;
 
 import java.util.ArrayList;
@@ -80,6 +87,11 @@ public final class Canvas2DView {
     private final Canvas canvas;
     private final BorderPane root;
     private final HBox toolbar;
+    private final VBox measurementPanel;
+    private final Slider circumferenceSlider;
+    private final Label dyLabel;
+    private final Label circumferenceLabel;
+    private final TextArea seamLengthsArea;
 
     private List<PanelCurves> panels;
     private List<RenderedPanel> rendered;
@@ -99,10 +111,18 @@ public final class Canvas2DView {
     // WAIST mode spacing in "world mm"
     private double waistGapMm;
 
+    // Measurement: height offset from waist in mm
+    private double dyMm;
+
     public Canvas2DView() {
         this.canvas = new Canvas(1200, 700);
         this.root = new BorderPane();
         this.toolbar = new HBox(8.0);
+        this.measurementPanel = new VBox(8.0);
+        this.circumferenceSlider = new Slider(-200.0, 200.0, 0.0);
+        this.dyLabel = new Label("dyMm: 0.0 mm");
+        this.circumferenceLabel = new Label("Circumference: 0.0 mm");
+        this.seamLengthsArea = new TextArea();
 
         this.panels = new ArrayList<PanelCurves>();
         this.rendered = new ArrayList<RenderedPanel>();
@@ -116,6 +136,7 @@ public final class Canvas2DView {
 
         this.mode = LayoutMode.TOP;
         this.waistGapMm = 30.0;
+        this.dyMm = 0.0;
 
         initUi();
         bindResize();
@@ -123,6 +144,7 @@ public final class Canvas2DView {
 
         rebuildLayout();
         redraw();
+        updateMeasurements();
     }
 
     public Node getNode() {
@@ -139,6 +161,7 @@ public final class Canvas2DView {
         rebuildLayout();
         fitToContent();
         redraw();
+        updateMeasurements();
     }
 
     private void initUi() {
@@ -177,6 +200,46 @@ public final class Canvas2DView {
         toolbar.setPadding(new Insets(8.0));
         root.setTop(toolbar);
         root.setCenter(canvas);
+
+        // Setup measurement panel on the right
+        Label measureTitle = new Label("Measurements");
+        measureTitle.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
+
+        Label sliderLabel = new Label("Height from Waist:");
+        circumferenceSlider.setShowTickLabels(true);
+        circumferenceSlider.setShowTickMarks(true);
+        circumferenceSlider.setMajorTickUnit(50.0);
+        circumferenceSlider.setBlockIncrement(10.0);
+        circumferenceSlider.valueProperty().addListener((obs, oldV, newV) -> {
+            dyMm = newV.doubleValue();
+            updateMeasurements();
+        });
+
+        Label seamTitle = new Label("Seam Lengths (UP/DOWN, Above/Below Waist):");
+        seamTitle.setStyle("-fx-font-weight: bold; -fx-font-size: 12px;");
+        seamLengthsArea.setEditable(false);
+        seamLengthsArea.setPrefRowCount(15);
+        seamLengthsArea.setStyle("-fx-font-family: monospace; -fx-font-size: 10px;");
+        seamLengthsArea.setWrapText(false);
+
+        ScrollPane seamScroll = new ScrollPane(seamLengthsArea);
+        seamScroll.setFitToWidth(true);
+        seamScroll.setPrefHeight(300);
+
+        measurementPanel.getChildren().addAll(
+            measureTitle,
+            sliderLabel,
+            circumferenceSlider,
+            dyLabel,
+            circumferenceLabel,
+            seamTitle,
+            seamScroll
+        );
+        measurementPanel.setPadding(new Insets(8.0));
+        measurementPanel.setPrefWidth(320);
+        measurementPanel.setStyle("-fx-background-color: #f9f9f9; -fx-border-color: #ccc; -fx-border-width: 0 0 0 1;");
+
+        root.setRight(measurementPanel);
     }
 
     private void bindResize() {
@@ -809,5 +872,86 @@ public final class Canvas2DView {
             }
         }
         return m;
+    }
+
+    /**
+     * Update measurement displays based on current dyMm and panels.
+     */
+    private void updateMeasurements() {
+        // Update dyMm label
+        dyLabel.setText(String.format("dyMm: %.1f mm", dyMm));
+
+        // Update circumference
+        double fullCirc = MeasurementUtils.computeFullCircumference(panels, dyMm);
+        circumferenceLabel.setText(String.format("Circumference: %.1f mm", fullCirc));
+
+        // Update seam lengths
+        StringBuilder sb = new StringBuilder();
+        if (panels == null || panels.isEmpty()) {
+            sb.append("No panels loaded.");
+        } else {
+            // Compute seam lengths for adjacent panels
+            List<String> seamNames = new ArrayList<>();
+            List<MeasurementUtils.SeamLengths> seamLengths = new ArrayList<>();
+
+            // Expected panel order: A, B, C, D, E, F
+            PanelId[] expectedOrder = {PanelId.A, PanelId.B, PanelId.C, PanelId.D, PanelId.E, PanelId.F};
+            
+            for (int i = 0; i < expectedOrder.length - 1; i++) {
+                PanelId fromId = expectedOrder[i];
+                PanelId toId = expectedOrder[i + 1];
+                
+                PanelCurves fromPanel = findPanel(fromId);
+                PanelCurves toPanel = findPanel(toId);
+                
+                if (fromPanel != null) {
+                    String seamName = fromId.name() + toId.name();
+                    MeasurementUtils.SeamLengths lengths = MeasurementUtils.computeSeamLengths(fromPanel, toPanel, seamName);
+                    seamNames.add(seamName);
+                    seamLengths.add(lengths);
+                }
+            }
+
+            // Also add FA seam (F to A, closing the loop)
+            PanelCurves panelF = findPanel(PanelId.F);
+            PanelCurves panelA = findPanel(PanelId.A);
+            if (panelF != null) {
+                String seamName = "FA";
+                MeasurementUtils.SeamLengths lengths = MeasurementUtils.computeSeamLengths(panelF, panelA, seamName);
+                seamNames.add(seamName);
+                seamLengths.add(lengths);
+            }
+
+            // Format the output
+            final int tableWidth = 6 + 10 + 10 + 10 + 10 + 4; // name + 4 columns + spaces
+            sb.append(String.format("%-6s %10s %10s %10s %10s\n", "Seam", "UP_Above", "UP_Below", "DN_Above", "DN_Below"));
+            sb.append("─".repeat(tableWidth)).append("\n");
+            
+            for (MeasurementUtils.SeamLengths sl : seamLengths) {
+                sb.append(String.format("%-6s %10.1f %10.1f %10.1f %10.1f\n",
+                    sl.getSeamName(),
+                    sl.getUpAbove(),
+                    sl.getUpBelow(),
+                    sl.getDownAbove(),
+                    sl.getDownBelow()
+                ));
+            }
+        }
+        seamLengthsArea.setText(sb.toString());
+    }
+
+    /**
+     * Find a panel by its ID.
+     */
+    private PanelCurves findPanel(PanelId id) {
+        if (panels == null) {
+            return null;
+        }
+        for (PanelCurves p : panels) {
+            if (p.getPanelId() == id) {
+                return p;
+            }
+        }
+        return null;
     }
 }
