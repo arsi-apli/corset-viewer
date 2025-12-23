@@ -208,7 +208,7 @@ public final class MeasurementUtils {
      * 
      * @param curve the curve
      * @param waistY the waist Y coordinate
-     * @param above true for above waist (y < waistY), false for below (y > waistY)
+     * @param above true for above waist (y < waistY), false for below (y >= waistY)
      * @return length of the portion in mm
      */
     public static double computeCurveLengthPortion(Curve2D curve, double waistY, boolean above) {

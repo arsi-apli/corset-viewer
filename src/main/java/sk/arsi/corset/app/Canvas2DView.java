@@ -923,8 +923,9 @@ public final class Canvas2DView {
             }
 
             // Format the output
+            final int tableWidth = 6 + 10 + 10 + 10 + 10 + 4; // name + 4 columns + spaces
             sb.append(String.format("%-6s %10s %10s %10s %10s\n", "Seam", "UP_Above", "UP_Below", "DN_Above", "DN_Below"));
-            sb.append("─".repeat(60)).append("\n");
+            sb.append("─".repeat(tableWidth)).append("\n");
             
             for (MeasurementUtils.SeamLengths sl : seamLengths) {
                 sb.append(String.format("%-6s %10.1f %10.1f %10.1f %10.1f\n",
