@@ -1,0 +1,75 @@
+name: jpackage
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  package:
+    name: Package (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            javafx_platform: win
+            pkg_type: msi
+            artifact_glob: "*.msi"
+          - os: macos-latest
+            javafx_platform: mac
+            pkg_type: dmg
+            artifact_glob: "*.dmg"
+          - os: ubuntu-latest
+            javafx_platform: linux
+            pkg_type: deb
+            artifact_glob: "*.deb"
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      - name: Build (with platform JavaFX)
+        run: mvn -B -DskipTests -Djavafx.platform=${{ matrix.javafx_platform }} clean package
+
+      - name: Resolve version
+        shell: bash
+        run: |
+          VERSION=$(mvn -q -DforceStdout help:evaluate -Dexpression=project.version)
+          echo "APP_VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "Resolved version: $VERSION"
+
+      - name: JPackage
+        shell: bash
+        run: |
+          APP_NAME="CorsetViewer"
+          echo "Packaging $APP_NAME v${APP_VERSION} for ${{ matrix.os }} (${{ matrix.pkg_type }})"
+
+          mkdir -p target/jpackage
+
+          jpackage \
+            --type "${{ matrix.pkg_type }}" \
+            --dest "target/jpackage" \
+            --name "$APP_NAME" \
+            --app-version "${APP_VERSION}" \
+            --input "target/app/lib" \
+            --main-jar "corset-viewer-${APP_VERSION}.jar" \
+            --main-class "sk.arsi.corset.app.FxApp" \
+            --verbose
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: corset-viewer-${{ matrix.javafx_platform }}-${{ matrix.pkg_type }}
+          path: target/jpackage/${{ matrix.artifact_glob }}
+          if-no-files-found: error

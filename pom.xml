@@ -13,7 +13,12 @@
     <properties>
         <maven.compiler.release>17</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
         <javafx.version>21.0.4</javafx.version>
+
+        <!-- IMPORTANT: for fat-jar CI builds; override via -Djavafx.platform=win|mac|linux -->
+        <javafx.platform>win</javafx.platform>
+
         <junit.jupiter.version>5.11.0</junit.jupiter.version>
         <slf4j.version>2.0.16</slf4j.version>
         <logback.version>1.5.8</logback.version>
@@ -21,51 +26,26 @@
     </properties>
 
     <dependencies>
-        <!-- JavaFX -->
+        <!-- JavaFX (platform-specific for fat-jar) -->
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-controls</artifactId>
             <version>${javafx.version}</version>
+            <classifier>${javafx.platform}</classifier>
         </dependency>
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-graphics</artifactId>
             <version>${javafx.version}</version>
+            <classifier>${javafx.platform}</classifier>
         </dependency>
-        <!-- SVG DOM + SAX loader -->
         <dependency>
-            <groupId>org.apache.xmlgraphics</groupId>
-            <artifactId>batik-dom</artifactId>
-            <version>1.17</version>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-base</artifactId>
+            <version>${javafx.version}</version>
+            <classifier>${javafx.platform}</classifier>
         </dependency>
 
-        <!-- PathParser, AWTPathProducer -->
-        <dependency>
-            <groupId>org.apache.xmlgraphics</groupId>
-            <artifactId>batik-parser</artifactId>
-            <version>1.17</version>
-        </dependency>
-
-        <!-- XMLResourceDescriptor -->
-        <dependency>
-            <groupId>org.apache.xmlgraphics</groupId>
-            <artifactId>batik-util</artifactId>
-            <version>1.17</version>
-        </dependency>
-
-        <!-- SAXSVGDocumentFactory -->
-        <dependency>
-            <groupId>org.apache.xmlgraphics</groupId>
-            <artifactId>batik-anim</artifactId>
-            <version>1.17</version>
-        </dependency>
-
-        <!-- Logging (aby Batik netahal starý commons-logging) -->
-        <!--  <dependency>
-          <groupId>org.slf4j</groupId>
-          <artifactId>slf4j-simple</artifactId>
-          <version>2.0.13</version>
-        </dependency>-->
         <!-- SVG parsing -->
         <dependency>
             <groupId>org.apache.xmlgraphics</groupId>
@@ -107,6 +87,7 @@
 
     <build>
         <plugins>
+            <!-- JavaFX run support -->
             <plugin>
                 <groupId>org.openjfx</groupId>
                 <artifactId>javafx-maven-plugin</artifactId>
@@ -115,6 +96,7 @@
                     <mainClass>sk.arsi.corset.app.FxApp</mainClass>
                 </configuration>
             </plugin>
+
             <!-- Unit tests -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -125,7 +107,7 @@
                 </configuration>
             </plugin>
 
-            <!-- Runnable jar -->
+            <!-- Runnable normal jar (manifest main) -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
@@ -133,10 +115,34 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>sk.arsi.corset.app.CorsetViewerMain</mainClass>
+                            <mainClass>sk.arsi.corset.app.FxApp</mainClass>
                         </manifest>
                     </archive>
                 </configuration>
+            </plugin>
+
+            <!-- Fat jar -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.6.0</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <finalName>${project.artifactId}-${project.version}-${javafx.platform}-all</finalName>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>sk.arsi.corset.app.FxApp</mainClass>
+                                </transformer>
+                            </transformers>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
