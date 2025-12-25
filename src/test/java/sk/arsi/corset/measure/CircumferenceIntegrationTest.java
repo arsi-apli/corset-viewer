@@ -176,4 +176,47 @@ public class CircumferenceIntegrationTest {
         
         return Arrays.asList(panels);
     }
+
+    @Test
+    public void testCircumferenceAtWaist_RobustCalculation() {
+        // This test verifies the fix for the issue where circumference at dy=0 shows 0.0
+        // The fix uses waist curve lengths instead of intersection-based width measurement
+        
+        // Create 6 panels, each 50mm wide, with waist curves
+        List<PanelCurves> panels = createTestPanels(6, 50.0, 100.0, 100.0);
+        
+        // Expected circumference: 6 panels * 50mm width * 2 = 600mm
+        double expectedCirc = 600.0;
+        
+        // Test at exact waist (dy=0) - should use waist curve lengths
+        double circAtWaist = MeasurementUtils.computeFullCircumference(panels, 0.0);
+        assertEquals(expectedCirc, circAtWaist, 0.1, 
+            "Circumference at dy=0 should be non-zero and equal to sum of waist curve lengths");
+        assertTrue(circAtWaist > 0, "Circumference at dy=0 must be greater than 0");
+        
+        // Test within deadband - should be stable and equal
+        double circAtPlus0_1 = MeasurementUtils.computeFullCircumference(panels, 0.1);
+        double circAtPlus0_2 = MeasurementUtils.computeFullCircumference(panels, 0.2);
+        double circAtMinus0_1 = MeasurementUtils.computeFullCircumference(panels, -0.1);
+        double circAtMinus0_2 = MeasurementUtils.computeFullCircumference(panels, -0.2);
+        
+        assertEquals(circAtWaist, circAtPlus0_1, 0.001, 
+            "Circumference should be stable within deadband (no flickering)");
+        assertEquals(circAtWaist, circAtPlus0_2, 0.001, 
+            "Circumference should be stable within deadband (no flickering)");
+        assertEquals(circAtWaist, circAtMinus0_1, 0.001, 
+            "Circumference should be stable within deadband (no flickering)");
+        assertEquals(circAtWaist, circAtMinus0_2, 0.001, 
+            "Circumference should be stable within deadband (no flickering)");
+        
+        // Test outside deadband - should use width-based measurement
+        double circAtPlus1 = MeasurementUtils.computeFullCircumference(panels, 1.0);
+        double circAtMinus1 = MeasurementUtils.computeFullCircumference(panels, -1.0);
+        
+        // For rectangular panels, width-based should also give 600mm
+        assertEquals(expectedCirc, circAtPlus1, 0.1, 
+            "Circumference outside deadband should use width-based measurement");
+        assertEquals(expectedCirc, circAtMinus1, 0.1, 
+            "Circumference outside deadband should use width-based measurement");
+    }
 }
