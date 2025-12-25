@@ -252,6 +252,9 @@ public final class Canvas2DView {
         // Recompute cached measurements when panels change
         this.cachedMeasurements = SeamMeasurementService.computeAllSeamMeasurements(this.panels);
         
+        // Auto-range the dy slider based on valid measurement range
+        updateSliderRange();
+        
         redraw();
     }
 
@@ -607,6 +610,16 @@ public final class Canvas2DView {
 
             // waist - thicker black line to distinguish
             strokeCurve(g, rp, rp.panel.getWaist(), Color.BLACK, 3.0);
+        }
+        
+        // Draw measurement guide line in WAIST mode
+        if (mode == LayoutMode.WAIST) {
+            // In WAIST mode, waist is aligned to worldY=0
+            // Guide line is at worldY = -dyMm
+            double guideY = -dyMm;
+            g.setStroke(Color.BLUE);
+            g.setLineWidth(2.0);
+            drawLineWorld(g, -10000, guideY, 10000, guideY);
         }
     }
 
@@ -1080,10 +1093,46 @@ public final class Canvas2DView {
     }
 
     // ----------------- Measurements -----------------
+    
+    /**
+     * Update slider range based on valid dy range for all panels.
+     */
+    private void updateSliderRange() {
+        MeasurementUtils.DyRange range = MeasurementUtils.computeValidDyRange(panels);
+        
+        // Set slider range: [maxDown, maxUp]
+        // Note: maxDown is negative, maxUp is positive
+        double minValue = range.maxDown;
+        double maxValue = range.maxUp;
+        
+        // Ensure we have a reasonable range (at least ±1mm)
+        if (Math.abs(maxValue - minValue) < 1.0) {
+            minValue = -1.0;
+            maxValue = 1.0;
+        }
+        
+        circumferenceSlider.setMin(minValue);
+        circumferenceSlider.setMax(maxValue);
+        
+        // Clamp current dyMm to the new range
+        dyMm = Math.max(minValue, Math.min(maxValue, dyMm));
+        circumferenceSlider.setValue(dyMm);
+        
+        updateCircumferenceMeasurement();
+    }
+    
     private void updateCircumferenceMeasurement() {
         dyLabel.setText(String.format("dyMm: %.1f mm", dyMm));
 
-        double fullCirc = MeasurementUtils.computeFullCircumference(panels, dyMm);
-        circumferenceLabel.setText(String.format("Circumference: %.1f mm", fullCirc));
+        // Check if circumference can be measured at this dy
+        if (!MeasurementUtils.canMeasureCircumferenceAtDy(panels, dyMm)) {
+            circumferenceLabel.setText("Circumference: N/A");
+        } else {
+            double fullCirc = MeasurementUtils.computeFullCircumference(panels, dyMm);
+            circumferenceLabel.setText(String.format("Circumference: %.1f mm", fullCirc));
+        }
+        
+        // Redraw to show measurement guide line
+        redraw();
     }
 }

@@ -227,6 +227,137 @@ public class MeasurementUtilsTest {
         assertEquals(141.42, total, 0.01, "Sum of portions should equal full length");
     }
 
+    @Test
+    public void testComputePanelWidthAtDy_PositiveDy() {
+        // Create a simple rectangular panel with waist at y=100
+        List<Pt> waistPoints = Arrays.asList(
+            new Pt(0, 100),
+            new Pt(50, 100)
+        );
+        Curve2D waist = new Curve2D("waist", waistPoints);
+        
+        // Left seam (vertical line at x=0, y from 0 to 200)
+        List<Pt> leftPoints = Arrays.asList(
+            new Pt(0, 0),
+            new Pt(0, 200)
+        );
+        Curve2D leftSeam = new Curve2D("left", leftPoints);
+        
+        // Right seam (vertical line at x=50, y from 0 to 200)
+        List<Pt> rightPoints = Arrays.asList(
+            new Pt(50, 0),
+            new Pt(50, 200)
+        );
+        Curve2D rightSeam = new Curve2D("right", rightPoints);
+        
+        PanelCurves panel = new PanelCurves(
+            PanelId.A, null, null, waist,
+            leftSeam, null, rightSeam, null
+        );
+        
+        // Test positive dy (upwards): dy=50 means y=100-50=50
+        double width = MeasurementUtils.computePanelWidthAtDy(panel, 50.0).orElse(-1.0);
+        assertEquals(50.0, width, 0.01, "Width 50mm above waist should be 50");
+    }
+
+    @Test
+    public void testComputeValidDyRange() {
+        // Create a panel with vertical seams from y=20 to y=180
+        // Waist at y=100
+        List<Pt> waistPoints = Arrays.asList(
+            new Pt(0, 100),
+            new Pt(50, 100)
+        );
+        Curve2D waist = new Curve2D("waist", waistPoints);
+        
+        List<Pt> leftPoints = Arrays.asList(
+            new Pt(0, 20),
+            new Pt(0, 180)
+        );
+        Curve2D leftSeam = new Curve2D("left", leftPoints);
+        
+        List<Pt> rightPoints = Arrays.asList(
+            new Pt(50, 20),
+            new Pt(50, 180)
+        );
+        Curve2D rightSeam = new Curve2D("right", rightPoints);
+        
+        PanelCurves panel = new PanelCurves(
+            PanelId.A, null, null, waist,
+            leftSeam, null, rightSeam, null
+        );
+        
+        List<PanelCurves> panels = Arrays.asList(panel);
+        
+        MeasurementUtils.DyRange range = MeasurementUtils.computeValidDyRange(panels);
+        
+        // maxUp should be waistY - minY = 100 - 20 = 80
+        assertEquals(80.0, range.maxUp, 0.01, "maxUp should be 80");
+        
+        // maxDown should be waistY - maxY = 100 - 180 = -80
+        assertEquals(-80.0, range.maxDown, 0.01, "maxDown should be -80");
+    }
+
+    @Test
+    public void testComputeValidDyRange_MultiplePanels() {
+        // Panel 1: y range [20, 180], waist at 100
+        List<Pt> waist1 = Arrays.asList(new Pt(0, 100), new Pt(50, 100));
+        List<Pt> left1 = Arrays.asList(new Pt(0, 20), new Pt(0, 180));
+        List<Pt> right1 = Arrays.asList(new Pt(50, 20), new Pt(50, 180));
+        PanelCurves panel1 = new PanelCurves(
+            PanelId.A, null, null, new Curve2D("w", waist1),
+            new Curve2D("l", left1), null, new Curve2D("r", right1), null
+        );
+        
+        // Panel 2: y range [40, 160], waist at 100
+        List<Pt> waist2 = Arrays.asList(new Pt(50, 100), new Pt(100, 100));
+        List<Pt> left2 = Arrays.asList(new Pt(50, 40), new Pt(50, 160));
+        List<Pt> right2 = Arrays.asList(new Pt(100, 40), new Pt(100, 160));
+        PanelCurves panel2 = new PanelCurves(
+            PanelId.B, null, null, new Curve2D("w", waist2),
+            new Curve2D("l", left2), null, new Curve2D("r", right2), null
+        );
+        
+        List<PanelCurves> panels = Arrays.asList(panel1, panel2);
+        
+        MeasurementUtils.DyRange range = MeasurementUtils.computeValidDyRange(panels);
+        
+        // Intersection: min(80, 60) = 60 for maxUp
+        assertEquals(60.0, range.maxUp, 0.01, "maxUp should be 60 (intersection)");
+        
+        // Intersection: max(-80, -60) = -60 for maxDown
+        assertEquals(-60.0, range.maxDown, 0.01, "maxDown should be -60 (intersection)");
+    }
+
+    @Test
+    public void testCanMeasureCircumferenceAtDy() {
+        // Create a panel with valid range
+        List<Pt> waistPoints = Arrays.asList(new Pt(0, 100), new Pt(50, 100));
+        List<Pt> leftPoints = Arrays.asList(new Pt(0, 20), new Pt(0, 180));
+        List<Pt> rightPoints = Arrays.asList(new Pt(50, 20), new Pt(50, 180));
+        
+        PanelCurves panel = new PanelCurves(
+            PanelId.A, null, null, new Curve2D("w", waistPoints),
+            new Curve2D("l", leftPoints), null, new Curve2D("r", rightPoints), null
+        );
+        
+        List<PanelCurves> panels = Arrays.asList(panel);
+        
+        // Should be able to measure within range
+        assertTrue(MeasurementUtils.canMeasureCircumferenceAtDy(panels, 0.0), 
+                   "Should measure at waist");
+        assertTrue(MeasurementUtils.canMeasureCircumferenceAtDy(panels, 50.0), 
+                   "Should measure 50mm above waist");
+        assertTrue(MeasurementUtils.canMeasureCircumferenceAtDy(panels, -50.0), 
+                   "Should measure 50mm below waist");
+        
+        // Should not be able to measure outside range
+        assertFalse(MeasurementUtils.canMeasureCircumferenceAtDy(panels, 100.0), 
+                    "Should not measure 100mm above waist (out of range)");
+        assertFalse(MeasurementUtils.canMeasureCircumferenceAtDy(panels, -100.0), 
+                    "Should not measure 100mm below waist (out of range)");
+    }
+
     // Commented out - computeSeamLengths method not yet implemented
     // @Test
     // public void testComputeSeamLengths() {

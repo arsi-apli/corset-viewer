@@ -235,8 +235,10 @@ public final class MeasurementUtils {
             return OptionalDouble.empty();
         }
 
-        OptionalDouble xL = minXAtY(left, y);
-        OptionalDouble xR = maxXAtY(right, y);
+        // For the left seam, we want the rightmost (maxX) intersection
+        // For the right seam, we want the leftmost (minX) intersection
+        OptionalDouble xL = maxXAtY(left, y);
+        OptionalDouble xR = minXAtY(right, y);
         if (xL.isEmpty() || xR.isEmpty()) {
             return OptionalDouble.empty();
         }
@@ -265,5 +267,123 @@ public final class MeasurementUtils {
 
     public static double computeFullCircumference(List<PanelCurves> panels, double dyMm) {
         return 2.0 * computeHalfCircumference(panels, dyMm);
+    }
+
+    // -------------------- Valid DY Range --------------------
+    
+    /**
+     * Container for valid dy range.
+     */
+    public static final class DyRange {
+        public final double maxUp;    // Maximum dy upwards (>= 0)
+        public final double maxDown;  // Maximum dy downwards (<= 0)
+        
+        public DyRange(double maxUp, double maxDown) {
+            this.maxUp = maxUp;
+            this.maxDown = maxDown;
+        }
+    }
+    
+    /**
+     * Compute valid dy range for a single panel where width can be measured.
+     * Returns range [maxDown, maxUp] where maxDown <= 0 and maxUp >= 0.
+     */
+    private static DyRange computePanelDyRange(PanelCurves panel) {
+        if (panel == null) {
+            return new DyRange(0.0, 0.0);
+        }
+        
+        double waistY = computePanelWaistY0(panel.getWaist());
+        
+        // Get the boundary curves
+        Curve2D left = preferNonEmpty(panel.getSeamToPrevDown(), panel.getSeamToPrevUp());
+        Curve2D right = preferNonEmpty(panel.getSeamToNextDown(), panel.getSeamToNextUp());
+        
+        if (left == null || right == null) {
+            return new DyRange(0.0, 0.0);
+        }
+        
+        // Find min and max Y values in both curves
+        double minY = Double.POSITIVE_INFINITY;
+        double maxY = Double.NEGATIVE_INFINITY;
+        
+        for (Curve2D curve : new Curve2D[]{left, right}) {
+            if (curve == null || curve.getPoints() == null) {
+                continue;
+            }
+            for (Pt p : curve.getPoints()) {
+                if (p == null || !Double.isFinite(p.getY())) {
+                    continue;
+                }
+                double y = p.getY();
+                minY = Math.min(minY, y);
+                maxY = Math.max(maxY, y);
+            }
+        }
+        
+        if (!Double.isFinite(minY) || !Double.isFinite(maxY)) {
+            return new DyRange(0.0, 0.0);
+        }
+        
+        // Convert to dy values: dy = waistY - y
+        // When y is at its minimum, dy is at its maximum (upwards)
+        // When y is at its maximum, dy is at its minimum (downwards)
+        double maxUpDy = waistY - minY;    // Positive value
+        double maxDownDy = waistY - maxY;  // Negative value
+        
+        // Ensure proper signs
+        maxUpDy = Math.max(0.0, maxUpDy);
+        maxDownDy = Math.min(0.0, maxDownDy);
+        
+        return new DyRange(maxUpDy, maxDownDy);
+    }
+    
+    /**
+     * Compute valid dy range for all panels where ALL panels can be measured.
+     * Returns the intersection of all panel ranges.
+     */
+    public static DyRange computeValidDyRange(List<PanelCurves> panels) {
+        if (panels == null || panels.isEmpty()) {
+            return new DyRange(0.0, 0.0);
+        }
+        
+        double maxUp = Double.POSITIVE_INFINITY;
+        double maxDown = Double.NEGATIVE_INFINITY;
+        
+        for (PanelCurves panel : panels) {
+            DyRange range = computePanelDyRange(panel);
+            // Take the intersection: minimum of maxUp, maximum of maxDown
+            maxUp = Math.min(maxUp, range.maxUp);
+            maxDown = Math.max(maxDown, range.maxDown);
+        }
+        
+        // Ensure valid range
+        if (!Double.isFinite(maxUp) || !Double.isFinite(maxDown)) {
+            return new DyRange(0.0, 0.0);
+        }
+        
+        // Ensure maxUp >= 0 and maxDown <= 0
+        maxUp = Math.max(0.0, maxUp);
+        maxDown = Math.min(0.0, maxDown);
+        
+        return new DyRange(maxUp, maxDown);
+    }
+    
+    /**
+     * Check if circumference can be measured at given dy for all panels.
+     */
+    public static boolean canMeasureCircumferenceAtDy(List<PanelCurves> panels, double dyMm) {
+        if (panels == null || panels.isEmpty()) {
+            return false;
+        }
+        
+        for (PanelCurves panel : panels) {
+            OptionalDouble width = computePanelWidthAtDy(panel, dyMm);
+            if (width.isEmpty()) {
+                return false;
+            }
+        }
+        
+        return true;
     }
 }
