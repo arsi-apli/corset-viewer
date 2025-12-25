@@ -58,6 +58,42 @@ public final class MeasurementUtils {
         return (yValues.get(n / 2 - 1) + yValues.get(n / 2)) / 2.0;
     }
 
+    // -------------------- Curve length --------------------
+    /**
+     * Compute the total length of a curve as a polyline.
+     * 
+     * @param curve The curve to measure
+     * @return Total length of the curve, or 0.0 if invalid
+     */
+    public static double computeCurveLength(Curve2D curve) {
+        if (curve == null || curve.getPoints() == null || curve.getPoints().size() < 2) {
+            return 0.0;
+        }
+
+        List<Pt> points = curve.getPoints();
+        double length = 0.0;
+
+        for (int i = 0; i < points.size() - 1; i++) {
+            Pt p0 = points.get(i);
+            Pt p1 = points.get(i + 1);
+            if (p0 == null || p1 == null) {
+                continue;
+            }
+
+            double x0 = p0.getX(), y0 = p0.getY();
+            double x1 = p1.getX(), y1 = p1.getY();
+            if (!Double.isFinite(x0) || !Double.isFinite(y0) || !Double.isFinite(x1) || !Double.isFinite(y1)) {
+                continue;
+            }
+
+            double dx = x1 - x0;
+            double dy = y1 - y0;
+            length += Math.sqrt(dx * dx + dy * dy);
+        }
+
+        return length;
+    }
+
     // -------------------- Curve length split --------------------
     public static double computeCurveLengthPortion(Curve2D curve, double waistY, boolean above) {
         if (curve == null || curve.getPoints() == null || curve.getPoints().size() < 2) {
@@ -288,7 +324,45 @@ public final class MeasurementUtils {
         return sum;
     }
 
+    /**
+     * Compute half waist circumference by summing the lengths of all panel waist curves.
+     * This is used when measuring exactly at the waist (dyMm == 0).
+     * 
+     * @param panels List of panels
+     * @return Sum of waist curve lengths
+     */
+    public static double computeHalfWaistCircumference(List<PanelCurves> panels) {
+        if (panels == null || panels.isEmpty()) {
+            return 0.0;
+        }
+
+        double sum = 0.0;
+        for (PanelCurves p : panels) {
+            if (p != null && p.getWaist() != null) {
+                sum += computeCurveLength(p.getWaist());
+            }
+        }
+        return sum;
+    }
+
+    /**
+     * Compute full waist circumference (2 × sum of panel waist curve lengths).
+     * This is used when measuring exactly at the waist (dyMm == 0).
+     * 
+     * @param panels List of panels
+     * @return Full waist circumference
+     */
+    public static double computeFullWaistCircumference(List<PanelCurves> panels) {
+        return 2.0 * computeHalfWaistCircumference(panels);
+    }
+
     public static double computeFullCircumference(List<PanelCurves> panels, double dyMm) {
+        // At exactly waist level (dyMm == 0, including -0.0), use waist curve length
+        // Use == to handle both 0.0 and -0.0 (they compare equal with ==)
+        if (dyMm == 0.0) {
+            return computeFullWaistCircumference(panels);
+        }
+        // Otherwise, use existing strict intersection-based circumference
         return 2.0 * computeHalfCircumference(panels, dyMm);
     }
 
