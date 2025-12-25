@@ -58,14 +58,14 @@ public class CircumferenceIntegrationTest {
 
         MeasurementUtils.DyRange range = MeasurementUtils.computeValidDyRange(panels, 5.0);
 
-        assertTrue(range.maxUpDy >= 95.0 && range.maxUpDy <= 100.0,
+        assertTrue(range.getMaxUpDy() >= 95.0 && range.getMaxUpDy() <= 100.0,
             "maxUpDy should be around 100mm (can measure up to y=0)");
         
-        assertTrue(range.maxDownDy >= 95.0 && range.maxDownDy <= 100.0,
+        assertTrue(range.getMaxDownDy() >= 95.0 && range.getMaxDownDy() <= 100.0,
             "maxDownDy should be around 100mm (can measure down to y=200)");
 
-        System.out.println("Symmetric curves - Valid range: up=" + range.maxUpDy + 
-                         "mm, down=" + range.maxDownDy + "mm");
+        System.out.println("Symmetric curves - Valid range: up=" + range.getMaxUpDy() + 
+                         "mm, down=" + range.getMaxDownDy() + "mm");
     }
 
     @Test
@@ -76,14 +76,14 @@ public class CircumferenceIntegrationTest {
 
         MeasurementUtils.DyRange range = MeasurementUtils.computeValidDyRange(panels, 2.0);
 
-        assertTrue(range.maxUpDy >= 48.0 && range.maxUpDy <= 50.0,
+        assertTrue(range.getMaxUpDy() >= 48.0 && range.getMaxUpDy() <= 50.0,
             "maxUpDy should be around 50mm (shorter UP curves)");
         
-        assertTrue(range.maxDownDy >= 148.0 && range.maxDownDy <= 150.0,
+        assertTrue(range.getMaxDownDy() >= 148.0 && range.getMaxDownDy() <= 150.0,
             "maxDownDy should be around 150mm (longer DOWN curves)");
 
-        System.out.println("Asymmetric curves - Valid range: up=" + range.maxUpDy + 
-                         "mm, down=" + range.maxDownDy + "mm");
+        System.out.println("Asymmetric curves - Valid range: up=" + range.getMaxUpDy() + 
+                         "mm, down=" + range.getMaxDownDy() + "mm");
     }
 
     @Test
@@ -93,13 +93,13 @@ public class CircumferenceIntegrationTest {
 
         MeasurementUtils.DyRange range = MeasurementUtils.computeValidDyRange(panels);
 
-        assertTrue(range.maxUpDy > 0, "maxUpDy should be positive");
-        assertTrue(range.maxDownDy > 0, "maxDownDy should be positive");
-        assertTrue(range.maxUpDy <= 80.0, "maxUpDy should not exceed UP curve coverage");
-        assertTrue(range.maxDownDy <= 120.0, "maxDownDy should not exceed DOWN curve coverage");
+        assertTrue(range.getMaxUpDy() > 0, "maxUpDy should be positive");
+        assertTrue(range.getMaxDownDy() > 0, "maxDownDy should be positive");
+        assertTrue(range.getMaxUpDy() <= 80.0, "maxUpDy should not exceed UP curve coverage");
+        assertTrue(range.getMaxDownDy() <= 120.0, "maxDownDy should not exceed DOWN curve coverage");
 
-        System.out.println("Single panel - Valid range: up=" + range.maxUpDy + 
-                         "mm, down=" + range.maxDownDy + "mm");
+        System.out.println("Single panel - Valid range: up=" + range.getMaxUpDy() + 
+                         "mm, down=" + range.getMaxDownDy() + "mm");
     }
 
     @Test

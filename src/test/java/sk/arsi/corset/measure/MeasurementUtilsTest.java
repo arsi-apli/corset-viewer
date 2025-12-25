@@ -354,11 +354,11 @@ public class MeasurementUtilsTest {
         // DOWN should go from 0 to 100 (max dy = 100)
         MeasurementUtils.DyRange range = MeasurementUtils.computeValidDyRange(panels, 10.0);
         
-        assertTrue(range.maxUpDy >= 90.0, "maxUpDy should be at least 90 (waist=100, can go up to y=0, dy=100)");
-        assertTrue(range.maxUpDy <= 100.0, "maxUpDy should be at most 100");
+        assertTrue(range.getMaxUpDy() >= 90.0, "maxUpDy should be at least 90 (waist=100, can go up to y=0, dy=100)");
+        assertTrue(range.getMaxUpDy() <= 100.0, "maxUpDy should be at most 100");
         
-        assertTrue(range.maxDownDy >= 90.0, "maxDownDy should be at least 90 (waist=100, can go down to y=200, dy=100)");
-        assertTrue(range.maxDownDy <= 100.0, "maxDownDy should be at most 100");
+        assertTrue(range.getMaxDownDy() >= 90.0, "maxDownDy should be at least 90 (waist=100, can go down to y=200, dy=100)");
+        assertTrue(range.getMaxDownDy() <= 100.0, "maxDownDy should be at most 100");
     }
 
     @Test
@@ -408,11 +408,11 @@ public class MeasurementUtilsTest {
         MeasurementUtils.DyRange range = MeasurementUtils.computeValidDyRange(panels, 5.0);
         
         // UP should max out around 50mm (from y=100 to y=50)
-        assertTrue(range.maxUpDy >= 45.0 && range.maxUpDy <= 50.0, 
+        assertTrue(range.getMaxUpDy() >= 45.0 && range.getMaxUpDy() <= 50.0, 
                    "maxUpDy should be around 50mm");
         
         // DOWN should max out around 150mm (from y=100 to y=250)
-        assertTrue(range.maxDownDy >= 145.0 && range.maxDownDy <= 150.0,
+        assertTrue(range.getMaxDownDy() >= 145.0 && range.getMaxDownDy() <= 150.0,
                    "maxDownDy should be around 150mm");
     }
 

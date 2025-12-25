@@ -284,12 +284,20 @@ public final class MeasurementUtils {
      * Represents the valid range for dyMm measurements.
      */
     public static final class DyRange {
-        public final double maxUpDy;    // Maximum positive dyMm (upwards)
-        public final double maxDownDy;  // Maximum absolute negative dyMm (downwards, stored as positive)
+        private final double maxUpDy;    // Maximum positive dyMm (upwards)
+        private final double maxDownDy;  // Maximum absolute negative dyMm (downwards, stored as positive)
 
         public DyRange(double maxUpDy, double maxDownDy) {
             this.maxUpDy = maxUpDy;
             this.maxDownDy = maxDownDy;
+        }
+
+        public double getMaxUpDy() {
+            return maxUpDy;
+        }
+
+        public double getMaxDownDy() {
+            return maxDownDy;
         }
     }
 

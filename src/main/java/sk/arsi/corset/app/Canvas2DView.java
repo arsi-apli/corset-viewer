@@ -163,6 +163,12 @@ public final class Canvas2DView {
 
     // --- Measurement line rendering ---
     private static final double MEASUREMENT_LINE_EXTENT = 10000.0; // extent for horizontal measurement line
+    
+    // --- Default slider range when panels are empty or invalid ---
+    private static final double DEFAULT_MIN_DY = -200.0;
+    private static final double DEFAULT_MAX_DY = 200.0;
+    private static final double FALLBACK_MIN_DY = -100.0;
+    private static final double FALLBACK_MAX_DY = 100.0;
 
     // --- Fonts: bigger / readable ---
     private static final int FONT_LABEL = 15;
@@ -583,10 +589,7 @@ public final class Canvas2DView {
         g.fillRect(0, 0, w, h);
 
         // axes
-        g.setStroke(Color.LIGHTGRAY);
-        g.setLineWidth(1.0);
-        drawLineWorld(g, -MEASUREMENT_LINE_EXTENT, 0, MEASUREMENT_LINE_EXTENT, 0);
-        drawLineWorld(g, 0, -MEASUREMENT_LINE_EXTENT, 0, MEASUREMENT_LINE_EXTENT);
+        drawAxes(g);
 
         // mode label
         g.setFill(Color.GRAY);
@@ -1098,21 +1101,21 @@ public final class Canvas2DView {
     // ----------------- Measurements -----------------
     private void updateSliderRange() {
         if (panels == null || panels.isEmpty()) {
-            circumferenceSlider.setMin(-200.0);
-            circumferenceSlider.setMax(200.0);
+            circumferenceSlider.setMin(DEFAULT_MIN_DY);
+            circumferenceSlider.setMax(DEFAULT_MAX_DY);
             return;
         }
 
         MeasurementUtils.DyRange range = MeasurementUtils.computeValidDyRange(panels);
         
         // Set slider range: min = -maxDownDy (negative), max = +maxUpDy (positive)
-        double minValue = -range.maxDownDy;
-        double maxValue = range.maxUpDy;
+        double minValue = -range.getMaxDownDy();
+        double maxValue = range.getMaxUpDy();
         
         // Ensure we have some range even if computation fails
         if (minValue >= maxValue) {
-            minValue = -100.0;
-            maxValue = 100.0;
+            minValue = FALLBACK_MIN_DY;
+            maxValue = FALLBACK_MAX_DY;
         }
         
         circumferenceSlider.setMin(minValue);
@@ -1128,6 +1131,13 @@ public final class Canvas2DView {
         }
         
         updateCircumferenceMeasurement();
+    }
+
+    private void drawAxes(GraphicsContext g) {
+        g.setStroke(Color.LIGHTGRAY);
+        g.setLineWidth(1.0);
+        drawLineWorld(g, -MEASUREMENT_LINE_EXTENT, 0, MEASUREMENT_LINE_EXTENT, 0);
+        drawLineWorld(g, 0, -MEASUREMENT_LINE_EXTENT, 0, MEASUREMENT_LINE_EXTENT);
     }
 
     private void updateCircumferenceMeasurement() {
