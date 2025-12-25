@@ -252,6 +252,9 @@ public final class Canvas2DView {
         // Recompute cached measurements when panels change
         this.cachedMeasurements = SeamMeasurementService.computeAllSeamMeasurements(this.panels);
         
+        // Update slider range based on valid measurement range
+        updateSliderRange();
+        
         redraw();
     }
 
@@ -286,6 +289,7 @@ public final class Canvas2DView {
         circumferenceSlider.valueProperty().addListener((obs, oldV, newV) -> {
             dyMm = newV.doubleValue();
             updateCircumferenceMeasurement();
+            redraw(); // Redraw to update the measurement line
         });
 
         dyLabel.setStyle("-fx-font-size: " + FONT_VALUE + "px; -fx-font-weight: bold;");
@@ -607,6 +611,15 @@ public final class Canvas2DView {
 
             // waist - thicker black line to distinguish
             strokeCurve(g, rp, rp.panel.getWaist(), Color.BLACK, 3.0);
+        }
+
+        // Draw horizontal measurement line in WAIST mode
+        // In WAIST mode, all waists are aligned to y=0, so the measurement line is at y = -dyMm
+        if (mode == LayoutMode.WAIST && Math.abs(dyMm) > 0.1) {
+            g.setStroke(Color.BLUE);
+            g.setLineWidth(2.0);
+            double measurementY = -dyMm; // In WAIST mode, waist is at y=0, so measurement is at -dyMm
+            drawLineWorld(g, -10000, measurementY, 10000, measurementY);
         }
     }
 
@@ -1080,6 +1093,40 @@ public final class Canvas2DView {
     }
 
     // ----------------- Measurements -----------------
+    private void updateSliderRange() {
+        if (panels == null || panels.isEmpty()) {
+            circumferenceSlider.setMin(-200.0);
+            circumferenceSlider.setMax(200.0);
+            return;
+        }
+
+        MeasurementUtils.DyRange range = MeasurementUtils.computeValidDyRange(panels);
+        
+        // Set slider range: min = -maxDownDy (negative), max = +maxUpDy (positive)
+        double minValue = -range.maxDownDy;
+        double maxValue = range.maxUpDy;
+        
+        // Ensure we have some range even if computation fails
+        if (minValue >= maxValue) {
+            minValue = -100.0;
+            maxValue = 100.0;
+        }
+        
+        circumferenceSlider.setMin(minValue);
+        circumferenceSlider.setMax(maxValue);
+        
+        // Clamp current value to new range
+        if (dyMm < minValue) {
+            dyMm = minValue;
+            circumferenceSlider.setValue(minValue);
+        } else if (dyMm > maxValue) {
+            dyMm = maxValue;
+            circumferenceSlider.setValue(maxValue);
+        }
+        
+        updateCircumferenceMeasurement();
+    }
+
     private void updateCircumferenceMeasurement() {
         dyLabel.setText(String.format("dyMm: %.1f mm", dyMm));
 

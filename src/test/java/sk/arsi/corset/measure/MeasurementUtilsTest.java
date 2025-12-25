@@ -227,6 +227,192 @@ public class MeasurementUtilsTest {
         assertEquals(141.42, total, 0.01, "Sum of portions should equal full length");
     }
 
+    @Test
+    public void testComputePanelWidthAtDy_UpAndDown() {
+        // Test that width measurement works for both positive and negative dyMm
+        // Create a panel with separate UP and DOWN curves
+        
+        List<Pt> waistPoints = Arrays.asList(
+            new Pt(0, 100),
+            new Pt(50, 100)
+        );
+        Curve2D waist = new Curve2D("waist", waistPoints);
+        
+        // Left DOWN seam (vertical, covers waist and below: y=100 to y=200)
+        List<Pt> leftDownPoints = Arrays.asList(
+            new Pt(0, 100),
+            new Pt(0, 200)
+        );
+        Curve2D leftDown = new Curve2D("leftDown", leftDownPoints);
+        
+        // Left UP seam (vertical, covers waist and above: y=0 to y=100)
+        List<Pt> leftUpPoints = Arrays.asList(
+            new Pt(0, 0),
+            new Pt(0, 100)
+        );
+        Curve2D leftUp = new Curve2D("leftUp", leftUpPoints);
+        
+        // Right DOWN seam (vertical, covers waist and below: y=100 to y=200)
+        List<Pt> rightDownPoints = Arrays.asList(
+            new Pt(50, 100),
+            new Pt(50, 200)
+        );
+        Curve2D rightDown = new Curve2D("rightDown", rightDownPoints);
+        
+        // Right UP seam (vertical, covers waist and above: y=0 to y=100)
+        List<Pt> rightUpPoints = Arrays.asList(
+            new Pt(50, 0),
+            new Pt(50, 100)
+        );
+        Curve2D rightUp = new Curve2D("rightUp", rightUpPoints);
+        
+        PanelCurves panel = new PanelCurves(
+            PanelId.A,
+            null, // top
+            null, // bottom
+            waist,
+            leftUp, // seamToPrevUp
+            leftDown, // seamToPrevDown
+            rightUp, // seamToNextUp
+            rightDown  // seamToNextDown
+        );
+        
+        // Test at waist level (dyMm = 0)
+        double width = MeasurementUtils.computePanelWidthAtDy(panel, 0.0).orElse(-1.0);
+        assertEquals(50.0, width, 0.01, "Width at waist should be 50");
+        
+        // Test above waist (dyMm = 50, targetY = 50)
+        // Should use UP curves which cover y=0 to y=100
+        width = MeasurementUtils.computePanelWidthAtDy(panel, 50.0).orElse(-1.0);
+        assertEquals(50.0, width, 0.01, "Width 50mm above waist should be 50 (using UP curves)");
+        
+        // Test below waist (dyMm = -50, targetY = 150)
+        // Should use DOWN curves which cover y=100 to y=200
+        width = MeasurementUtils.computePanelWidthAtDy(panel, -50.0).orElse(-1.0);
+        assertEquals(50.0, width, 0.01, "Width 50mm below waist should be 50 (using DOWN curves)");
+        
+        // Test far above waist (dyMm = 90, targetY = 10)
+        // Should work with UP curves
+        width = MeasurementUtils.computePanelWidthAtDy(panel, 90.0).orElse(-1.0);
+        assertEquals(50.0, width, 0.01, "Width 90mm above waist should be 50");
+        
+        // Test far below waist (dyMm = -90, targetY = 190)
+        // Should work with DOWN curves
+        width = MeasurementUtils.computePanelWidthAtDy(panel, -90.0).orElse(-1.0);
+        assertEquals(50.0, width, 0.01, "Width 90mm below waist should be 50");
+    }
+
+    @Test
+    public void testComputeValidDyRange() {
+        // Create a panel with UP curve covering y=0 to y=100, DOWN curve covering y=100 to y=200
+        // Waist at y=100
+        List<Pt> waistPoints = Arrays.asList(
+            new Pt(0, 100),
+            new Pt(50, 100)
+        );
+        Curve2D waist = new Curve2D("waist", waistPoints);
+        
+        // Left UP seam (vertical, y=0 to y=100)
+        List<Pt> leftUpPoints = Arrays.asList(
+            new Pt(0, 0),
+            new Pt(0, 100)
+        );
+        Curve2D leftUp = new Curve2D("leftUp", leftUpPoints);
+        
+        // Left DOWN seam (vertical, y=100 to y=200)
+        List<Pt> leftDownPoints = Arrays.asList(
+            new Pt(0, 100),
+            new Pt(0, 200)
+        );
+        Curve2D leftDown = new Curve2D("leftDown", leftDownPoints);
+        
+        // Right UP seam (vertical, y=0 to y=100)
+        List<Pt> rightUpPoints = Arrays.asList(
+            new Pt(50, 0),
+            new Pt(50, 100)
+        );
+        Curve2D rightUp = new Curve2D("rightUp", rightUpPoints);
+        
+        // Right DOWN seam (vertical, y=100 to y=200)
+        List<Pt> rightDownPoints = Arrays.asList(
+            new Pt(50, 100),
+            new Pt(50, 200)
+        );
+        Curve2D rightDown = new Curve2D("rightDown", rightDownPoints);
+        
+        PanelCurves panel = new PanelCurves(
+            PanelId.A, null, null, waist, leftUp, leftDown, rightUp, rightDown
+        );
+        
+        List<PanelCurves> panels = Arrays.asList(panel);
+        
+        // With step size of 10mm
+        // UP should go from 0 to 100 (max dy = 100)
+        // DOWN should go from 0 to 100 (max dy = 100)
+        MeasurementUtils.DyRange range = MeasurementUtils.computeValidDyRange(panels, 10.0);
+        
+        assertTrue(range.maxUpDy >= 90.0, "maxUpDy should be at least 90 (waist=100, can go up to y=0, dy=100)");
+        assertTrue(range.maxUpDy <= 100.0, "maxUpDy should be at most 100");
+        
+        assertTrue(range.maxDownDy >= 90.0, "maxDownDy should be at least 90 (waist=100, can go down to y=200, dy=100)");
+        assertTrue(range.maxDownDy <= 100.0, "maxDownDy should be at most 100");
+    }
+
+    @Test
+    public void testComputeValidDyRange_AsymmetricCurves() {
+        // Create a panel where UP curve is shorter than DOWN curve
+        // Waist at y=100
+        List<Pt> waistPoints = Arrays.asList(
+            new Pt(0, 100),
+            new Pt(50, 100)
+        );
+        Curve2D waist = new Curve2D("waist", waistPoints);
+        
+        // Left UP seam (vertical, y=50 to y=100) - only 50mm above waist
+        List<Pt> leftUpPoints = Arrays.asList(
+            new Pt(0, 50),
+            new Pt(0, 100)
+        );
+        Curve2D leftUp = new Curve2D("leftUp", leftUpPoints);
+        
+        // Left DOWN seam (vertical, y=100 to y=250) - 150mm below waist
+        List<Pt> leftDownPoints = Arrays.asList(
+            new Pt(0, 100),
+            new Pt(0, 250)
+        );
+        Curve2D leftDown = new Curve2D("leftDown", leftDownPoints);
+        
+        // Right UP seam (vertical, y=50 to y=100)
+        List<Pt> rightUpPoints = Arrays.asList(
+            new Pt(50, 50),
+            new Pt(50, 100)
+        );
+        Curve2D rightUp = new Curve2D("rightUp", rightUpPoints);
+        
+        // Right DOWN seam (vertical, y=100 to y=250)
+        List<Pt> rightDownPoints = Arrays.asList(
+            new Pt(50, 100),
+            new Pt(50, 250)
+        );
+        Curve2D rightDown = new Curve2D("rightDown", rightDownPoints);
+        
+        PanelCurves panel = new PanelCurves(
+            PanelId.A, null, null, waist, leftUp, leftDown, rightUp, rightDown
+        );
+        
+        List<PanelCurves> panels = Arrays.asList(panel);
+        
+        MeasurementUtils.DyRange range = MeasurementUtils.computeValidDyRange(panels, 5.0);
+        
+        // UP should max out around 50mm (from y=100 to y=50)
+        assertTrue(range.maxUpDy >= 45.0 && range.maxUpDy <= 50.0, 
+                   "maxUpDy should be around 50mm");
+        
+        // DOWN should max out around 150mm (from y=100 to y=250)
+        assertTrue(range.maxDownDy >= 145.0 && range.maxDownDy <= 150.0,
+                   "maxDownDy should be around 150mm");
+    }
+
     // Commented out - computeSeamLengths method not yet implemented
     // @Test
     // public void testComputeSeamLengths() {
