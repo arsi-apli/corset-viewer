@@ -291,6 +291,24 @@ public final class Canvas2DView {
         }
     }
 
+    /**
+     * Attach spinner value change listener to synchronize with slider.
+     * This method is called when the spinner is first created and whenever
+     * its value factory is recreated (e.g., when slider range changes).
+     */
+    private void attachSpinnerListener() {
+        dySpinner.valueProperty().addListener((obs, oldV, newV) -> {
+            if (!isUpdatingControls && newV != null) {
+                isUpdatingControls = true;
+                dyMm = newV;
+                circumferenceSlider.setValue(dyMm);
+                updateCircumferenceMeasurement();
+                redraw();
+                isUpdatingControls = false;
+            }
+        });
+    }
+
     private void initUi() {
         // --- Toolbar ---
         Button btnTop = new Button("TOP");
@@ -324,16 +342,7 @@ public final class Canvas2DView {
         });
         
         // Spinner for direct numeric input
-        dySpinner.valueProperty().addListener((obs, oldV, newV) -> {
-            if (!isUpdatingControls && newV != null) {
-                isUpdatingControls = true;
-                dyMm = newV;
-                circumferenceSlider.setValue(dyMm);
-                updateCircumferenceMeasurement();
-                redraw();
-                isUpdatingControls = false;
-            }
-        });
+        attachSpinnerListener();
         
         // Reset button to return to waist (dy=0)
         Button btnReset = new Button("Reset");
@@ -1178,16 +1187,7 @@ public final class Canvas2DView {
         dySpinner.setValueFactory(spinnerFactory);
         
         // Re-attach listener to new factory
-        dySpinner.valueProperty().addListener((obs, oldV, newV) -> {
-            if (!isUpdatingControls && newV != null) {
-                isUpdatingControls = true;
-                dyMm = newV;
-                circumferenceSlider.setValue(dyMm);
-                updateCircumferenceMeasurement();
-                redraw();
-                isUpdatingControls = false;
-            }
-        });
+        attachSpinnerListener();
         
         // Clamp current value to new range
         if (dyMm < minValue) {
