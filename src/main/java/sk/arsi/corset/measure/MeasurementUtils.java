@@ -279,8 +279,9 @@ public final class MeasurementUtils {
         public final double maxDown;  // Maximum dy downwards (<= 0)
         
         public DyRange(double maxUp, double maxDown) {
-            this.maxUp = maxUp;
-            this.maxDown = maxDown;
+            // Ensure invariants: maxUp >= 0 and maxDown <= 0
+            this.maxUp = Math.max(0.0, maxUp);
+            this.maxDown = Math.min(0.0, maxDown);
         }
     }
     
@@ -312,7 +313,7 @@ public final class MeasurementUtils {
                 continue;
             }
             for (Pt p : curve.getPoints()) {
-                if (p == null || !Double.isFinite(p.getY())) {
+                if (p == null || !Double.isFinite(p.getX()) || !Double.isFinite(p.getY())) {
                     continue;
                 }
                 double y = p.getY();
@@ -371,19 +372,14 @@ public final class MeasurementUtils {
     
     /**
      * Check if circumference can be measured at given dy for all panels.
+     * Uses the valid range computation for efficiency.
      */
     public static boolean canMeasureCircumferenceAtDy(List<PanelCurves> panels, double dyMm) {
         if (panels == null || panels.isEmpty()) {
             return false;
         }
         
-        for (PanelCurves panel : panels) {
-            OptionalDouble width = computePanelWidthAtDy(panel, dyMm);
-            if (width.isEmpty()) {
-                return false;
-            }
-        }
-        
-        return true;
+        DyRange range = computeValidDyRange(panels);
+        return dyMm >= range.maxDown && dyMm <= range.maxUp;
     }
 }

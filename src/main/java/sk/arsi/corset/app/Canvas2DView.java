@@ -164,6 +164,9 @@ public final class Canvas2DView {
     // --- Fonts: bigger / readable ---
     private static final int FONT_LABEL = 15;
     private static final int FONT_VALUE = 18;
+    
+    // --- Measurement slider ---
+    private static final double MIN_SLIDER_RANGE = 1.0; // Minimum slider range in mm
 
     private final Canvas canvas;
     private final BorderPane root;
@@ -1105,10 +1108,10 @@ public final class Canvas2DView {
         double minValue = range.maxDown;
         double maxValue = range.maxUp;
         
-        // Ensure we have a reasonable range (at least ±1mm)
-        if (Math.abs(maxValue - minValue) < 1.0) {
-            minValue = -1.0;
-            maxValue = 1.0;
+        // Ensure we have a reasonable range (at least ±MIN_SLIDER_RANGE)
+        if (Math.abs(maxValue - minValue) < MIN_SLIDER_RANGE) {
+            minValue = -MIN_SLIDER_RANGE;
+            maxValue = MIN_SLIDER_RANGE;
         }
         
         circumferenceSlider.setMin(minValue);
