@@ -6,6 +6,9 @@ on:
     tags:
       - "v*"
 
+permissions:
+  contents: write
+
 jobs:
   package:
     name: Package (${{ matrix.os }})
@@ -16,15 +19,12 @@ jobs:
           - os: windows-latest
             javafx_platform: win
             pkg_type: msi
-            artifact_glob: "*.msi"
           - os: macos-latest
             javafx_platform: mac
             pkg_type: dmg
-            artifact_glob: "*.dmg"
           - os: ubuntu-latest
             javafx_platform: linux
             pkg_type: deb
-            artifact_glob: "*.deb"
 
     runs-on: ${{ matrix.os }}
 
@@ -39,9 +39,6 @@ jobs:
           java-version: "17"
           cache: maven
 
-      - name: Build (with platform JavaFX)
-        run: mvn -B -DskipTests -Djavafx.platform=${{ matrix.javafx_platform }} clean package
-
       - name: Resolve version
         shell: bash
         run: |
@@ -49,12 +46,29 @@ jobs:
           echo "APP_VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "Resolved version: $VERSION"
 
+      - name: Build (with platform JavaFX)
+        shell: bash
+        run: |
+          mvn -B -DskipTests -Djavafx.platform=${{ matrix.javafx_platform }} clean package
+
+      - name: Stage main jar into target/app (required by jpackage --input)
+        shell: bash
+        run: |
+          mkdir -p target/app
+          cp "target/corset-viewer-${APP_VERSION}.jar" "target/app/"
+
+          echo "Staged files:"
+          ls -la target/app
+          echo "Staged libs:"
+          ls -la target/app/lib | head -n 50 || true
+
       - name: JPackage
         shell: bash
         run: |
           APP_NAME="CorsetViewer"
           echo "Packaging $APP_NAME v${APP_VERSION} for ${{ matrix.os }} (${{ matrix.pkg_type }})"
 
+          rm -rf target/jpackage
           mkdir -p target/jpackage
 
           jpackage \
@@ -62,14 +76,31 @@ jobs:
             --dest "target/jpackage" \
             --name "$APP_NAME" \
             --app-version "${APP_VERSION}" \
-            --input "target/app/lib" \
+            --input "target/app" \
             --main-jar "corset-viewer-${APP_VERSION}.jar" \
             --main-class "sk.arsi.corset.app.FxApp" \
             --verbose
 
-      - name: Upload package artifact
+      - name: Upload workflow artifact (backup)
         uses: actions/upload-artifact@v4
         with:
           name: corset-viewer-${{ matrix.javafx_platform }}-${{ matrix.pkg_type }}
-          path: target/jpackage/${{ matrix.artifact_glob }}
+          path: target/jpackage/**
           if-no-files-found: error
+
+      - name: Publish GitHub Release assets
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            target/jpackage/**/*.msi
+            target/jpackage/**/*.exe
+            target/jpackage/**/*.dmg
+            target/jpackage/**/*.pkg
+            target/jpackage/**/*.deb
+            target/jpackage/**/*.rpm
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
