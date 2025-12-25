@@ -62,7 +62,6 @@ If your SVG contains transforms, you should “apply” them into the path data 
 **Inkscape tip:** you can usually remove/apply transforms via:
 `Extensions → Modify Path → Apply Transform`
 
-Depending on your Inkscape installation/version, this item may be available by default or provided by an additional extension.
 
 ### 2) Panels A–F
 
