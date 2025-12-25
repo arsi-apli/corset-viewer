@@ -89,6 +89,7 @@ jobs:
             --input "target/app" \
             --main-jar "corset-viewer-${APP_VERSION}.jar" \
             --main-class "sk.arsi.corset.app.FxApp" \
+            --module-path "target/app/lib" \
             --add-modules javafx.base,javafx.graphics,javafx.controls \
             --verbose
 

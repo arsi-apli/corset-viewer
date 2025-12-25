@@ -7,7 +7,7 @@
 
     <groupId>sk.arsi</groupId>
     <artifactId>corset-viewer</artifactId>
-    <version>1.0.1</version>
+    <version>1.0.2</version>
     <name>corset-viewer</name>
 
     <properties>
