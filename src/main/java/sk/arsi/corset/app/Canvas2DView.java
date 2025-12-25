@@ -7,6 +7,8 @@ import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.Slider;
+import javafx.scene.control.Spinner;
+import javafx.scene.control.SpinnerValueFactory;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.ScrollEvent;
@@ -187,8 +189,10 @@ public final class Canvas2DView {
 
     // measurement UI - now in toolbar
     private final Slider circumferenceSlider;
+    private final Spinner<Double> dySpinner;
     private final Label dyLabel;
     private final Label circumferenceLabel;
+    private boolean isUpdatingControls; // Flag to prevent recursive updates
 
     private List<PanelCurves> panels;
     private List<RenderedPanel> rendered;
@@ -221,6 +225,14 @@ public final class Canvas2DView {
         this.canvasHost = new StackPane(canvas);
 
         this.circumferenceSlider = new Slider(-200.0, 200.0, 0.0);
+        
+        // Initialize spinner with default range, will be updated when panels are loaded
+        SpinnerValueFactory<Double> spinnerFactory = new SpinnerValueFactory.DoubleSpinnerValueFactory(
+                -200.0, 200.0, 0.0, 1.0);
+        this.dySpinner = new Spinner<>(spinnerFactory);
+        this.dySpinner.setEditable(true);
+        this.dySpinner.setPrefWidth(100.0);
+        
         this.dyLabel = new Label("dyMm: 0.0 mm");
         this.circumferenceLabel = new Label("Circumference: 0.0 mm");
 
@@ -234,6 +246,7 @@ public final class Canvas2DView {
 
         this.dragging = false;
         this.didInitialFit = false;
+        this.isUpdatingControls = false;
 
         this.mode = LayoutMode.TOP;
         this.waistGapMm = 30.0;
@@ -300,9 +313,38 @@ public final class Canvas2DView {
         circumferenceSlider.setPrefWidth(200.0);
 
         circumferenceSlider.valueProperty().addListener((obs, oldV, newV) -> {
-            dyMm = newV.doubleValue();
+            if (!isUpdatingControls) {
+                isUpdatingControls = true;
+                dyMm = newV.doubleValue();
+                dySpinner.getValueFactory().setValue(dyMm);
+                updateCircumferenceMeasurement();
+                redraw(); // Redraw to update the measurement line
+                isUpdatingControls = false;
+            }
+        });
+        
+        // Spinner for direct numeric input
+        dySpinner.valueProperty().addListener((obs, oldV, newV) -> {
+            if (!isUpdatingControls && newV != null) {
+                isUpdatingControls = true;
+                dyMm = newV;
+                circumferenceSlider.setValue(dyMm);
+                updateCircumferenceMeasurement();
+                redraw();
+                isUpdatingControls = false;
+            }
+        });
+        
+        // Reset button to return to waist (dy=0)
+        Button btnReset = new Button("Reset");
+        btnReset.setOnAction(e -> {
+            isUpdatingControls = true;
+            dyMm = 0.0;
+            circumferenceSlider.setValue(0.0);
+            dySpinner.getValueFactory().setValue(0.0);
             updateCircumferenceMeasurement();
-            redraw(); // Redraw to update the measurement line
+            redraw();
+            isUpdatingControls = false;
         });
 
         dyLabel.setStyle("-fx-font-size: " + FONT_VALUE + "px; -fx-font-weight: bold;");
@@ -311,7 +353,7 @@ public final class Canvas2DView {
         toolbar.getChildren().addAll(
                 btnTop, btnWaist, btnBottom,
                 new javafx.scene.control.Separator(javafx.geometry.Orientation.VERTICAL),
-                sliderLabel, circumferenceSlider, dyLabel, circumferenceLabel
+                sliderLabel, circumferenceSlider, dySpinner, btnReset, dyLabel, circumferenceLabel
         );
         toolbar.setPadding(new Insets(8.0));
         root.setTop(toolbar);
@@ -1107,6 +1149,11 @@ public final class Canvas2DView {
         if (panels == null || panels.isEmpty()) {
             circumferenceSlider.setMin(DEFAULT_MIN_DY);
             circumferenceSlider.setMax(DEFAULT_MAX_DY);
+            
+            // Recreate spinner factory with new range
+            SpinnerValueFactory<Double> spinnerFactory = new SpinnerValueFactory.DoubleSpinnerValueFactory(
+                    DEFAULT_MIN_DY, DEFAULT_MAX_DY, dyMm, 1.0);
+            dySpinner.setValueFactory(spinnerFactory);
             return;
         }
 
@@ -1125,13 +1172,36 @@ public final class Canvas2DView {
         circumferenceSlider.setMin(minValue);
         circumferenceSlider.setMax(maxValue);
         
+        // Update spinner range by recreating the factory
+        SpinnerValueFactory<Double> spinnerFactory = new SpinnerValueFactory.DoubleSpinnerValueFactory(
+                minValue, maxValue, dyMm, 1.0);
+        dySpinner.setValueFactory(spinnerFactory);
+        
+        // Re-attach listener to new factory
+        dySpinner.valueProperty().addListener((obs, oldV, newV) -> {
+            if (!isUpdatingControls && newV != null) {
+                isUpdatingControls = true;
+                dyMm = newV;
+                circumferenceSlider.setValue(dyMm);
+                updateCircumferenceMeasurement();
+                redraw();
+                isUpdatingControls = false;
+            }
+        });
+        
         // Clamp current value to new range
         if (dyMm < minValue) {
+            isUpdatingControls = true;
             dyMm = minValue;
             circumferenceSlider.setValue(minValue);
+            dySpinner.getValueFactory().setValue(minValue);
+            isUpdatingControls = false;
         } else if (dyMm > maxValue) {
+            isUpdatingControls = true;
             dyMm = maxValue;
             circumferenceSlider.setValue(maxValue);
+            dySpinner.getValueFactory().setValue(maxValue);
+            isUpdatingControls = false;
         }
         
         updateCircumferenceMeasurement();
