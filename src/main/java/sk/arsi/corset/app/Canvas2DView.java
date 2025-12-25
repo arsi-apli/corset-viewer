@@ -6,27 +6,26 @@ import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
-import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Slider;
-import javafx.scene.control.TextArea;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
-import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import sk.arsi.corset.measure.MeasurementUtils;
-import sk.arsi.corset.measure.MeasurementUtils.SeamSide;
-import sk.arsi.corset.measure.MeasurementUtils.SeamSplit;
+import sk.arsi.corset.measure.SeamMeasurementData;
+import sk.arsi.corset.measure.SeamMeasurementService;
 import sk.arsi.corset.model.Curve2D;
 import sk.arsi.corset.model.PanelCurves;
 import sk.arsi.corset.model.PanelId;
 import sk.arsi.corset.model.Pt;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public final class Canvas2DView {
 
@@ -163,15 +162,8 @@ public final class Canvas2DView {
     private static final double MAX_CANVAS_TEXTURE_DIM = 16000.0; // safety under 16384 GPU limit
 
     // --- Fonts: bigger / readable ---
-    private static final int FONT_TITLE = 18;
     private static final int FONT_LABEL = 15;
     private static final int FONT_VALUE = 18;
-    private static final int FONT_TABLE = 16;
-
-    // --- Measurement panel sizing ---
-    private static final double MEASURE_MIN_W = 380;
-    private static final double MEASURE_PREF_W = 540;
-    private static final double MEASURE_MAX_W = 900;
 
     private final Canvas canvas;
     private final BorderPane root;
@@ -180,15 +172,15 @@ public final class Canvas2DView {
     // host pane for canvas so we bind to center area size (prevents huge textures)
     private final StackPane canvasHost;
 
-    // measurement UI
-    private final VBox measurementPanel;
+    // measurement UI - now in toolbar
     private final Slider circumferenceSlider;
     private final Label dyLabel;
     private final Label circumferenceLabel;
-    private final TextArea seamTableArea;
 
     private List<PanelCurves> panels;
     private List<RenderedPanel> rendered;
+    private MeasurementsView measurementsView;
+    private List<SeamMeasurementData> cachedMeasurements;
 
     // view transform (world -> screen)
     private double scale;
@@ -215,14 +207,13 @@ public final class Canvas2DView {
 
         this.canvasHost = new StackPane(canvas);
 
-        this.measurementPanel = new VBox(10.0);
         this.circumferenceSlider = new Slider(-200.0, 200.0, 0.0);
         this.dyLabel = new Label("dyMm: 0.0 mm");
         this.circumferenceLabel = new Label("Circumference: 0.0 mm");
-        this.seamTableArea = new TextArea();
 
         this.panels = new ArrayList<PanelCurves>();
         this.rendered = new ArrayList<RenderedPanel>();
+        this.cachedMeasurements = new ArrayList<>();
 
         this.scale = 2.0;
         this.offsetX = 80.0;
@@ -241,7 +232,6 @@ public final class Canvas2DView {
 
         rebuildLayout();
         redraw();
-        updateMeasurements();
     }
 
     public Node getNode() {
@@ -258,8 +248,18 @@ public final class Canvas2DView {
         this.didInitialFit = false;
         rebuildLayout();
         fitToContent();
+        
+        // Recompute cached measurements when panels change
+        this.cachedMeasurements = SeamMeasurementService.computeAllSeamMeasurements(this.panels);
+        
         redraw();
-        updateMeasurements();
+    }
+
+    public void setSeamMeasurements(MeasurementsView measurementsView) {
+        this.measurementsView = measurementsView;
+        if (measurementsView != null) {
+            measurementsView.setOnToleranceChanged(tolerance -> redraw());
+        }
     }
 
     private void initUi() {
@@ -272,64 +272,35 @@ public final class Canvas2DView {
         btnWaist.setOnAction(e -> switchMode(LayoutMode.WAIST));
         btnBottom.setOnAction(e -> switchMode(LayoutMode.BOTTOM));
 
-        toolbar.getChildren().addAll(btnTop, btnWaist, btnBottom);
-        toolbar.setPadding(new Insets(8.0));
-        root.setTop(toolbar);
-
-        // --- Center ---
-        root.setCenter(canvasHost);
-
-        // --- Right: Measurement panel ---
-        Label measureTitle = new Label("Measurements");
-        measureTitle.setStyle("-fx-font-weight: bold; -fx-font-size: " + FONT_TITLE + "px;");
-
+        // Circumference controls
         Label sliderLabel = new Label("Height from Waist (mm):");
         sliderLabel.setStyle("-fx-font-size: " + FONT_LABEL + "px;");
 
-        circumferenceSlider.setShowTickLabels(true);
+        circumferenceSlider.setShowTickLabels(false);
         circumferenceSlider.setShowTickMarks(true);
         circumferenceSlider.setMajorTickUnit(50.0);
         circumferenceSlider.setMinorTickCount(4);
         circumferenceSlider.setBlockIncrement(10.0);
-        circumferenceSlider.setStyle("-fx-font-size: " + FONT_LABEL + "px;");
+        circumferenceSlider.setPrefWidth(200.0);
 
         circumferenceSlider.valueProperty().addListener((obs, oldV, newV) -> {
             dyMm = newV.doubleValue();
-            updateMeasurements();
+            updateCircumferenceMeasurement();
         });
 
         dyLabel.setStyle("-fx-font-size: " + FONT_VALUE + "px; -fx-font-weight: bold;");
         circumferenceLabel.setStyle("-fx-font-size: " + FONT_VALUE + "px; -fx-font-weight: bold;");
 
-        Label seamTitle = new Label("Seam matching (curve length from waist):");
-        seamTitle.setStyle("-fx-font-weight: bold; -fx-font-size: " + FONT_LABEL + "px;");
-
-        seamTableArea.setEditable(false);
-        seamTableArea.setWrapText(true);
-        seamTableArea.setPrefRowCount(18);
-        seamTableArea.setStyle("-fx-font-family: monospace; -fx-font-size: " + FONT_TABLE + "px;");
-
-        ScrollPane seamScroll = new ScrollPane(seamTableArea);
-        seamScroll.setFitToWidth(true);
-        seamScroll.setPrefHeight(520);
-
-        measurementPanel.getChildren().addAll(
-                measureTitle,
-                sliderLabel,
-                circumferenceSlider,
-                dyLabel,
-                circumferenceLabel,
-                seamTitle,
-                seamScroll
+        toolbar.getChildren().addAll(
+                btnTop, btnWaist, btnBottom,
+                new javafx.scene.control.Separator(javafx.geometry.Orientation.VERTICAL),
+                sliderLabel, circumferenceSlider, dyLabel, circumferenceLabel
         );
+        toolbar.setPadding(new Insets(8.0));
+        root.setTop(toolbar);
 
-        measurementPanel.setPadding(new Insets(10.0));
-        measurementPanel.setMinWidth(MEASURE_MIN_W);
-        measurementPanel.setPrefWidth(MEASURE_PREF_W);
-        measurementPanel.setMaxWidth(MEASURE_MAX_W);
-        measurementPanel.setStyle("-fx-background-color: #f9f9f9; -fx-border-color: #ccc; -fx-border-width: 0 0 0 1;");
-
-        root.setRight(measurementPanel);
+        // --- Center ---
+        root.setCenter(canvasHost);
     }
 
     private void bindResize() {
@@ -614,22 +585,199 @@ public final class Canvas2DView {
         g.setFill(Color.GRAY);
         g.fillText("Mode: " + mode + (mode == LayoutMode.WAIST ? (" (gap=" + waistGapMm + "mm)") : ""), 12, 16);
 
+        // Compute seam highlighting map
+        Map<String, SeamHighlight> highlightMap = computeSeamHighlights();
+
+        // Unified panel color: black or very dark gray
+        Color panelColor = Color.web("#222222");
+
         for (int i = 0; i < rendered.size(); i++) {
             RenderedPanel rp = rendered.get(i);
-            Color base = rp.color;
+            PanelId panelId = rp.panel.getPanelId();
 
-            // seams
-            strokeCurve(g, rp, rp.panel.getSeamToPrevUp(), base.darker(), 1.5);
-            strokeCurve(g, rp, rp.panel.getSeamToPrevDown(), base.darker(), 1.5);
-            strokeCurve(g, rp, rp.panel.getSeamToNextUp(), base.darker(), 1.5);
-            strokeCurve(g, rp, rp.panel.getSeamToNextDown(), base.darker(), 1.5);
+            // Draw seams with highlighting if needed
+            drawSeamWithHighlight(g, rp, panelId, true, true, highlightMap);   // seamToPrevUp
+            drawSeamWithHighlight(g, rp, panelId, true, false, highlightMap);  // seamToPrevDown
+            drawSeamWithHighlight(g, rp, panelId, false, true, highlightMap);  // seamToNextUp
+            drawSeamWithHighlight(g, rp, panelId, false, false, highlightMap); // seamToNextDown
 
-            // top/bottom
-            strokeCurve(g, rp, rp.panel.getTop(), base, 2.0);
-            strokeCurve(g, rp, rp.panel.getBottom(), base, 2.0);
+            // top/bottom edges - unified black color
+            strokeCurve(g, rp, rp.panel.getTop(), panelColor, 2.0);
+            strokeCurve(g, rp, rp.panel.getBottom(), panelColor, 2.0);
 
-            // waist
+            // waist - thicker black line to distinguish
             strokeCurve(g, rp, rp.panel.getWaist(), Color.BLACK, 3.0);
+        }
+    }
+
+    private static class SeamHighlight {
+        boolean highlightTop;
+        boolean highlightBottom;
+
+        SeamHighlight(boolean highlightTop, boolean highlightBottom) {
+            this.highlightTop = highlightTop;
+            this.highlightBottom = highlightBottom;
+        }
+    }
+
+    private Map<String, SeamHighlight> computeSeamHighlights() {
+        Map<String, SeamHighlight> map = new HashMap<>();
+        
+        if (measurementsView == null || cachedMeasurements == null) {
+            return map;
+        }
+
+        double tolerance = measurementsView.getTolerance();
+
+        for (SeamMeasurementData data : cachedMeasurements) {
+            boolean topExceeds = data.topExceedsTolerance(tolerance);
+            boolean bottomExceeds = data.bottomExceedsTolerance(tolerance);
+            
+            // Store highlighting for both seams in the pair
+            // e.g., for AB: both A->B and B->A should be highlighted
+            String leftToRight = data.getLeftPanel().name() + "->" + data.getRightPanel().name();
+            String rightToLeft = data.getRightPanel().name() + "->" + data.getLeftPanel().name();
+            
+            map.put(leftToRight, new SeamHighlight(topExceeds, bottomExceeds));
+            map.put(rightToLeft, new SeamHighlight(topExceeds, bottomExceeds));
+        }
+
+        return map;
+    }
+
+    private void drawSeamWithHighlight(
+            GraphicsContext g,
+            RenderedPanel rp,
+            PanelId panelId,
+            boolean isPrev,
+            boolean isUp,
+            Map<String, SeamHighlight> highlightMap) {
+        
+        Curve2D curve;
+        PanelId neighborId;
+        
+        if (isPrev) {
+            curve = isUp ? rp.panel.getSeamToPrevUp() : rp.panel.getSeamToPrevDown();
+            neighborId = getPrevPanelId(panelId);
+        } else {
+            curve = isUp ? rp.panel.getSeamToNextUp() : rp.panel.getSeamToNextDown();
+            neighborId = getNextPanelId(panelId);
+        }
+
+        if (curve == null || neighborId == null) {
+            return;
+        }
+
+        String seamKey = panelId.name() + "->" + neighborId.name();
+        SeamHighlight highlight = highlightMap.get(seamKey);
+
+        // Default color: black
+        Color seamColor = Color.web("#222222");
+        
+        if (highlight != null) {
+            // Check if we should highlight based on portion
+            // Split curve at waist and draw with appropriate colors
+            double waistY = MeasurementUtils.computePanelWaistY0(rp.panel.getWaist());
+            
+            if (highlight.highlightTop || highlight.highlightBottom) {
+                strokeCurveSplit(g, rp, curve, waistY, 
+                        highlight.highlightTop ? Color.RED : seamColor,
+                        highlight.highlightBottom ? Color.RED : seamColor,
+                        1.5);
+                return;
+            }
+        }
+
+        // No highlighting needed
+        strokeCurve(g, rp, curve, seamColor, 1.5);
+    }
+
+    private void strokeCurveSplit(
+            GraphicsContext g,
+            RenderedPanel rp,
+            Curve2D curve,
+            double waistY,
+            Color aboveColor,
+            Color belowColor,
+            double width) {
+        
+        if (curve == null) {
+            return;
+        }
+        List<Pt> pts = curve.getPoints();
+        if (pts == null || pts.size() < 2) {
+            return;
+        }
+
+        g.setLineWidth(width);
+
+        for (int i = 0; i < pts.size() - 1; i++) {
+            Pt p0 = rp.transform.apply(pts.get(i));
+            Pt p1 = rp.transform.apply(pts.get(i + 1));
+
+            if (p0 == null || p1 == null) {
+                continue;
+            }
+
+            double y0 = p0.getY();
+            double y1 = p1.getY();
+            
+            boolean p0Above = y0 < waistY;
+            boolean p1Above = y1 < waistY;
+
+            double sx0 = worldToScreenX(p0.getX());
+            double sy0 = worldToScreenY(y0);
+            double sx1 = worldToScreenX(p1.getX());
+            double sy1 = worldToScreenY(y1);
+
+            if (p0Above == p1Above) {
+                // Segment is entirely above or below waist
+                Color color = p0Above ? aboveColor : belowColor;
+                g.setStroke(color);
+                g.strokeLine(sx0, sy0, sx1, sy1);
+            } else {
+                // Segment crosses waist - split it
+                double t = (waistY - y0) / (y1 - y0);
+                double xSplit = p0.getX() + t * (p1.getX() - p0.getX());
+                double sxSplit = worldToScreenX(xSplit);
+                double sySplit = worldToScreenY(waistY);
+
+                if (p0Above) {
+                    g.setStroke(aboveColor);
+                    g.strokeLine(sx0, sy0, sxSplit, sySplit);
+                    g.setStroke(belowColor);
+                    g.strokeLine(sxSplit, sySplit, sx1, sy1);
+                } else {
+                    g.setStroke(belowColor);
+                    g.strokeLine(sx0, sy0, sxSplit, sySplit);
+                    g.setStroke(aboveColor);
+                    g.strokeLine(sxSplit, sySplit, sx1, sy1);
+                }
+            }
+        }
+    }
+
+    private PanelId getPrevPanelId(PanelId id) {
+        if (id == null) return null;
+        switch (id) {
+            case B: return PanelId.A;
+            case C: return PanelId.B;
+            case D: return PanelId.C;
+            case E: return PanelId.D;
+            case F: return PanelId.E;
+            default: return null;
+        }
+    }
+
+    private PanelId getNextPanelId(PanelId id) {
+        if (id == null) return null;
+        switch (id) {
+            case A: return PanelId.B;
+            case B: return PanelId.C;
+            case C: return PanelId.D;
+            case D: return PanelId.E;
+            case E: return PanelId.F;
+            default: return null;
         }
     }
 
@@ -874,105 +1022,10 @@ public final class Canvas2DView {
     }
 
     // ----------------- Measurements -----------------
-    private void updateMeasurements() {
+    private void updateCircumferenceMeasurement() {
         dyLabel.setText(String.format("dyMm: %.1f mm", dyMm));
 
-        // TODO: If circumference becomes 0 for dy<0, fix MeasurementUtils intersection to prefer Down fallback Up.
         double fullCirc = MeasurementUtils.computeFullCircumference(panels, dyMm);
         circumferenceLabel.setText(String.format("Circumference: %.1f mm", fullCirc));
-
-        seamTableArea.setText(buildSeamTablesText());
-    }
-
-    /**
-     * Two tables: TOP: from waist upwards BOTTOM: from waist downwards
-     *
-     * Rows: AB, BC, CD, DE, EF Columns: Left_UP, Right_UP, Diff_UP, Left_DOWN,
-     * Right_DOWN, Diff_DOWN
-     *
-     * Left seam = (A->B) measured on left panel as TO_NEXT Right seam = (B->A)
-     * measured on right panel as TO_PREV
-     */
-    private String buildSeamTablesText() {
-        if (panels == null || panels.isEmpty()) {
-            return "No panels loaded.";
-        }
-
-        PanelId[] ids = {PanelId.A, PanelId.B, PanelId.C, PanelId.D, PanelId.E, PanelId.F};
-
-        StringBuilder sb = new StringBuilder();
-
-        sb.append("TOP (from waist up)\n");
-        sb.append(seamHeader());
-        sb.append(seamSep());
-        for (int i = 0; i < ids.length - 1; i++) {
-            sb.append(seamRow(ids[i], ids[i + 1], true)).append('\n');
-        }
-
-        sb.append("\nBOTTOM (from waist down)\n");
-        sb.append(seamHeader());
-        sb.append(seamSep());
-        for (int i = 0; i < ids.length - 1; i++) {
-            sb.append(seamRow(ids[i], ids[i + 1], false)).append('\n');
-        }
-
-        return sb.toString();
-    }
-
-    private String seamHeader() {
-        return String.format("%-3s %10s %10s %10s %10s %10s %10s\n",
-                "Seam",
-                "Left_UP", "Right_UP", "Diff_UP",
-                "Left_DN", "Right_DN", "Diff_DN"
-        );
-    }
-
-    private String seamSep() {
-        return "--------------------------------------------------------------------------------\n";
-    }
-
-    private String seamRow(PanelId leftId, PanelId rightId, boolean top) {
-        String name = leftId.name() + rightId.name();
-
-        PanelCurves left = findPanel(leftId);
-        PanelCurves right = findPanel(rightId);
-
-        if (left == null || right == null) {
-            return String.format("%-3s %10s %10s %10s %10s %10s %10s",
-                    name, "-", "-", "-", "-", "-", "-"
-            );
-        }
-
-        SeamSplit lUp = MeasurementUtils.measureSeamSplitAtWaist(left, SeamSide.TO_NEXT, true);
-        SeamSplit lDn = MeasurementUtils.measureSeamSplitAtWaist(left, SeamSide.TO_NEXT, false);
-
-        SeamSplit rUp = MeasurementUtils.measureSeamSplitAtWaist(right, SeamSide.TO_PREV, true);
-        SeamSplit rDn = MeasurementUtils.measureSeamSplitAtWaist(right, SeamSide.TO_PREV, false);
-
-        double leftUp = top ? lUp.above : lUp.below;
-        double rightUp = top ? rUp.above : rUp.below;
-        double diffUp = leftUp - rightUp;
-
-        double leftDn = top ? lDn.above : lDn.below;
-        double rightDn = top ? rDn.above : rDn.below;
-        double diffDn = leftDn - rightDn;
-
-        return String.format("%-3s %10.1f %10.1f %10.1f %10.1f %10.1f %10.1f",
-                name,
-                leftUp, rightUp, diffUp,
-                leftDn, rightDn, diffDn
-        );
-    }
-
-    private PanelCurves findPanel(PanelId id) {
-        if (panels == null) {
-            return null;
-        }
-        for (PanelCurves p : panels) {
-            if (p.getPanelId() == id) {
-                return p;
-            }
-        }
-        return null;
     }
 }

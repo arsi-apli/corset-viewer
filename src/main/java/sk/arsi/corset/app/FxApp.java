@@ -20,6 +20,7 @@ public final class FxApp extends Application {
 
     private Canvas2DView view2d;
     private Pseudo3DView viewPseudo3d;
+    private MeasurementsView viewMeasurements;
 
     private Path svgPath;
 
@@ -44,9 +45,14 @@ public final class FxApp extends Application {
 
         List<PanelCurves> panels = panelLoader.loadPanelsWithRetry(svgPath, 3, 250);
 
+        // --- Measurements ---
+        viewMeasurements = new MeasurementsView();
+        viewMeasurements.setPanels(panels);
+
         // --- 2D ---
         view2d = new Canvas2DView();
         view2d.setPanels(panels);
+        view2d.setSeamMeasurements(viewMeasurements);
 
         // --- Pseudo 3D ---
         viewPseudo3d = new Pseudo3DView();
@@ -61,7 +67,11 @@ public final class FxApp extends Application {
         tabPseudo3d.setClosable(false);
         tabPseudo3d.setContent(viewPseudo3d.getNode());
 
-        TabPane tabs = new TabPane(tab2d, tabPseudo3d);
+        Tab tabMeasurements = new Tab("Measurements");
+        tabMeasurements.setClosable(false);
+        tabMeasurements.setContent(viewMeasurements.getNode());
+
+        TabPane tabs = new TabPane(tab2d, tabPseudo3d, tabMeasurements);
 
         BorderPane root = new BorderPane();
         root.setCenter(tabs);
@@ -111,6 +121,9 @@ public final class FxApp extends Application {
                 List<PanelCurves> panels = panelLoader.loadPanelsWithRetry(path, 3, 250);
 
                 Platform.runLater(() -> {
+                    if (viewMeasurements != null) {
+                        viewMeasurements.setPanels(panels);
+                    }
                     if (view2d != null) {
                         view2d.setPanels(panels);
                     }
