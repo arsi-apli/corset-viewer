@@ -116,6 +116,9 @@ public final class MeasurementsView {
         spinner.valueProperty().addListener((obs, oldV, newV) -> {
             if (newV != null) {
                 toleranceProperty.set(newV);
+                // Refresh both tables when tolerance changes
+                topTable.refresh();
+                bottomTable.refresh();
                 if (onToleranceChanged != null) {
                     onToleranceChanged.accept(newV);
                 }

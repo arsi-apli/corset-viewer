@@ -180,6 +180,7 @@ public final class Canvas2DView {
     private List<PanelCurves> panels;
     private List<RenderedPanel> rendered;
     private MeasurementsView measurementsView;
+    private List<SeamMeasurementData> cachedMeasurements;
 
     // view transform (world -> screen)
     private double scale;
@@ -212,6 +213,7 @@ public final class Canvas2DView {
 
         this.panels = new ArrayList<PanelCurves>();
         this.rendered = new ArrayList<RenderedPanel>();
+        this.cachedMeasurements = new ArrayList<>();
 
         this.scale = 2.0;
         this.offsetX = 80.0;
@@ -246,6 +248,10 @@ public final class Canvas2DView {
         this.didInitialFit = false;
         rebuildLayout();
         fitToContent();
+        
+        // Recompute cached measurements when panels change
+        this.cachedMeasurements = SeamMeasurementService.computeAllSeamMeasurements(this.panels);
+        
         redraw();
     }
 
@@ -617,14 +623,13 @@ public final class Canvas2DView {
     private Map<String, SeamHighlight> computeSeamHighlights() {
         Map<String, SeamHighlight> map = new HashMap<>();
         
-        if (measurementsView == null) {
+        if (measurementsView == null || cachedMeasurements == null) {
             return map;
         }
 
         double tolerance = measurementsView.getTolerance();
-        List<SeamMeasurementData> measurements = SeamMeasurementService.computeAllSeamMeasurements(panels);
 
-        for (SeamMeasurementData data : measurements) {
+        for (SeamMeasurementData data : cachedMeasurements) {
             boolean topExceeds = data.topExceedsTolerance(tolerance);
             boolean bottomExceeds = data.bottomExceedsTolerance(tolerance);
             

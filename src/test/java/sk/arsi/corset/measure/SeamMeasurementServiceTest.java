@@ -22,7 +22,7 @@ public class SeamMeasurementServiceTest {
         assertNotNull(result);
         assertTrue(result.isEmpty());
 
-        result = SeamMeasurementService.computeAllSeamMeasurements(Arrays.asList());
+        result = SeamMeasurementService.computeAllSeamMeasurements(List.of());
         assertNotNull(result);
         assertTrue(result.isEmpty());
     }
