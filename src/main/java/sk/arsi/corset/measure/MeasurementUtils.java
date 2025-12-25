@@ -282,6 +282,14 @@ public final class MeasurementUtils {
 
     /**
      * Represents the valid range for dyMm measurements.
+     * 
+     * This immutable class encapsulates the maximum measurable distances
+     * from the waist where all panels in a corset have measurable widths.
+     * The range is asymmetric because UP curves (above waist) and DOWN curves
+     * (below waist) may have different extents.
+     * 
+     * This class is part of the public API and is returned by
+     * {@link #computeValidDyRange(List, double)}.
      */
     public static final class DyRange {
         private final double maxUpDy;    // Maximum positive dyMm (upwards)
@@ -292,10 +300,16 @@ public final class MeasurementUtils {
             this.maxDownDy = maxDownDy;
         }
 
+        /**
+         * @return Maximum distance upward from waist where measurements are valid (positive value in mm)
+         */
         public double getMaxUpDy() {
             return maxUpDy;
         }
 
+        /**
+         * @return Maximum distance downward from waist where measurements are valid (positive value in mm)
+         */
         public double getMaxDownDy() {
             return maxDownDy;
         }

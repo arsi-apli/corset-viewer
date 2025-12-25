@@ -163,7 +163,10 @@ public final class Canvas2DView {
 
     // --- Measurement line rendering ---
     private static final double MEASUREMENT_LINE_EXTENT = 10000.0; // extent for horizontal measurement line
-    private static final double MIN_DY_FOR_MEASUREMENT_LINE = 0.1; // minimum dyMm to show measurement line (avoid clutter at waist)
+    // Minimum dyMm threshold to show measurement line. Values smaller than this are too close
+    // to the waist and would clutter the display. 0.1mm is chosen as it's below the practical
+    // precision of corset measurements while keeping the display clean.
+    private static final double MIN_DY_FOR_MEASUREMENT_LINE = 0.1;
     
     // --- Default slider range when panels are empty or invalid ---
     private static final double DEFAULT_MIN_DY = -200.0;

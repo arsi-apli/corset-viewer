@@ -63,9 +63,6 @@ public class CircumferenceIntegrationTest {
         
         assertTrue(range.getMaxDownDy() >= 95.0 && range.getMaxDownDy() <= 100.0,
             "maxDownDy should be around 100mm (can measure down to y=200)");
-
-        System.out.println("Symmetric curves - Valid range: up=" + range.getMaxUpDy() + 
-                         "mm, down=" + range.getMaxDownDy() + "mm");
     }
 
     @Test
@@ -81,9 +78,6 @@ public class CircumferenceIntegrationTest {
         
         assertTrue(range.getMaxDownDy() >= 148.0 && range.getMaxDownDy() <= 150.0,
             "maxDownDy should be around 150mm (longer DOWN curves)");
-
-        System.out.println("Asymmetric curves - Valid range: up=" + range.getMaxUpDy() + 
-                         "mm, down=" + range.getMaxDownDy() + "mm");
     }
 
     @Test
@@ -97,9 +91,6 @@ public class CircumferenceIntegrationTest {
         assertTrue(range.getMaxDownDy() > 0, "maxDownDy should be positive");
         assertTrue(range.getMaxUpDy() <= 80.0, "maxUpDy should not exceed UP curve coverage");
         assertTrue(range.getMaxDownDy() <= 120.0, "maxDownDy should not exceed DOWN curve coverage");
-
-        System.out.println("Single panel - Valid range: up=" + range.getMaxUpDy() + 
-                         "mm, down=" + range.getMaxDownDy() + "mm");
     }
 
     @Test
