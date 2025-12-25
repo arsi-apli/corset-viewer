@@ -54,8 +54,8 @@ public final class MeasurementsView {
         this.toleranceSpinner = createToleranceSpinner();
         this.topData = FXCollections.observableArrayList();
         this.bottomData = FXCollections.observableArrayList();
-        this.topTable = createSeamTable("TOP (from waist up)", topData);
-        this.bottomTable = createSeamTable("BOTTOM (from waist down)", bottomData);
+        this.topTable = createSeamTable("TOP (from waist up)", topData, true);
+        this.bottomTable = createSeamTable("BOTTOM (from waist down)", bottomData, false);
         this.panels = new ArrayList<>();
         
         initUi();
@@ -128,7 +128,7 @@ public final class MeasurementsView {
         return spinner;
     }
 
-    private TableView<SeamMeasurementData> createSeamTable(String title, ObservableList<SeamMeasurementData> data) {
+    private TableView<SeamMeasurementData> createSeamTable(String title, ObservableList<SeamMeasurementData> data, boolean isTopTable) {
         TableView<SeamMeasurementData> table = new TableView<>(data);
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         
@@ -140,7 +140,7 @@ public final class MeasurementsView {
         // Left_UP column
         TableColumn<SeamMeasurementData, Double> leftUpCol = new TableColumn<>("Left_UP");
         leftUpCol.setCellValueFactory(data2 -> {
-            double val = title.contains("TOP") 
+            double val = isTopTable 
                     ? data2.getValue().getLeftUpTop() 
                     : data2.getValue().getLeftUpBottom();
             return new javafx.beans.property.SimpleDoubleProperty(val).asObject();
@@ -160,7 +160,7 @@ public final class MeasurementsView {
         // Right_UP column
         TableColumn<SeamMeasurementData, Double> rightUpCol = new TableColumn<>("Right_UP");
         rightUpCol.setCellValueFactory(data2 -> {
-            double val = title.contains("TOP") 
+            double val = isTopTable 
                     ? data2.getValue().getRightUpTop() 
                     : data2.getValue().getRightUpBottom();
             return new javafx.beans.property.SimpleDoubleProperty(val).asObject();
@@ -180,7 +180,7 @@ public final class MeasurementsView {
         // Diff_UP column
         TableColumn<SeamMeasurementData, Double> diffUpCol = new TableColumn<>("Diff_UP");
         diffUpCol.setCellValueFactory(data2 -> {
-            double val = title.contains("TOP") 
+            double val = isTopTable 
                     ? data2.getValue().getDiffUpTop() 
                     : data2.getValue().getDiffUpBottom();
             return new javafx.beans.property.SimpleDoubleProperty(val).asObject();
@@ -206,7 +206,7 @@ public final class MeasurementsView {
         // Left_DOWN column
         TableColumn<SeamMeasurementData, Double> leftDownCol = new TableColumn<>("Left_DN");
         leftDownCol.setCellValueFactory(data2 -> {
-            double val = title.contains("TOP") 
+            double val = isTopTable 
                     ? data2.getValue().getLeftDownTop() 
                     : data2.getValue().getLeftDownBottom();
             return new javafx.beans.property.SimpleDoubleProperty(val).asObject();
@@ -226,7 +226,7 @@ public final class MeasurementsView {
         // Right_DOWN column
         TableColumn<SeamMeasurementData, Double> rightDownCol = new TableColumn<>("Right_DN");
         rightDownCol.setCellValueFactory(data2 -> {
-            double val = title.contains("TOP") 
+            double val = isTopTable 
                     ? data2.getValue().getRightDownTop() 
                     : data2.getValue().getRightDownBottom();
             return new javafx.beans.property.SimpleDoubleProperty(val).asObject();
@@ -246,7 +246,7 @@ public final class MeasurementsView {
         // Diff_DOWN column
         TableColumn<SeamMeasurementData, Double> diffDownCol = new TableColumn<>("Diff_DN");
         diffDownCol.setCellValueFactory(data2 -> {
-            double val = title.contains("TOP") 
+            double val = isTopTable 
                     ? data2.getValue().getDiffDownTop() 
                     : data2.getValue().getDiffDownBottom();
             return new javafx.beans.property.SimpleDoubleProperty(val).asObject();
