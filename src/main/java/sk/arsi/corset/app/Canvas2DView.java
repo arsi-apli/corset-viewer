@@ -14,9 +14,12 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import sk.arsi.corset.measure.MeasurementUtils;
+import sk.arsi.corset.measure.MeasurementUtils.SeamSide;
+import sk.arsi.corset.measure.MeasurementUtils.SeamSplit;
 import sk.arsi.corset.model.Curve2D;
 import sk.arsi.corset.model.PanelCurves;
 import sk.arsi.corset.model.PanelId;
@@ -84,14 +87,105 @@ public final class Canvas2DView {
         }
     }
 
+    private static final class Bounds {
+
+        private final double minX;
+        private final double minY;
+        private final double maxX;
+        private final double maxY;
+
+        private Bounds(double minX, double minY, double maxX, double maxY) {
+            this.minX = minX;
+            this.minY = minY;
+            this.maxX = maxX;
+            this.maxY = maxY;
+        }
+    }
+
+    private static final class BoundsAcc {
+
+        private double minX;
+        private double minY;
+        private double maxX;
+        private double maxY;
+
+        private BoundsAcc(double minX, double minY, double maxX, double maxY) {
+            this.minX = minX;
+            this.minY = minY;
+            this.maxX = maxX;
+            this.maxY = maxY;
+        }
+
+        private void addCurve(Curve2D c, Transform2D t) {
+            if (c == null || c.getPoints() == null) {
+                return;
+            }
+            List<Pt> pts = c.getPoints();
+            for (int i = 0; i < pts.size(); i++) {
+                Pt p = pts.get(i);
+                if (p == null) {
+                    continue;
+                }
+
+                Pt q = t.apply(p);
+                if (q == null) {
+                    continue;
+                }
+
+                double x = q.getX();
+                double y = q.getY();
+                if (!Double.isFinite(x) || !Double.isFinite(y)) {
+                    continue;
+                }
+
+                if (x < minX) {
+                    minX = x;
+                }
+                if (y < minY) {
+                    minY = y;
+                }
+                if (x > maxX) {
+                    maxX = x;
+                }
+                if (y > maxY) {
+                    maxY = y;
+                }
+            }
+        }
+
+        private boolean isValid() {
+            return Double.isFinite(minX) && Double.isFinite(minY) && Double.isFinite(maxX) && Double.isFinite(maxY)
+                    && minX <= maxX && minY <= maxY;
+        }
+    }
+
+    // --- Safety ---
+    private static final double MAX_CANVAS_TEXTURE_DIM = 16000.0; // safety under 16384 GPU limit
+
+    // --- Fonts: bigger / readable ---
+    private static final int FONT_TITLE = 18;
+    private static final int FONT_LABEL = 15;
+    private static final int FONT_VALUE = 18;
+    private static final int FONT_TABLE = 16;
+
+    // --- Measurement panel sizing ---
+    private static final double MEASURE_MIN_W = 380;
+    private static final double MEASURE_PREF_W = 540;
+    private static final double MEASURE_MAX_W = 900;
+
     private final Canvas canvas;
     private final BorderPane root;
     private final HBox toolbar;
+
+    // host pane for canvas so we bind to center area size (prevents huge textures)
+    private final StackPane canvasHost;
+
+    // measurement UI
     private final VBox measurementPanel;
     private final Slider circumferenceSlider;
     private final Label dyLabel;
     private final Label circumferenceLabel;
-    private final TextArea seamLengthsArea;
+    private final TextArea seamTableArea;
 
     private List<PanelCurves> panels;
     private List<RenderedPanel> rendered;
@@ -118,11 +212,14 @@ public final class Canvas2DView {
         this.canvas = new Canvas(1200, 700);
         this.root = new BorderPane();
         this.toolbar = new HBox(8.0);
-        this.measurementPanel = new VBox(8.0);
+
+        this.canvasHost = new StackPane(canvas);
+
+        this.measurementPanel = new VBox(10.0);
         this.circumferenceSlider = new Slider(-200.0, 200.0, 0.0);
         this.dyLabel = new Label("dyMm: 0.0 mm");
         this.circumferenceLabel = new Label("Circumference: 0.0 mm");
-        this.seamLengthsArea = new TextArea();
+        this.seamTableArea = new TextArea();
 
         this.panels = new ArrayList<PanelCurves>();
         this.rendered = new ArrayList<RenderedPanel>();
@@ -157,6 +254,7 @@ public final class Canvas2DView {
         } else {
             this.panels = panels;
         }
+
         this.didInitialFit = false;
         rebuildLayout();
         fitToContent();
@@ -165,102 +263,101 @@ public final class Canvas2DView {
     }
 
     private void initUi() {
+        // --- Toolbar ---
         Button btnTop = new Button("TOP");
         Button btnWaist = new Button("WAIST");
         Button btnBottom = new Button("BOTTOM");
 
-        btnTop.setOnAction(e -> {
-            mode = LayoutMode.TOP;
-            didInitialFit = false;
-            rebuildLayout();
-            fitToContent();
-            redraw();
-            root.requestFocus();
-        });
-
-        btnWaist.setOnAction(e -> {
-            mode = LayoutMode.WAIST;
-            didInitialFit = false;
-            rebuildLayout();
-            fitToContent();
-            redraw();
-            root.requestFocus();
-        });
-
-        btnBottom.setOnAction(e -> {
-            mode = LayoutMode.BOTTOM;
-            didInitialFit = false;
-            rebuildLayout();
-            fitToContent();
-            redraw();
-            root.requestFocus();
-        });
+        btnTop.setOnAction(e -> switchMode(LayoutMode.TOP));
+        btnWaist.setOnAction(e -> switchMode(LayoutMode.WAIST));
+        btnBottom.setOnAction(e -> switchMode(LayoutMode.BOTTOM));
 
         toolbar.getChildren().addAll(btnTop, btnWaist, btnBottom);
         toolbar.setPadding(new Insets(8.0));
         root.setTop(toolbar);
-        root.setCenter(canvas);
 
-        // Setup measurement panel on the right
+        // --- Center ---
+        root.setCenter(canvasHost);
+
+        // --- Right: Measurement panel ---
         Label measureTitle = new Label("Measurements");
-        measureTitle.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
+        measureTitle.setStyle("-fx-font-weight: bold; -fx-font-size: " + FONT_TITLE + "px;");
 
-        Label sliderLabel = new Label("Height from Waist:");
+        Label sliderLabel = new Label("Height from Waist (mm):");
+        sliderLabel.setStyle("-fx-font-size: " + FONT_LABEL + "px;");
+
         circumferenceSlider.setShowTickLabels(true);
         circumferenceSlider.setShowTickMarks(true);
         circumferenceSlider.setMajorTickUnit(50.0);
+        circumferenceSlider.setMinorTickCount(4);
         circumferenceSlider.setBlockIncrement(10.0);
+        circumferenceSlider.setStyle("-fx-font-size: " + FONT_LABEL + "px;");
+
         circumferenceSlider.valueProperty().addListener((obs, oldV, newV) -> {
             dyMm = newV.doubleValue();
             updateMeasurements();
         });
 
-        Label seamTitle = new Label("Seam Lengths (UP/DOWN, Above/Below Waist):");
-        seamTitle.setStyle("-fx-font-weight: bold; -fx-font-size: 12px;");
-        seamLengthsArea.setEditable(false);
-        seamLengthsArea.setPrefRowCount(15);
-        seamLengthsArea.setStyle("-fx-font-family: monospace; -fx-font-size: 10px;");
-        seamLengthsArea.setWrapText(false);
+        dyLabel.setStyle("-fx-font-size: " + FONT_VALUE + "px; -fx-font-weight: bold;");
+        circumferenceLabel.setStyle("-fx-font-size: " + FONT_VALUE + "px; -fx-font-weight: bold;");
 
-        ScrollPane seamScroll = new ScrollPane(seamLengthsArea);
+        Label seamTitle = new Label("Seam matching (curve length from waist):");
+        seamTitle.setStyle("-fx-font-weight: bold; -fx-font-size: " + FONT_LABEL + "px;");
+
+        seamTableArea.setEditable(false);
+        seamTableArea.setWrapText(true);
+        seamTableArea.setPrefRowCount(18);
+        seamTableArea.setStyle("-fx-font-family: monospace; -fx-font-size: " + FONT_TABLE + "px;");
+
+        ScrollPane seamScroll = new ScrollPane(seamTableArea);
         seamScroll.setFitToWidth(true);
-        seamScroll.setPrefHeight(300);
+        seamScroll.setPrefHeight(520);
 
         measurementPanel.getChildren().addAll(
-            measureTitle,
-            sliderLabel,
-            circumferenceSlider,
-            dyLabel,
-            circumferenceLabel,
-            seamTitle,
-            seamScroll
+                measureTitle,
+                sliderLabel,
+                circumferenceSlider,
+                dyLabel,
+                circumferenceLabel,
+                seamTitle,
+                seamScroll
         );
-        measurementPanel.setPadding(new Insets(8.0));
-        measurementPanel.setPrefWidth(320);
+
+        measurementPanel.setPadding(new Insets(10.0));
+        measurementPanel.setMinWidth(MEASURE_MIN_W);
+        measurementPanel.setPrefWidth(MEASURE_PREF_W);
+        measurementPanel.setMaxWidth(MEASURE_MAX_W);
         measurementPanel.setStyle("-fx-background-color: #f9f9f9; -fx-border-color: #ccc; -fx-border-width: 0 0 0 1;");
 
         root.setRight(measurementPanel);
     }
 
     private void bindResize() {
-        canvas.widthProperty().bind(root.widthProperty());
-        canvas.heightProperty().bind(root.heightProperty().subtract(toolbar.heightProperty()));
+        canvas.widthProperty().bind(canvasHost.widthProperty());
+        canvas.heightProperty().bind(canvasHost.heightProperty());
 
-        root.widthProperty().addListener((obs, oldV, newV) -> {
-            if (!didInitialFit) {
-                fitToContent();
-                didInitialFit = true;
+        // Safety clamp (avoid GPU texture crash)
+        canvas.widthProperty().addListener((obs, oldV, newV) -> {
+            if (newV != null && newV.doubleValue() > MAX_CANVAS_TEXTURE_DIM) {
+                canvas.setWidth(MAX_CANVAS_TEXTURE_DIM);
             }
-            redraw();
+        });
+        canvas.heightProperty().addListener((obs, oldV, newV) -> {
+            if (newV != null && newV.doubleValue() > MAX_CANVAS_TEXTURE_DIM) {
+                canvas.setHeight(MAX_CANVAS_TEXTURE_DIM);
+            }
         });
 
-        root.heightProperty().addListener((obs, oldV, newV) -> {
-            if (!didInitialFit) {
-                fitToContent();
-                didInitialFit = true;
-            }
-            redraw();
-        });
+        canvasHost.widthProperty().addListener((obs, oldV, newV) -> onViewportResize());
+        canvasHost.heightProperty().addListener((obs, oldV, newV) -> onViewportResize());
+    }
+
+    private void onViewportResize() {
+        if (!didInitialFit) {
+            fitToContent();
+            didInitialFit = true;
+        }
+        redraw();
     }
 
     private void bindInput() {
@@ -299,12 +396,9 @@ public final class Canvas2DView {
         });
 
         root.addEventFilter(ScrollEvent.SCROLL, e -> {
-            // Ak chceš zoom iba s Ctrl, odkomentuj:
-            // if (!e.isControlDown()) return;
-
             double delta = e.getDeltaY();
             if (delta == 0.0) {
-                delta = e.getTextDeltaY(); // trackpad / ctrl-gesture fallback
+                delta = e.getTextDeltaY();
             }
             if (delta == 0.0) {
                 return;
@@ -318,13 +412,12 @@ public final class Canvas2DView {
             double oldScale = scale;
             double newScale = clamp(scale * factor, 0.02, 200.0);
 
-// svetový bod pod kurzorom pred zoomom
+            // zoom to cursor
             double worldX = (mx - offsetX) / oldScale;
             double worldY = (my - offsetY) / oldScale;
 
             scale = newScale;
 
-// udrž kurzor na tom istom bode
             offsetX = mx - worldX * newScale;
             offsetY = my - worldY * newScale;
 
@@ -338,23 +431,11 @@ public final class Canvas2DView {
                 fitToContent();
                 redraw();
             } else if (code == KeyCode.DIGIT1) {
-                mode = LayoutMode.TOP;
-                didInitialFit = false;
-                rebuildLayout();
-                fitToContent();
-                redraw();
+                switchMode(LayoutMode.TOP);
             } else if (code == KeyCode.DIGIT2) {
-                mode = LayoutMode.WAIST;
-                didInitialFit = false;
-                rebuildLayout();
-                fitToContent();
-                redraw();
+                switchMode(LayoutMode.WAIST);
             } else if (code == KeyCode.DIGIT3) {
-                mode = LayoutMode.BOTTOM;
-                didInitialFit = false;
-                rebuildLayout();
-                fitToContent();
-                redraw();
+                switchMode(LayoutMode.BOTTOM);
             } else if (code == KeyCode.OPEN_BRACKET) {
                 waistGapMm = Math.max(0.0, waistGapMm - 5.0);
                 if (mode == LayoutMode.WAIST) {
@@ -371,6 +452,15 @@ public final class Canvas2DView {
                 }
             }
         });
+    }
+
+    private void switchMode(LayoutMode newMode) {
+        mode = newMode;
+        didInitialFit = false;
+        rebuildLayout();
+        fitToContent();
+        redraw();
+        root.requestFocus();
     }
 
     /**
@@ -413,7 +503,7 @@ public final class Canvas2DView {
             if (left == null || right == null) {
                 Transform2D t = new Transform2D(0.0, 0.0, 0.0, curX, curY);
                 rendered.add(new RenderedPanel(p, t, colorForIndex(i)));
-                curX = curX + 150.0; // arbitrary step
+                curX = curX + 150.0;
                 prevRight = null;
                 continue;
             }
@@ -422,11 +512,9 @@ public final class Canvas2DView {
             double ty;
 
             if (prevRight == null) {
-                // place first panel so that its left endpoint is at (0,0)
                 tx = curX - left.getX();
                 ty = curY - left.getY();
             } else {
-                // snap next.left to prev.right
                 tx = prevRight.getX() - left.getX();
                 ty = prevRight.getY() - left.getY();
             }
@@ -434,9 +522,7 @@ public final class Canvas2DView {
             Transform2D t = new Transform2D(0.0, 0.0, 0.0, tx, ty);
             rendered.add(new RenderedPanel(p, t, colorForIndex(i)));
 
-            // compute transformed right endpoint to carry forward
-            Pt rightT = t.apply(right);
-            prevRight = rightT;
+            prevRight = t.apply(right);
         }
     }
 
@@ -469,20 +555,15 @@ public final class Canvas2DView {
             double pivotX = wLeft.getX();
             double pivotY = wLeft.getY();
 
-            // 1) najprv len "waist na y=0" (bez riešenia x)
             Transform2D t0 = new Transform2D(angleRad, pivotX, pivotY, -pivotX, -pivotY);
-
-            // 2) vypočítaj bounding box panelu po rotácii a posune (t0)
             Bounds b0 = computePanelBounds(p, t0);
 
-            // 3) teraz dorátaj finálny posun tak, aby minX = curX a waist ostala na y=0
             double tx = (-pivotX) + (curX - b0.minX);
             double ty = (-pivotY);
 
             Transform2D t = new Transform2D(angleRad, pivotX, pivotY, tx, ty);
             rendered.add(new RenderedPanel(p, t, colorForIndex(i)));
 
-            // 4) finálny bbox (pre istotu) a posun curX podľa šírky + gap
             Bounds b = computePanelBounds(p, t);
             double width = Math.max(1.0, b.maxX - b.minX);
 
@@ -490,30 +571,14 @@ public final class Canvas2DView {
         }
     }
 
-    private static final class Bounds {
-
-        private final double minX;
-        private final double minY;
-        private final double maxX;
-        private final double maxY;
-
-        private Bounds(double minX, double minY, double maxX, double maxY) {
-            this.minX = minX;
-            this.minY = minY;
-            this.maxX = maxX;
-            this.maxY = maxY;
-        }
-    }
-
     private Bounds computePanelBounds(PanelCurves p, Transform2D t) {
-        double minX = Double.POSITIVE_INFINITY;
-        double minY = Double.POSITIVE_INFINITY;
-        double maxX = Double.NEGATIVE_INFINITY;
-        double maxY = Double.NEGATIVE_INFINITY;
+        BoundsAcc acc = new BoundsAcc(
+                Double.POSITIVE_INFINITY,
+                Double.POSITIVE_INFINITY,
+                Double.NEGATIVE_INFINITY,
+                Double.NEGATIVE_INFINITY
+        );
 
-        BoundsAcc acc = new BoundsAcc(minX, minY, maxX, maxY);
-
-        // zahrň všetko, čo môže definovať reálnu šírku / výšku
         acc.addCurve(p.getTop(), t);
         acc.addCurve(p.getBottom(), t);
         acc.addCurve(p.getWaist(), t);
@@ -524,65 +589,10 @@ public final class Canvas2DView {
         acc.addCurve(p.getSeamToNextDown(), t);
 
         if (!acc.isValid()) {
-            // fallback aby to nikdy nepadlo
             return new Bounds(0.0, 0.0, 200.0, 200.0);
         }
 
         return new Bounds(acc.minX, acc.minY, acc.maxX, acc.maxY);
-    }
-
-    private static final class BoundsAcc {
-
-        private double minX;
-        private double minY;
-        private double maxX;
-        private double maxY;
-
-        private BoundsAcc(double minX, double minY, double maxX, double maxY) {
-            this.minX = minX;
-            this.minY = minY;
-            this.maxX = maxX;
-            this.maxY = maxY;
-        }
-
-        private void addCurve(Curve2D c, Transform2D t) {
-            if (c == null || c.getPoints() == null) {
-                return;
-            }
-            List<Pt> pts = c.getPoints();
-            for (int i = 0; i < pts.size(); i++) {
-                Pt p = pts.get(i);
-                if (p == null) {
-                    continue;
-                }
-                Pt q = t.apply(p);
-                if (q == null) {
-                    continue;
-                }
-                double x = q.getX();
-                double y = q.getY();
-                if (!Double.isFinite(x) || !Double.isFinite(y)) {
-                    continue;
-                }
-                if (x < minX) {
-                    minX = x;
-                }
-                if (y < minY) {
-                    minY = y;
-                }
-                if (x > maxX) {
-                    maxX = x;
-                }
-                if (y > maxY) {
-                    maxY = y;
-                }
-            }
-        }
-
-        private boolean isValid() {
-            return Double.isFinite(minX) && Double.isFinite(minY) && Double.isFinite(maxX) && Double.isFinite(maxY)
-                    && minX <= maxX && minY <= maxY;
-        }
     }
 
     private void redraw() {
@@ -606,7 +616,6 @@ public final class Canvas2DView {
 
         for (int i = 0; i < rendered.size(); i++) {
             RenderedPanel rp = rendered.get(i);
-
             Color base = rp.color;
 
             // seams
@@ -659,16 +668,7 @@ public final class Canvas2DView {
     }
 
     private double worldToScreenY(double y) {
-        // SVG-like (downwards)
         return offsetY + y * scale;
-    }
-
-    private double screenToWorldX(double sx) {
-        return (sx - offsetX) / scale;
-    }
-
-    private double screenToWorldY(double sy) {
-        return (sy - offsetY) / scale;
     }
 
     private double clamp(double v, double min, double max) {
@@ -702,8 +702,8 @@ public final class Canvas2DView {
     }
 
     /**
-     * Pick point from curve by extreme X (minX if left=true, else maxX). This
-     * is robust even if points are not ordered.
+     * Pick point from curve by extreme X (minX if left=true, else maxX). Robust
+     * even if points are not ordered.
      */
     private Pt extremeByX(Curve2D c, boolean left) {
         if (c == null) {
@@ -780,10 +780,10 @@ public final class Canvas2DView {
             maxX = Math.max(maxX, maxXCurve(rp, rp.panel.getTop()));
             maxX = Math.max(maxX, maxXCurve(rp, rp.panel.getBottom()));
             maxX = Math.max(maxX, maxXCurve(rp, rp.panel.getWaist()));
-            maxX = Math.max(maxX, maxXCurve(rp, rp.panel.getSeamToPrevUp()));
-            maxX = Math.max(maxX, maxXCurve(rp, rp.panel.getSeamToPrevDown()));
-            maxX = Math.max(maxX, maxXCurve(rp, rp.panel.getSeamToNextUp()));
-            maxX = Math.max(maxX, maxXCurve(rp, rp.panel.getSeamToNextDown()));
+            maxX = Math.max(maxXCurve(rp, rp.panel.getSeamToPrevUp()), maxX);
+            maxX = Math.max(maxXCurve(rp, rp.panel.getSeamToPrevDown()), maxX);
+            maxX = Math.max(maxXCurve(rp, rp.panel.getSeamToNextUp()), maxX);
+            maxX = Math.max(maxXCurve(rp, rp.panel.getSeamToNextDown()), maxX);
 
             maxY = Math.max(maxY, maxYCurve(rp, rp.panel.getTop()));
             maxY = Math.max(maxY, maxYCurve(rp, rp.panel.getBottom()));
@@ -794,8 +794,7 @@ public final class Canvas2DView {
             maxY = Math.max(maxY, maxYCurve(rp, rp.panel.getSeamToNextDown()));
         }
 
-        if (!Double.isFinite(minX) || !Double.isFinite(minY)
-                || !Double.isFinite(maxX) || !Double.isFinite(maxY)) {
+        if (!Double.isFinite(minX) || !Double.isFinite(minY) || !Double.isFinite(maxX) || !Double.isFinite(maxY)) {
             return;
         }
 
@@ -874,75 +873,97 @@ public final class Canvas2DView {
         return m;
     }
 
-    /**
-     * Update measurement displays based on current dyMm and panels.
-     */
+    // ----------------- Measurements -----------------
     private void updateMeasurements() {
-        // Update dyMm label
         dyLabel.setText(String.format("dyMm: %.1f mm", dyMm));
 
-        // Update circumference
+        // TODO: If circumference becomes 0 for dy<0, fix MeasurementUtils intersection to prefer Down fallback Up.
         double fullCirc = MeasurementUtils.computeFullCircumference(panels, dyMm);
         circumferenceLabel.setText(String.format("Circumference: %.1f mm", fullCirc));
 
-        // Update seam lengths
-        StringBuilder sb = new StringBuilder();
-        if (panels == null || panels.isEmpty()) {
-            sb.append("No panels loaded.");
-        } else {
-            // Compute seam lengths for adjacent panels
-            List<String> seamNames = new ArrayList<>();
-            List<MeasurementUtils.SeamLengths> seamLengths = new ArrayList<>();
-
-            // Expected panel order: A, B, C, D, E, F
-            PanelId[] expectedOrder = {PanelId.A, PanelId.B, PanelId.C, PanelId.D, PanelId.E, PanelId.F};
-            
-            for (int i = 0; i < expectedOrder.length - 1; i++) {
-                PanelId fromId = expectedOrder[i];
-                PanelId toId = expectedOrder[i + 1];
-                
-                PanelCurves fromPanel = findPanel(fromId);
-                PanelCurves toPanel = findPanel(toId);
-                
-                if (fromPanel != null) {
-                    String seamName = fromId.name() + toId.name();
-                    MeasurementUtils.SeamLengths lengths = MeasurementUtils.computeSeamLengths(fromPanel, toPanel, seamName);
-                    seamNames.add(seamName);
-                    seamLengths.add(lengths);
-                }
-            }
-
-            // Also add FA seam (F to A, closing the loop)
-            PanelCurves panelF = findPanel(PanelId.F);
-            PanelCurves panelA = findPanel(PanelId.A);
-            if (panelF != null) {
-                String seamName = "FA";
-                MeasurementUtils.SeamLengths lengths = MeasurementUtils.computeSeamLengths(panelF, panelA, seamName);
-                seamNames.add(seamName);
-                seamLengths.add(lengths);
-            }
-
-            // Format the output
-            final int tableWidth = 6 + 10 + 10 + 10 + 10 + 4; // name + 4 columns + spaces
-            sb.append(String.format("%-6s %10s %10s %10s %10s\n", "Seam", "UP_Above", "UP_Below", "DN_Above", "DN_Below"));
-            sb.append("─".repeat(tableWidth)).append("\n");
-            
-            for (MeasurementUtils.SeamLengths sl : seamLengths) {
-                sb.append(String.format("%-6s %10.1f %10.1f %10.1f %10.1f\n",
-                    sl.getSeamName(),
-                    sl.getUpAbove(),
-                    sl.getUpBelow(),
-                    sl.getDownAbove(),
-                    sl.getDownBelow()
-                ));
-            }
-        }
-        seamLengthsArea.setText(sb.toString());
+        seamTableArea.setText(buildSeamTablesText());
     }
 
     /**
-     * Find a panel by its ID.
+     * Two tables: TOP: from waist upwards BOTTOM: from waist downwards
+     *
+     * Rows: AB, BC, CD, DE, EF Columns: Left_UP, Right_UP, Diff_UP, Left_DOWN,
+     * Right_DOWN, Diff_DOWN
+     *
+     * Left seam = (A->B) measured on left panel as TO_NEXT Right seam = (B->A)
+     * measured on right panel as TO_PREV
      */
+    private String buildSeamTablesText() {
+        if (panels == null || panels.isEmpty()) {
+            return "No panels loaded.";
+        }
+
+        PanelId[] ids = {PanelId.A, PanelId.B, PanelId.C, PanelId.D, PanelId.E, PanelId.F};
+
+        StringBuilder sb = new StringBuilder();
+
+        sb.append("TOP (from waist up)\n");
+        sb.append(seamHeader());
+        sb.append(seamSep());
+        for (int i = 0; i < ids.length - 1; i++) {
+            sb.append(seamRow(ids[i], ids[i + 1], true)).append('\n');
+        }
+
+        sb.append("\nBOTTOM (from waist down)\n");
+        sb.append(seamHeader());
+        sb.append(seamSep());
+        for (int i = 0; i < ids.length - 1; i++) {
+            sb.append(seamRow(ids[i], ids[i + 1], false)).append('\n');
+        }
+
+        return sb.toString();
+    }
+
+    private String seamHeader() {
+        return String.format("%-3s %10s %10s %10s %10s %10s %10s\n",
+                "Seam",
+                "Left_UP", "Right_UP", "Diff_UP",
+                "Left_DN", "Right_DN", "Diff_DN"
+        );
+    }
+
+    private String seamSep() {
+        return "--------------------------------------------------------------------------------\n";
+    }
+
+    private String seamRow(PanelId leftId, PanelId rightId, boolean top) {
+        String name = leftId.name() + rightId.name();
+
+        PanelCurves left = findPanel(leftId);
+        PanelCurves right = findPanel(rightId);
+
+        if (left == null || right == null) {
+            return String.format("%-3s %10s %10s %10s %10s %10s %10s",
+                    name, "-", "-", "-", "-", "-", "-"
+            );
+        }
+
+        SeamSplit lUp = MeasurementUtils.measureSeamSplitAtWaist(left, SeamSide.TO_NEXT, true);
+        SeamSplit lDn = MeasurementUtils.measureSeamSplitAtWaist(left, SeamSide.TO_NEXT, false);
+
+        SeamSplit rUp = MeasurementUtils.measureSeamSplitAtWaist(right, SeamSide.TO_PREV, true);
+        SeamSplit rDn = MeasurementUtils.measureSeamSplitAtWaist(right, SeamSide.TO_PREV, false);
+
+        double leftUp = top ? lUp.above : lUp.below;
+        double rightUp = top ? rUp.above : rUp.below;
+        double diffUp = leftUp - rightUp;
+
+        double leftDn = top ? lDn.above : lDn.below;
+        double rightDn = top ? rDn.above : rDn.below;
+        double diffDn = leftDn - rightDn;
+
+        return String.format("%-3s %10.1f %10.1f %10.1f %10.1f %10.1f %10.1f",
+                name,
+                leftUp, rightUp, diffUp,
+                leftDn, rightDn, diffDn
+        );
+    }
+
     private PanelCurves findPanel(PanelId id) {
         if (panels == null) {
             return null;
