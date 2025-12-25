@@ -53,47 +53,47 @@ public class MeasurementUtilsTest {
         assertEquals(0.0, result, 0.01, "Null curve should return 0");
     }
 
-    // Commented out - computeCurveLength method not yet implemented
-    // @Test
-    // public void testComputeCurveLength_SimpleLine() {
-    //     // Create a simple horizontal line: (0,0) -> (100,0)
-    //     List<Pt> points = Arrays.asList(
-    //         new Pt(0, 0),
-    //         new Pt(100, 0)
-    //     );
-    //     Curve2D curve = new Curve2D("test_line", points);
-    //     
-    //     double result = MeasurementUtils.computeCurveLength(curve);
-    //     assertEquals(100.0, result, 0.01, "Length of horizontal line should be 100");
-    // }
+    // Test computeCurveLength method
+    @Test
+    public void testComputeCurveLength_SimpleLine() {
+        // Create a simple horizontal line: (0,0) -> (100,0)
+        List<Pt> points = Arrays.asList(
+            new Pt(0, 0),
+            new Pt(100, 0)
+        );
+        Curve2D curve = new Curve2D("test_line", points);
+        
+        double result = MeasurementUtils.computeCurveLength(curve);
+        assertEquals(100.0, result, 0.01, "Length of horizontal line should be 100");
+    }
 
-    // @Test
-    // public void testComputeCurveLength_Diagonal() {
-    //     // Create a 3-4-5 right triangle: (0,0) -> (3,4)
-    //     List<Pt> points = Arrays.asList(
-    //         new Pt(0, 0),
-    //         new Pt(3, 4)
-    //     );
-    //     Curve2D curve = new Curve2D("test_diagonal", points);
-    //     
-    //     double result = MeasurementUtils.computeCurveLength(curve);
-    //     assertEquals(5.0, result, 0.01, "Length of 3-4-5 triangle hypotenuse should be 5");
-    // }
+    @Test
+    public void testComputeCurveLength_Diagonal() {
+        // Create a 3-4-5 right triangle: (0,0) -> (3,4)
+        List<Pt> points = Arrays.asList(
+            new Pt(0, 0),
+            new Pt(3, 4)
+        );
+        Curve2D curve = new Curve2D("test_diagonal", points);
+        
+        double result = MeasurementUtils.computeCurveLength(curve);
+        assertEquals(5.0, result, 0.01, "Length of 3-4-5 triangle hypotenuse should be 5");
+    }
 
-    // @Test
-    // public void testComputeCurveLength_MultiSegment() {
-    //     // Create a polyline with multiple segments
-    //     List<Pt> points = Arrays.asList(
-    //         new Pt(0, 0),
-    //         new Pt(10, 0),
-    //         new Pt(10, 10),
-    //         new Pt(20, 10)
-    //     );
-    //     Curve2D curve = new Curve2D("test_multi", points);
-    //     
-    //     double result = MeasurementUtils.computeCurveLength(curve);
-    //     assertEquals(30.0, result, 0.01, "Total length should be 10+10+10=30");
-    // }
+    @Test
+    public void testComputeCurveLength_MultiSegment() {
+        // Create a polyline with multiple segments
+        List<Pt> points = Arrays.asList(
+            new Pt(0, 0),
+            new Pt(10, 0),
+            new Pt(10, 10),
+            new Pt(20, 10)
+        );
+        Curve2D curve = new Curve2D("test_multi", points);
+        
+        double result = MeasurementUtils.computeCurveLength(curve);
+        assertEquals(30.0, result, 0.01, "Total length should be 10+10+10=30");
+    }
 
     @Test
     public void testComputePanelWidthAtDy() {
@@ -502,5 +502,111 @@ public class MeasurementUtilsTest {
         double width = MeasurementUtils.computePanelWidthAtDy(panel, 0.0).orElse(-1.0);
         assertEquals(PANEL_WIDTH, width, 0.01, 
             "Width at waist should work with epsilon tolerance for floating-point precision");
+    }
+
+    @Test
+    public void testComputeHalfWaistCircumference() {
+        // Create panels with known waist curve lengths
+        // Panel 1: waist from (0,100) to (50,100) - length = 50
+        List<Pt> waist1Points = Arrays.asList(
+            new Pt(0, 100),
+            new Pt(50, 100)
+        );
+        Curve2D waist1 = new Curve2D("waist1", waist1Points);
+        PanelCurves panel1 = new PanelCurves(
+            PanelId.A, null, null, waist1, null, null, null, null
+        );
+
+        // Panel 2: waist from (0,100) to (30,100) - length = 30
+        List<Pt> waist2Points = Arrays.asList(
+            new Pt(0, 100),
+            new Pt(30, 100)
+        );
+        Curve2D waist2 = new Curve2D("waist2", waist2Points);
+        PanelCurves panel2 = new PanelCurves(
+            PanelId.B, null, null, waist2, null, null, null, null
+        );
+
+        List<PanelCurves> panels = Arrays.asList(panel1, panel2);
+        
+        // Half waist circumference should be 50 + 30 = 80
+        double halfCirc = MeasurementUtils.computeHalfWaistCircumference(panels);
+        assertEquals(80.0, halfCirc, 0.01, "Half waist circumference should be sum of waist lengths");
+    }
+
+    @Test
+    public void testComputeFullWaistCircumference() {
+        // Create panels with known waist curve lengths
+        List<Pt> waist1Points = Arrays.asList(
+            new Pt(0, 100),
+            new Pt(50, 100)
+        );
+        Curve2D waist1 = new Curve2D("waist1", waist1Points);
+        PanelCurves panel1 = new PanelCurves(
+            PanelId.A, null, null, waist1, null, null, null, null
+        );
+
+        List<Pt> waist2Points = Arrays.asList(
+            new Pt(0, 100),
+            new Pt(30, 100)
+        );
+        Curve2D waist2 = new Curve2D("waist2", waist2Points);
+        PanelCurves panel2 = new PanelCurves(
+            PanelId.B, null, null, waist2, null, null, null, null
+        );
+
+        List<PanelCurves> panels = Arrays.asList(panel1, panel2);
+        
+        // Full waist circumference should be 2 * (50 + 30) = 160
+        double fullCirc = MeasurementUtils.computeFullWaistCircumference(panels);
+        assertEquals(160.0, fullCirc, 0.01, "Full waist circumference should be 2x half");
+    }
+
+    @Test
+    public void testComputeFullCircumference_AtWaistUsesWaistCurves() {
+        // Create a panel where the waist curve length differs from the width measurement
+        // Waist curve: horizontal line from (0,100) to (40,100) - length = 40
+        List<Pt> waistPoints = Arrays.asList(
+            new Pt(0, 100),
+            new Pt(40, 100)
+        );
+        Curve2D waist = new Curve2D("waist", waistPoints);
+
+        // Seams at x=0 and x=50 (so width would be 50)
+        List<Pt> leftPoints = Arrays.asList(
+            new Pt(0, 0),
+            new Pt(0, 200)
+        );
+        Curve2D leftSeam = new Curve2D("left", leftPoints);
+
+        List<Pt> rightPoints = Arrays.asList(
+            new Pt(50, 0),
+            new Pt(50, 200)
+        );
+        Curve2D rightSeam = new Curve2D("right", rightPoints);
+
+        PanelCurves panel = new PanelCurves(
+            PanelId.A, null, null, waist, leftSeam, null, rightSeam, null
+        );
+        List<PanelCurves> panels = Arrays.asList(panel);
+
+        // At dyMm = 0.0, should use waist curve length (40), not width (50)
+        double circAtWaist = MeasurementUtils.computeFullCircumference(panels, 0.0);
+        assertEquals(80.0, circAtWaist, 0.01, 
+            "At dyMm=0.0, should use waist curve length (40*2=80), not width");
+
+        // At dyMm = 0.0 with negative zero, should also use waist curve length
+        double circAtNegativeZero = MeasurementUtils.computeFullCircumference(panels, -0.0);
+        assertEquals(80.0, circAtNegativeZero, 0.01, 
+            "At dyMm=-0.0, should use waist curve length");
+
+        // At dyMm != 0, should use width-based measurement
+        double circAboveWaist = MeasurementUtils.computeFullCircumference(panels, 10.0);
+        assertEquals(100.0, circAboveWaist, 0.01, 
+            "At dyMm=10.0, should use width measurement (50*2=100)");
+
+        double circBelowWaist = MeasurementUtils.computeFullCircumference(panels, -10.0);
+        assertEquals(100.0, circBelowWaist, 0.01, 
+            "At dyMm=-10.0, should use width measurement (50*2=100)");
     }
 }
