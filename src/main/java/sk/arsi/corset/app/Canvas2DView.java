@@ -611,12 +611,21 @@ public final class Canvas2DView {
     }
 
     private static class SeamHighlight {
-        boolean highlightTop;
-        boolean highlightBottom;
+        final boolean highlightUpTop;
+        final boolean highlightUpBottom;
+        final boolean highlightDownTop;
+        final boolean highlightDownBottom;
 
-        SeamHighlight(boolean highlightTop, boolean highlightBottom) {
-            this.highlightTop = highlightTop;
-            this.highlightBottom = highlightBottom;
+        SeamHighlight(boolean highlightUpTop, boolean highlightUpBottom, 
+                      boolean highlightDownTop, boolean highlightDownBottom) {
+            this.highlightUpTop = highlightUpTop;
+            this.highlightUpBottom = highlightUpBottom;
+            this.highlightDownTop = highlightDownTop;
+            this.highlightDownBottom = highlightDownBottom;
+        }
+        
+        static SeamHighlight none() {
+            return new SeamHighlight(false, false, false, false);
         }
     }
 
@@ -630,16 +639,28 @@ public final class Canvas2DView {
         double tolerance = measurementsView.getTolerance();
 
         for (SeamMeasurementData data : cachedMeasurements) {
-            boolean topExceeds = data.topExceedsTolerance(tolerance);
-            boolean bottomExceeds = data.bottomExceedsTolerance(tolerance);
+            // Check which curves and portions exceed tolerance
+            boolean upTopExceeds = Math.abs(data.getDiffUpTop()) > tolerance;
+            boolean upBottomExceeds = Math.abs(data.getDiffUpBottom()) > tolerance;
+            boolean downTopExceeds = Math.abs(data.getDiffDownTop()) > tolerance;
+            boolean downBottomExceeds = Math.abs(data.getDiffDownBottom()) > tolerance;
             
-            // Store highlighting for both seams in the pair
-            // e.g., for AB: both A->B and B->A should be highlighted
+            // For seam pair AB:
+            // - Left panel A uses TO_NEXT (A->B): seamToNextUp and seamToNextDown
+            // - Right panel B uses TO_PREV (B->A): seamToPrevUp and seamToPrevDown
+            // Both should be highlighted for the same curve type (UP or DOWN) and portion (TOP or BOTTOM)
+            
+            // Note: AA and FF are outer seams (edges of the half-corset)
+            // They are never part of measurement pairs and will be excluded from highlighting
+            // via null neighborId check in drawSeamWithHighlight
+            
             String leftToRight = data.getLeftPanel().name() + "->" + data.getRightPanel().name();
             String rightToLeft = data.getRightPanel().name() + "->" + data.getLeftPanel().name();
             
-            map.put(leftToRight, new SeamHighlight(topExceeds, bottomExceeds));
-            map.put(rightToLeft, new SeamHighlight(topExceeds, bottomExceeds));
+            SeamHighlight highlight = new SeamHighlight(upTopExceeds, upBottomExceeds, 
+                                                        downTopExceeds, downBottomExceeds);
+            map.put(leftToRight, highlight);
+            map.put(rightToLeft, highlight);
         }
 
         return map;
@@ -664,25 +685,42 @@ public final class Canvas2DView {
             neighborId = getNextPanelId(panelId);
         }
 
-        if (curve == null || neighborId == null) {
+        // Default color: black
+        Color seamColor = Color.web("#222222");
+        
+        // If curve is null, nothing to draw
+        if (curve == null) {
+            return;
+        }
+        
+        // If neighborId is null, this is an outer seam (AA or FF) - always draw in black
+        if (neighborId == null) {
+            strokeCurve(g, rp, curve, seamColor, 1.5);
             return;
         }
 
         String seamKey = panelId.name() + "->" + neighborId.name();
         SeamHighlight highlight = highlightMap.get(seamKey);
-
-        // Default color: black
-        Color seamColor = Color.web("#222222");
         
         if (highlight != null) {
-            // Check if we should highlight based on portion
-            // Split curve at waist and draw with appropriate colors
-            double waistY = MeasurementUtils.computePanelWaistY0(rp.panel.getWaist());
+            // Determine which portions to highlight based on curve type (UP or DOWN)
+            boolean highlightTop;
+            boolean highlightBottom;
             
-            if (highlight.highlightTop || highlight.highlightBottom) {
+            if (isUp) {
+                highlightTop = highlight.highlightUpTop;
+                highlightBottom = highlight.highlightUpBottom;
+            } else {
+                highlightTop = highlight.highlightDownTop;
+                highlightBottom = highlight.highlightDownBottom;
+            }
+            
+            if (highlightTop || highlightBottom) {
+                // Split curve at waist and draw with appropriate colors
+                double waistY = MeasurementUtils.computePanelWaistY0(rp.panel.getWaist());
                 strokeCurveSplit(g, rp, curve, waistY, 
-                        highlight.highlightTop ? Color.RED : seamColor,
-                        highlight.highlightBottom ? Color.RED : seamColor,
+                        highlightTop ? Color.RED : seamColor,
+                        highlightBottom ? Color.RED : seamColor,
                         1.5);
                 return;
             }
@@ -712,23 +750,34 @@ public final class Canvas2DView {
         g.setLineWidth(width);
 
         for (int i = 0; i < pts.size() - 1; i++) {
-            Pt p0 = rp.transform.apply(pts.get(i));
-            Pt p1 = rp.transform.apply(pts.get(i + 1));
-
+            // Get original points in panel-local coordinates
+            Pt localP0 = pts.get(i);
+            Pt localP1 = pts.get(i + 1);
+            
+            if (localP0 == null || localP1 == null) {
+                continue;
+            }
+            
+            // Get Y coordinates in panel-local coordinates for comparison with waistY
+            double localY0 = localP0.getY();
+            double localY1 = localP1.getY();
+            
+            // Determine if points are above or below waist in panel-local coordinates
+            boolean p0Above = localY0 < waistY;
+            boolean p1Above = localY1 < waistY;
+            
+            // Transform points to world coordinates for rendering
+            Pt p0 = rp.transform.apply(localP0);
+            Pt p1 = rp.transform.apply(localP1);
+            
             if (p0 == null || p1 == null) {
                 continue;
             }
 
-            double y0 = p0.getY();
-            double y1 = p1.getY();
-            
-            boolean p0Above = y0 < waistY;
-            boolean p1Above = y1 < waistY;
-
             double sx0 = worldToScreenX(p0.getX());
-            double sy0 = worldToScreenY(y0);
+            double sy0 = worldToScreenY(p0.getY());
             double sx1 = worldToScreenX(p1.getX());
-            double sy1 = worldToScreenY(y1);
+            double sy1 = worldToScreenY(p1.getY());
 
             if (p0Above == p1Above) {
                 // Segment is entirely above or below waist
@@ -736,11 +785,20 @@ public final class Canvas2DView {
                 g.setStroke(color);
                 g.strokeLine(sx0, sy0, sx1, sy1);
             } else {
-                // Segment crosses waist - split it
-                double t = (waistY - y0) / (y1 - y0);
-                double xSplit = p0.getX() + t * (p1.getX() - p0.getX());
-                double sxSplit = worldToScreenX(xSplit);
-                double sySplit = worldToScreenY(waistY);
+                // Segment crosses waist - split it in panel-local coordinates
+                double t = (waistY - localY0) / (localY1 - localY0);
+                double localXSplit = localP0.getX() + t * (localP1.getX() - localP0.getX());
+                
+                // Transform the split point to world coordinates
+                Pt localSplit = new Pt(localXSplit, waistY);
+                Pt worldSplit = rp.transform.apply(localSplit);
+                
+                if (worldSplit == null) {
+                    continue;
+                }
+                
+                double sxSplit = worldToScreenX(worldSplit.getX());
+                double sySplit = worldToScreenY(worldSplit.getY());
 
                 if (p0Above) {
                     g.setStroke(aboveColor);
