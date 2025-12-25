@@ -35,6 +35,42 @@ public final class MeasurementUtils {
         }
     }
 
+    // -------------------- Curve length --------------------
+    /**
+     * Compute the total length of a curve by summing distances between consecutive points.
+     *
+     * @param curve The curve to measure
+     * @return Total length in mm, or 0.0 if curve is null or has fewer than 2 points
+     */
+    public static double computeCurveLength(Curve2D curve) {
+        if (curve == null || curve.getPoints() == null || curve.getPoints().size() < 2) {
+            return 0.0;
+        }
+
+        List<Pt> points = curve.getPoints();
+        double length = 0.0;
+
+        for (int i = 0; i < points.size() - 1; i++) {
+            Pt p0 = points.get(i);
+            Pt p1 = points.get(i + 1);
+            if (p0 == null || p1 == null) {
+                continue;
+            }
+
+            double x0 = p0.getX(), y0 = p0.getY();
+            double x1 = p1.getX(), y1 = p1.getY();
+            if (!Double.isFinite(x0) || !Double.isFinite(y0) || !Double.isFinite(x1) || !Double.isFinite(y1)) {
+                continue;
+            }
+
+            double dx = x1 - x0;
+            double dy = y1 - y0;
+            length += Math.sqrt(dx * dx + dy * dy);
+        }
+
+        return length;
+    }
+
     // -------------------- Waist reference --------------------
     public static double computePanelWaistY0(Curve2D waist) {
         if (waist == null || waist.getPoints() == null || waist.getPoints().isEmpty()) {
@@ -139,6 +175,38 @@ public final class MeasurementUtils {
         double above = computeCurveLengthPortion(seam, waistY, true);
         double below = computeCurveLengthPortion(seam, waistY, false);
         return new SeamSplit(above, below);
+    }
+
+    // -------------------- Waist circumference --------------------
+    /**
+     * Compute half waist circumference by summing waist curve lengths.
+     * This is used when dyMm == 0 for robust measurement at the waist.
+     *
+     * @param panels List of panels
+     * @return Sum of all waist curve lengths
+     */
+    public static double computeHalfWaistCircumference(List<PanelCurves> panels) {
+        if (panels == null || panels.isEmpty()) {
+            return 0.0;
+        }
+
+        double sum = 0.0;
+        for (PanelCurves p : panels) {
+            if (p != null && p.getWaist() != null) {
+                sum += computeCurveLength(p.getWaist());
+            }
+        }
+        return sum;
+    }
+
+    /**
+     * Compute full waist circumference (2 * half) by summing waist curve lengths.
+     *
+     * @param panels List of panels
+     * @return 2 * sum of all waist curve lengths
+     */
+    public static double computeFullWaistCircumference(List<PanelCurves> panels) {
+        return 2.0 * computeHalfWaistCircumference(panels);
     }
 
     // -------------------- Circumference (A..F * 2) --------------------
@@ -288,7 +356,20 @@ public final class MeasurementUtils {
         return sum;
     }
 
+    /**
+     * Full circumference (2 * half). Uses strict width-based computation for dyMm != 0,
+     * and waist curve lengths for dyMm == 0.
+     *
+     * @param panels List of panels
+     * @param dyMm Distance from waist (0 at waist, positive upward, negative downward)
+     * @return Full circumference in mm
+     */
     public static double computeFullCircumference(List<PanelCurves> panels, double dyMm) {
+        // Special case: at waist (dyMm == 0 or -0.0), use waist curve lengths
+        if (dyMm == 0.0) {
+            return computeFullWaistCircumference(panels);
+        }
+        // For all other dy values, use strict width-based measurement
         return 2.0 * computeHalfCircumference(panels, dyMm);
     }
 
@@ -393,5 +474,33 @@ public final class MeasurementUtils {
      */
     public static DyRange computeValidDyRange(List<PanelCurves> panels) {
         return computeValidDyRange(panels, 2.0);
+    }
+
+    /**
+     * Check if a given dyMm value is valid for all panels.
+     * Returns true if dyMm == 0 (waist always valid) or if all panels have measurable width at that dy.
+     *
+     * @param panels List of panels
+     * @param dyMm Distance from waist to check
+     * @return true if dyMm is valid for all panels
+     */
+    public static boolean isDyValidForAllPanels(List<PanelCurves> panels, double dyMm) {
+        if (panels == null || panels.isEmpty()) {
+            return false;
+        }
+
+        // Special case: dyMm == 0 is always valid (uses waist curve lengths)
+        if (dyMm == 0.0) {
+            return true;
+        }
+
+        // For other dyMm values, check if all panels have measurable width
+        for (PanelCurves panel : panels) {
+            OptionalDouble width = computePanelWidthAtDy(panel, dyMm);
+            if (width.isEmpty()) {
+                return false;
+            }
+        }
+        return true;
     }
 }
