@@ -217,8 +217,10 @@ public final class MeasurementUtils {
      * Width of one panel at dyMm (0 at waist, + up, - down). Width = xRight -
      * xLeft at y = waistY - dyMm.
      *
-     * Left boundary = seamToPrev (prefer Down, fallback Up) Right boundary =
-     * seamToNext (prefer Down, fallback Up)
+     * Left boundary = seamToPrev (prefer based on direction) Right boundary =
+     * seamToNext (prefer based on direction)
+     * For positive dyMm (upwards): prefer UP curves, fallback to DOWN
+     * For negative dyMm (downwards): prefer DOWN curves, fallback to UP
      */
     public static OptionalDouble computePanelWidthAtDy(PanelCurves panel, double dyMm) {
         if (panel == null) {
@@ -228,9 +230,20 @@ public final class MeasurementUtils {
         double waistY = computePanelWaistY0(panel.getWaist());
         double y = waistY - dyMm;
 
-        // Prefer DOWN curves because often they are the "real" long seam. Fallback to UP.
-        Curve2D left = preferNonEmpty(panel.getSeamToPrevDown(), panel.getSeamToPrevUp());
-        Curve2D right = preferNonEmpty(panel.getSeamToNextDown(), panel.getSeamToNextUp());
+        // Choose curves based on direction:
+        // For positive dyMm (measuring upwards), prefer UP curves
+        // For negative dyMm (measuring downwards), prefer DOWN curves
+        Curve2D left, right;
+        if (dyMm >= 0) {
+            // Measuring upwards: prefer UP curves
+            left = preferNonEmpty(panel.getSeamToPrevUp(), panel.getSeamToPrevDown());
+            right = preferNonEmpty(panel.getSeamToNextUp(), panel.getSeamToNextDown());
+        } else {
+            // Measuring downwards: prefer DOWN curves
+            left = preferNonEmpty(panel.getSeamToPrevDown(), panel.getSeamToPrevUp());
+            right = preferNonEmpty(panel.getSeamToNextDown(), panel.getSeamToNextUp());
+        }
+        
         if (left == null || right == null) {
             return OptionalDouble.empty();
         }
@@ -265,5 +278,108 @@ public final class MeasurementUtils {
 
     public static double computeFullCircumference(List<PanelCurves> panels, double dyMm) {
         return 2.0 * computeHalfCircumference(panels, dyMm);
+    }
+
+    /**
+     * Represents the valid range for dyMm measurements.
+     * 
+     * This immutable class encapsulates the maximum measurable distances
+     * from the waist where all panels in a corset have measurable widths.
+     * The range is asymmetric because UP curves (above waist) and DOWN curves
+     * (below waist) may have different extents.
+     * 
+     * This class is part of the public API and is returned by
+     * {@link #computeValidDyRange(List, double)}.
+     */
+    public static final class DyRange {
+        private final double maxUpDy;    // Maximum positive dyMm (upwards)
+        private final double maxDownDy;  // Maximum absolute negative dyMm (downwards, stored as positive)
+
+        public DyRange(double maxUpDy, double maxDownDy) {
+            this.maxUpDy = maxUpDy;
+            this.maxDownDy = maxDownDy;
+        }
+
+        /**
+         * @return Maximum distance upward from waist where measurements are valid (positive value in mm)
+         */
+        public double getMaxUpDy() {
+            return maxUpDy;
+        }
+
+        /**
+         * @return Maximum distance downward from waist where measurements are valid (positive value in mm)
+         */
+        public double getMaxDownDy() {
+            return maxDownDy;
+        }
+    }
+
+    // Maximum distance to search for valid measurement range in mm
+    private static final double MAX_DY_SEARCH_DISTANCE = 1000.0;
+    
+    // Minimum step size for dy range computation in mm
+    private static final double MIN_STEP_SIZE = 0.5;
+
+    /**
+     * Computes the valid dy range where ALL panels have measurable width.
+     * Samples dy in small steps from 0 outward until any panel width becomes empty.
+     * 
+     * @param panels List of panels to measure
+     * @param stepMm Step size for sampling (default 2mm recommended)
+     * @return DyRange with maxUpDy (positive) and maxDownDy (absolute value of max negative)
+     */
+    public static DyRange computeValidDyRange(List<PanelCurves> panels, double stepMm) {
+        if (panels == null || panels.isEmpty()) {
+            return new DyRange(0.0, 0.0);
+        }
+
+        // Ensure step is positive and reasonable
+        stepMm = Math.max(MIN_STEP_SIZE, Math.abs(stepMm));
+
+        // Find maximum upward range (positive dyMm)
+        double maxUpDy = 0.0;
+        for (double dy = stepMm; dy <= MAX_DY_SEARCH_DISTANCE; dy += stepMm) {
+            boolean allValid = true;
+            for (PanelCurves panel : panels) {
+                OptionalDouble width = computePanelWidthAtDy(panel, dy);
+                if (width.isEmpty()) {
+                    allValid = false;
+                    break;
+                }
+            }
+            if (allValid) {
+                maxUpDy = dy;
+            } else {
+                break; // Stop at first invalid step
+            }
+        }
+
+        // Find maximum downward range (negative dyMm)
+        double maxDownDy = 0.0;
+        for (double dy = -stepMm; dy >= -MAX_DY_SEARCH_DISTANCE; dy -= stepMm) {
+            boolean allValid = true;
+            for (PanelCurves panel : panels) {
+                OptionalDouble width = computePanelWidthAtDy(panel, dy);
+                if (width.isEmpty()) {
+                    allValid = false;
+                    break;
+                }
+            }
+            if (allValid) {
+                maxDownDy = Math.abs(dy); // Store as positive
+            } else {
+                break; // Stop at first invalid step
+            }
+        }
+
+        return new DyRange(maxUpDy, maxDownDy);
+    }
+
+    /**
+     * Computes the valid dy range with default step size of 2mm.
+     */
+    public static DyRange computeValidDyRange(List<PanelCurves> panels) {
+        return computeValidDyRange(panels, 2.0);
     }
 }
