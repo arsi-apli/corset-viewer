@@ -170,7 +170,7 @@ public class MeasurementUtilsTest {
         
         List<PanelCurves> panels = Arrays.asList(panel);
         
-        // At dyMm=0, should use waist curve length (50mm) * 2 panels = 100mm
+        // At dyMm=0, should use waist curve length (50mm) * 2 (for full circ) = 100mm
         double fullCirc = MeasurementUtils.computeFullCircumference(panels, 0.0);
         assertEquals(100.0, fullCirc, 0.01, 
             "At dyMm=0, should use waist curve length (50) * 2 = 100");
@@ -237,8 +237,10 @@ public class MeasurementUtilsTest {
             "dyMm=0 should be valid");
         
         // dyMm=30 should be valid (within UP curve range)
+        // UP curves cover y=50 to y=100 (waist at y=100)
+        // dyMm=30 means measuring at y = waistY - dyMm = 100 - 30 = 70, which is in range
         assertTrue(MeasurementUtils.isDyValidForAllPanels(panels, 30.0),
-            "dyMm=30 should be valid (UP curves cover y=50 to y=100, dy up to 50)");
+            "dyMm=30 should be valid (measures at y=70, within UP curve range y=50..100)");
         
         // dyMm=100 should be invalid (beyond UP curve range)
         assertFalse(MeasurementUtils.isDyValidForAllPanels(panels, 100.0),

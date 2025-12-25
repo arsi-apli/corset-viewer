@@ -366,6 +366,7 @@ public final class MeasurementUtils {
      */
     public static double computeFullCircumference(List<PanelCurves> panels, double dyMm) {
         // Special case: at waist (dyMm == 0 or -0.0), use waist curve lengths
+        // Note: In Java, 0.0 == -0.0 evaluates to true, so this handles both cases
         if (dyMm == 0.0) {
             return computeFullWaistCircumference(panels);
         }
