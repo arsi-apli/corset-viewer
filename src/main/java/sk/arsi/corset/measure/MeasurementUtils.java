@@ -293,6 +293,9 @@ public final class MeasurementUtils {
         }
     }
 
+    // Maximum distance to search for valid measurement range in mm
+    private static final double MAX_DY_SEARCH_DISTANCE = 1000.0;
+
     /**
      * Computes the valid dy range where ALL panels have measurable width.
      * Samples dy in small steps from 0 outward until any panel width becomes empty.
@@ -311,7 +314,7 @@ public final class MeasurementUtils {
 
         // Find maximum upward range (positive dyMm)
         double maxUpDy = 0.0;
-        for (double dy = stepMm; dy <= 1000.0; dy += stepMm) {
+        for (double dy = stepMm; dy <= MAX_DY_SEARCH_DISTANCE; dy += stepMm) {
             boolean allValid = true;
             for (PanelCurves panel : panels) {
                 OptionalDouble width = computePanelWidthAtDy(panel, dy);
@@ -329,7 +332,7 @@ public final class MeasurementUtils {
 
         // Find maximum downward range (negative dyMm)
         double maxDownDy = 0.0;
-        for (double dy = -stepMm; dy >= -1000.0; dy -= stepMm) {
+        for (double dy = -stepMm; dy >= -MAX_DY_SEARCH_DISTANCE; dy -= stepMm) {
             boolean allValid = true;
             for (PanelCurves panel : panels) {
                 OptionalDouble width = computePanelWidthAtDy(panel, dy);

@@ -232,15 +232,18 @@ public class MeasurementUtilsTest {
         // Test that width measurement works for both positive and negative dyMm
         // Create a panel with separate UP and DOWN curves
         
+        final double WAIST_Y = 100.0; // Waist at y=100 in panel-local coordinates
+        final double PANEL_WIDTH = 50.0;
+        
         List<Pt> waistPoints = Arrays.asList(
-            new Pt(0, 100),
-            new Pt(50, 100)
+            new Pt(0, WAIST_Y),
+            new Pt(PANEL_WIDTH, WAIST_Y)
         );
         Curve2D waist = new Curve2D("waist", waistPoints);
         
         // Left DOWN seam (vertical, covers waist and below: y=100 to y=200)
         List<Pt> leftDownPoints = Arrays.asList(
-            new Pt(0, 100),
+            new Pt(0, WAIST_Y),
             new Pt(0, 200)
         );
         Curve2D leftDown = new Curve2D("leftDown", leftDownPoints);
@@ -248,21 +251,21 @@ public class MeasurementUtilsTest {
         // Left UP seam (vertical, covers waist and above: y=0 to y=100)
         List<Pt> leftUpPoints = Arrays.asList(
             new Pt(0, 0),
-            new Pt(0, 100)
+            new Pt(0, WAIST_Y)
         );
         Curve2D leftUp = new Curve2D("leftUp", leftUpPoints);
         
         // Right DOWN seam (vertical, covers waist and below: y=100 to y=200)
         List<Pt> rightDownPoints = Arrays.asList(
-            new Pt(50, 100),
-            new Pt(50, 200)
+            new Pt(PANEL_WIDTH, WAIST_Y),
+            new Pt(PANEL_WIDTH, 200)
         );
         Curve2D rightDown = new Curve2D("rightDown", rightDownPoints);
         
         // Right UP seam (vertical, covers waist and above: y=0 to y=100)
         List<Pt> rightUpPoints = Arrays.asList(
-            new Pt(50, 0),
-            new Pt(50, 100)
+            new Pt(PANEL_WIDTH, 0),
+            new Pt(PANEL_WIDTH, WAIST_Y)
         );
         Curve2D rightUp = new Curve2D("rightUp", rightUpPoints);
         
@@ -279,27 +282,27 @@ public class MeasurementUtilsTest {
         
         // Test at waist level (dyMm = 0)
         double width = MeasurementUtils.computePanelWidthAtDy(panel, 0.0).orElse(-1.0);
-        assertEquals(50.0, width, 0.01, "Width at waist should be 50");
+        assertEquals(PANEL_WIDTH, width, 0.01, "Width at waist should be " + PANEL_WIDTH);
         
         // Test above waist (dyMm = 50, targetY = 50)
         // Should use UP curves which cover y=0 to y=100
         width = MeasurementUtils.computePanelWidthAtDy(panel, 50.0).orElse(-1.0);
-        assertEquals(50.0, width, 0.01, "Width 50mm above waist should be 50 (using UP curves)");
+        assertEquals(PANEL_WIDTH, width, 0.01, "Width 50mm above waist should be " + PANEL_WIDTH + " (using UP curves)");
         
         // Test below waist (dyMm = -50, targetY = 150)
         // Should use DOWN curves which cover y=100 to y=200
         width = MeasurementUtils.computePanelWidthAtDy(panel, -50.0).orElse(-1.0);
-        assertEquals(50.0, width, 0.01, "Width 50mm below waist should be 50 (using DOWN curves)");
+        assertEquals(PANEL_WIDTH, width, 0.01, "Width 50mm below waist should be " + PANEL_WIDTH + " (using DOWN curves)");
         
         // Test far above waist (dyMm = 90, targetY = 10)
         // Should work with UP curves
         width = MeasurementUtils.computePanelWidthAtDy(panel, 90.0).orElse(-1.0);
-        assertEquals(50.0, width, 0.01, "Width 90mm above waist should be 50");
+        assertEquals(PANEL_WIDTH, width, 0.01, "Width 90mm above waist should be " + PANEL_WIDTH);
         
         // Test far below waist (dyMm = -90, targetY = 190)
         // Should work with DOWN curves
         width = MeasurementUtils.computePanelWidthAtDy(panel, -90.0).orElse(-1.0);
-        assertEquals(50.0, width, 0.01, "Width 90mm below waist should be 50");
+        assertEquals(PANEL_WIDTH, width, 0.01, "Width 90mm below waist should be " + PANEL_WIDTH);
     }
 
     @Test

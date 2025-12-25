@@ -161,6 +161,9 @@ public final class Canvas2DView {
     // --- Safety ---
     private static final double MAX_CANVAS_TEXTURE_DIM = 16000.0; // safety under 16384 GPU limit
 
+    // --- Measurement line rendering ---
+    private static final double MEASUREMENT_LINE_EXTENT = 10000.0; // extent for horizontal measurement line
+
     // --- Fonts: bigger / readable ---
     private static final int FONT_LABEL = 15;
     private static final int FONT_VALUE = 18;
@@ -582,8 +585,8 @@ public final class Canvas2DView {
         // axes
         g.setStroke(Color.LIGHTGRAY);
         g.setLineWidth(1.0);
-        drawLineWorld(g, -10000, 0, 10000, 0);
-        drawLineWorld(g, 0, -10000, 0, 10000);
+        drawLineWorld(g, -MEASUREMENT_LINE_EXTENT, 0, MEASUREMENT_LINE_EXTENT, 0);
+        drawLineWorld(g, 0, -MEASUREMENT_LINE_EXTENT, 0, MEASUREMENT_LINE_EXTENT);
 
         // mode label
         g.setFill(Color.GRAY);
@@ -619,7 +622,7 @@ public final class Canvas2DView {
             g.setStroke(Color.BLUE);
             g.setLineWidth(2.0);
             double measurementY = -dyMm; // In WAIST mode, waist is at y=0, so measurement is at -dyMm
-            drawLineWorld(g, -10000, measurementY, 10000, measurementY);
+            drawLineWorld(g, -MEASUREMENT_LINE_EXTENT, measurementY, MEASUREMENT_LINE_EXTENT, measurementY);
         }
     }
 
