@@ -358,7 +358,9 @@ public final class MeasurementUtils {
 
     public static double computeFullCircumference(List<PanelCurves> panels, double dyMm) {
         // At exactly waist level (dyMm == 0, including -0.0), use waist curve length
-        // Use == to handle both 0.0 and -0.0 (they compare equal with ==)
+        // Note: In Java, 0.0 == -0.0 is true (they compare equal with ==),
+        // but Double.compare(0.0, -0.0) != 0 (treats them as distinct).
+        // We use == here to treat both 0.0 and -0.0 as waist level.
         if (dyMm == 0.0) {
             return computeFullWaistCircumference(panels);
         }

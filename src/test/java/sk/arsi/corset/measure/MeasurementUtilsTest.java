@@ -565,7 +565,7 @@ public class MeasurementUtilsTest {
     @Test
     public void testComputeFullCircumference_AtWaistUsesWaistCurves() {
         // Create a panel where the waist curve length differs from the width measurement
-        // Waist curve: diagonal from (0,100) to (40,100) - length = 40 (straight horizontal)
+        // Waist curve: horizontal line from (0,100) to (40,100) - length = 40
         List<Pt> waistPoints = Arrays.asList(
             new Pt(0, 100),
             new Pt(40, 100)
