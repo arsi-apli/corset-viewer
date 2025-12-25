@@ -7,7 +7,7 @@
 
     <groupId>sk.arsi</groupId>
     <artifactId>corset-viewer</artifactId>
-    <version>1.0.2</version>
+    <version>1.0.3</version>
     <name>corset-viewer</name>
 
     <properties>
@@ -16,7 +16,7 @@
 
         <javafx.version>21.0.4</javafx.version>
 
-        <!-- IMPORTANT: for fat-jar CI builds; override via -Djavafx.platform=win|mac|linux -->
+        <!-- For CI builds: override via -Djavafx.platform=win|mac|linux -->
         <javafx.platform>win</javafx.platform>
 
         <junit.jupiter.version>5.11.0</junit.jupiter.version>
@@ -26,7 +26,7 @@
     </properties>
 
     <dependencies>
-        <!-- JavaFX (platform-specific for fat-jar) -->
+        <!-- JavaFX (platform-specific) -->
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-controls</artifactId>
@@ -46,7 +46,7 @@
             <classifier>${javafx.platform}</classifier>
         </dependency>
 
-        <!-- SVG parsing -->
+        <!-- SVG parsing (Batik) -->
         <dependency>
             <groupId>org.apache.xmlgraphics</groupId>
             <artifactId>batik-dom</artifactId>
@@ -55,6 +55,11 @@
         <dependency>
             <groupId>org.apache.xmlgraphics</groupId>
             <artifactId>batik-parser</artifactId>
+            <version>${batik.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.xmlgraphics</groupId>
+            <artifactId>batik-util</artifactId>
             <version>${batik.version}</version>
         </dependency>
         <dependency>
@@ -87,7 +92,7 @@
 
     <build>
         <plugins>
-            <!-- JavaFX run support -->
+            <!-- JavaFX run support (mvn javafx:run) -->
             <plugin>
                 <groupId>org.openjfx</groupId>
                 <artifactId>javafx-maven-plugin</artifactId>
@@ -107,7 +112,7 @@
                 </configuration>
             </plugin>
 
-            <!-- Runnable normal jar (manifest main) -->
+            <!-- Runnable jar manifest (used by jpackage main-jar) -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
@@ -121,29 +126,26 @@
                 </configuration>
             </plugin>
 
-            <!-- Fat jar -->
+            <!-- Stage dependencies into target/app/lib for jpackage (MUST include JavaFX => compile scope) -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-shade-plugin</artifactId>
-                <version>3.6.0</version>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>3.7.1</version>
                 <executions>
                     <execution>
+                        <id>copy-dependencies-for-jpackage</id>
                         <phase>package</phase>
                         <goals>
-                            <goal>shade</goal>
+                            <goal>copy-dependencies</goal>
                         </goals>
                         <configuration>
-                            <finalName>${project.artifactId}-${project.version}-${javafx.platform}-all</finalName>
-                            <createDependencyReducedPom>false</createDependencyReducedPom>
-                            <transformers>
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>sk.arsi.corset.app.FxApp</mainClass>
-                                </transformer>
-                            </transformers>
+                            <outputDirectory>${project.build.directory}/app/lib</outputDirectory>
+                            <includeScope>compile</includeScope>
                         </configuration>
                     </execution>
                 </executions>
             </plugin>
+
         </plugins>
     </build>
 
