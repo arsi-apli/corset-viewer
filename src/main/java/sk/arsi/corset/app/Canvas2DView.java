@@ -31,6 +31,8 @@ import java.util.Map;
 
 public final class Canvas2DView {
 
+    private Button btnWaist;
+
     private enum LayoutMode {
         TOP,
         WAIST,
@@ -305,6 +307,7 @@ public final class Canvas2DView {
                 updateCircumferenceMeasurement();
                 redraw();
                 isUpdatingControls = false;
+                switchMode(LayoutMode.WAIST);
             }
         });
     }
@@ -312,7 +315,7 @@ public final class Canvas2DView {
     private void initUi() {
         // --- Toolbar ---
         Button btnTop = new Button("TOP");
-        Button btnWaist = new Button("WAIST");
+        btnWaist = new Button("WAIST");
         Button btnBottom = new Button("BOTTOM");
 
         btnTop.setOnAction(e -> switchMode(LayoutMode.TOP));
@@ -338,6 +341,7 @@ public final class Canvas2DView {
                 updateCircumferenceMeasurement();
                 redraw(); // Redraw to update the measurement line
                 isUpdatingControls = false;
+                switchMode(LayoutMode.WAIST);
             }
         });
 
@@ -354,6 +358,7 @@ public final class Canvas2DView {
             updateCircumferenceMeasurement();
             redraw();
             isUpdatingControls = false;
+            switchMode(LayoutMode.WAIST);
         });
 
         dyLabel.setStyle("-fx-font-size: " + FONT_VALUE + "px; -fx-font-weight: bold;");
