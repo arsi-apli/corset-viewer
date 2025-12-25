@@ -53,47 +53,52 @@ public class MeasurementUtilsTest {
         assertEquals(0.0, result, 0.01, "Null curve should return 0");
     }
 
-    // Commented out - computeCurveLength method not yet implemented
-    // @Test
-    // public void testComputeCurveLength_SimpleLine() {
-    //     // Create a simple horizontal line: (0,0) -> (100,0)
-    //     List<Pt> points = Arrays.asList(
-    //         new Pt(0, 0),
-    //         new Pt(100, 0)
-    //     );
-    //     Curve2D curve = new Curve2D("test_line", points);
-    //     
-    //     double result = MeasurementUtils.computeCurveLength(curve);
-    //     assertEquals(100.0, result, 0.01, "Length of horizontal line should be 100");
-    // }
+    @Test
+    public void testComputeCurveLength_SimpleLine() {
+        // Create a simple horizontal line: (0,0) -> (100,0)
+        List<Pt> points = Arrays.asList(
+            new Pt(0, 0),
+            new Pt(100, 0)
+        );
+        Curve2D curve = new Curve2D("test_line", points);
+        
+        double result = MeasurementUtils.computeCurveLength(curve);
+        assertEquals(100.0, result, 0.01, "Length of horizontal line should be 100");
+    }
 
-    // @Test
-    // public void testComputeCurveLength_Diagonal() {
-    //     // Create a 3-4-5 right triangle: (0,0) -> (3,4)
-    //     List<Pt> points = Arrays.asList(
-    //         new Pt(0, 0),
-    //         new Pt(3, 4)
-    //     );
-    //     Curve2D curve = new Curve2D("test_diagonal", points);
-    //     
-    //     double result = MeasurementUtils.computeCurveLength(curve);
-    //     assertEquals(5.0, result, 0.01, "Length of 3-4-5 triangle hypotenuse should be 5");
-    // }
+    @Test
+    public void testComputeCurveLength_Diagonal() {
+        // Create a 3-4-5 right triangle: (0,0) -> (3,4)
+        List<Pt> points = Arrays.asList(
+            new Pt(0, 0),
+            new Pt(3, 4)
+        );
+        Curve2D curve = new Curve2D("test_diagonal", points);
+        
+        double result = MeasurementUtils.computeCurveLength(curve);
+        assertEquals(5.0, result, 0.01, "Length of 3-4-5 triangle hypotenuse should be 5");
+    }
 
-    // @Test
-    // public void testComputeCurveLength_MultiSegment() {
-    //     // Create a polyline with multiple segments
-    //     List<Pt> points = Arrays.asList(
-    //         new Pt(0, 0),
-    //         new Pt(10, 0),
-    //         new Pt(10, 10),
-    //         new Pt(20, 10)
-    //     );
-    //     Curve2D curve = new Curve2D("test_multi", points);
-    //     
-    //     double result = MeasurementUtils.computeCurveLength(curve);
-    //     assertEquals(30.0, result, 0.01, "Total length should be 10+10+10=30");
-    // }
+    @Test
+    public void testComputeCurveLength_MultiSegment() {
+        // Create a polyline with multiple segments
+        List<Pt> points = Arrays.asList(
+            new Pt(0, 0),
+            new Pt(10, 0),
+            new Pt(10, 10),
+            new Pt(20, 10)
+        );
+        Curve2D curve = new Curve2D("test_multi", points);
+        
+        double result = MeasurementUtils.computeCurveLength(curve);
+        assertEquals(30.0, result, 0.01, "Total length should be 10+10+10=30");
+    }
+
+    @Test
+    public void testComputeCurveLength_Null() {
+        double result = MeasurementUtils.computeCurveLength(null);
+        assertEquals(0.0, result, 0.01, "Null curve should return 0");
+    }
 
     @Test
     public void testComputePanelWidthAtDy() {
@@ -502,5 +507,196 @@ public class MeasurementUtilsTest {
         double width = MeasurementUtils.computePanelWidthAtDy(panel, 0.0).orElse(-1.0);
         assertEquals(PANEL_WIDTH, width, 0.01, 
             "Width at waist should work with epsilon tolerance for floating-point precision");
+    }
+
+    @Test
+    public void testComputeWaistCircumference() {
+        // Create panels with waist curves of known length
+        List<Pt> waist1Points = Arrays.asList(
+            new Pt(0, 100),
+            new Pt(50, 100)  // Length = 50
+        );
+        Curve2D waist1 = new Curve2D("waist1", waist1Points);
+        
+        List<Pt> waist2Points = Arrays.asList(
+            new Pt(0, 100),
+            new Pt(30, 100),
+            new Pt(30, 110),
+            new Pt(60, 110)  // Length = 30 + 10 + 30 = 70
+        );
+        Curve2D waist2 = new Curve2D("waist2", waist2Points);
+        
+        PanelCurves panel1 = new PanelCurves(
+            PanelId.A, null, null, waist1, null, null, null, null
+        );
+        PanelCurves panel2 = new PanelCurves(
+            PanelId.B, null, null, waist2, null, null, null, null
+        );
+        
+        List<PanelCurves> panels = Arrays.asList(panel1, panel2);
+        
+        // Half waist circumference should be 50 + 70 = 120
+        double halfCirc = MeasurementUtils.computeHalfWaistCircumference(panels);
+        assertEquals(120.0, halfCirc, 0.01, "Half waist circumference should be 120");
+        
+        // Full waist circumference should be 2 * 120 = 240
+        double fullCirc = MeasurementUtils.computeFullWaistCircumference(panels);
+        assertEquals(240.0, fullCirc, 0.01, "Full waist circumference should be 240");
+    }
+
+    @Test
+    public void testComputeFullCircumferenceStrict_AtWaist() {
+        // Create panels with both waist curves and seam curves
+        final double WAIST_Y = 100.0;
+        final double PANEL_WIDTH = 50.0;
+        
+        // Waist curve with length 50
+        List<Pt> waistPoints = Arrays.asList(
+            new Pt(0, WAIST_Y),
+            new Pt(PANEL_WIDTH, WAIST_Y)
+        );
+        Curve2D waist = new Curve2D("waist", waistPoints);
+        
+        // Vertical seams
+        List<Pt> leftPoints = Arrays.asList(
+            new Pt(0, 0),
+            new Pt(0, 200)
+        );
+        Curve2D leftSeam = new Curve2D("left", leftPoints);
+        
+        List<Pt> rightPoints = Arrays.asList(
+            new Pt(PANEL_WIDTH, 0),
+            new Pt(PANEL_WIDTH, 200)
+        );
+        Curve2D rightSeam = new Curve2D("right", rightPoints);
+        
+        PanelCurves panel1 = new PanelCurves(
+            PanelId.A, null, null, waist, leftSeam, null, rightSeam, null
+        );
+        PanelCurves panel2 = new PanelCurves(
+            PanelId.B, null, null, waist, leftSeam, null, rightSeam, null
+        );
+        
+        List<PanelCurves> panels = Arrays.asList(panel1, panel2);
+        
+        // At dy=0, should use waist-based circumference
+        // Half = 50 + 50 = 100, Full = 200
+        double circ = MeasurementUtils.computeFullCircumferenceStrict(panels, 0.0);
+        assertEquals(200.0, circ, 0.01, "Circumference at dy=0 should use waist curve lengths");
+    }
+
+    @Test
+    public void testComputeFullCircumferenceStrict_WithinDeadband() {
+        // Create test panels
+        final double WAIST_Y = 100.0;
+        final double PANEL_WIDTH = 50.0;
+        
+        List<Pt> waistPoints = Arrays.asList(
+            new Pt(0, WAIST_Y),
+            new Pt(PANEL_WIDTH, WAIST_Y)
+        );
+        Curve2D waist = new Curve2D("waist", waistPoints);
+        
+        List<Pt> leftPoints = Arrays.asList(
+            new Pt(0, 0),
+            new Pt(0, 200)
+        );
+        Curve2D leftSeam = new Curve2D("left", leftPoints);
+        
+        List<Pt> rightPoints = Arrays.asList(
+            new Pt(PANEL_WIDTH, 0),
+            new Pt(PANEL_WIDTH, 200)
+        );
+        Curve2D rightSeam = new Curve2D("right", rightPoints);
+        
+        PanelCurves panel = new PanelCurves(
+            PanelId.A, null, null, waist, leftSeam, null, rightSeam, null
+        );
+        
+        List<PanelCurves> panels = Arrays.asList(panel);
+        
+        // Expected waist circumference: 2 * 50 = 100
+        double expectedWaistCirc = 100.0;
+        
+        // Test various dyMm values within deadband (0.25 mm)
+        double circ0 = MeasurementUtils.computeFullCircumferenceStrict(panels, 0.0);
+        assertEquals(expectedWaistCirc, circ0, 0.01, "dy=0 should use waist circumference");
+        
+        double circ01 = MeasurementUtils.computeFullCircumferenceStrict(panels, 0.1);
+        assertEquals(expectedWaistCirc, circ01, 0.01, "dy=0.1 should use waist circumference");
+        
+        double circ025 = MeasurementUtils.computeFullCircumferenceStrict(panels, 0.25);
+        assertEquals(expectedWaistCirc, circ025, 0.01, "dy=0.25 should use waist circumference");
+        
+        double circNeg01 = MeasurementUtils.computeFullCircumferenceStrict(panels, -0.1);
+        assertEquals(expectedWaistCirc, circNeg01, 0.01, "dy=-0.1 should use waist circumference");
+        
+        double circNeg025 = MeasurementUtils.computeFullCircumferenceStrict(panels, -0.25);
+        assertEquals(expectedWaistCirc, circNeg025, 0.01, "dy=-0.25 should use waist circumference");
+        
+        // All should return the same value (stable, no flickering)
+        assertEquals(circ0, circ01, 0.001, "Circumference should be stable within deadband");
+        assertEquals(circ0, circ025, 0.001, "Circumference should be stable within deadband");
+        assertEquals(circ0, circNeg01, 0.001, "Circumference should be stable within deadband");
+        assertEquals(circ0, circNeg025, 0.001, "Circumference should be stable within deadband");
+    }
+
+    @Test
+    public void testComputeFullCircumferenceStrict_OutsideDeadband() {
+        // Create test panels with vertical seams
+        final double WAIST_Y = 100.0;
+        final double PANEL_WIDTH = 50.0;
+        
+        List<Pt> waistPoints = Arrays.asList(
+            new Pt(0, WAIST_Y),
+            new Pt(PANEL_WIDTH, WAIST_Y)
+        );
+        Curve2D waist = new Curve2D("waist", waistPoints);
+        
+        List<Pt> leftUpPoints = Arrays.asList(
+            new Pt(0, 0),
+            new Pt(0, WAIST_Y)
+        );
+        Curve2D leftUp = new Curve2D("leftUp", leftUpPoints);
+        
+        List<Pt> leftDownPoints = Arrays.asList(
+            new Pt(0, WAIST_Y),
+            new Pt(0, 200)
+        );
+        Curve2D leftDown = new Curve2D("leftDown", leftDownPoints);
+        
+        List<Pt> rightUpPoints = Arrays.asList(
+            new Pt(PANEL_WIDTH, 0),
+            new Pt(PANEL_WIDTH, WAIST_Y)
+        );
+        Curve2D rightUp = new Curve2D("rightUp", rightUpPoints);
+        
+        List<Pt> rightDownPoints = Arrays.asList(
+            new Pt(PANEL_WIDTH, WAIST_Y),
+            new Pt(PANEL_WIDTH, 200)
+        );
+        Curve2D rightDown = new Curve2D("rightDown", rightDownPoints);
+        
+        PanelCurves panel = new PanelCurves(
+            PanelId.A, null, null, waist, leftUp, leftDown, rightUp, rightDown
+        );
+        
+        List<PanelCurves> panels = Arrays.asList(panel);
+        
+        // Expected width-based circumference for this rectangular panel: 2 * 50 = 100
+        double expectedWidthCirc = 100.0;
+        
+        // Test dyMm values outside deadband (> 0.25 mm)
+        double circ1 = MeasurementUtils.computeFullCircumferenceStrict(panels, 1.0);
+        assertEquals(expectedWidthCirc, circ1, 0.01, "dy=1.0 should use width-based circumference");
+        
+        double circ10 = MeasurementUtils.computeFullCircumferenceStrict(panels, 10.0);
+        assertEquals(expectedWidthCirc, circ10, 0.01, "dy=10.0 should use width-based circumference");
+        
+        double circNeg1 = MeasurementUtils.computeFullCircumferenceStrict(panels, -1.0);
+        assertEquals(expectedWidthCirc, circNeg1, 0.01, "dy=-1.0 should use width-based circumference");
+        
+        double circNeg10 = MeasurementUtils.computeFullCircumferenceStrict(panels, -10.0);
+        assertEquals(expectedWidthCirc, circNeg10, 0.01, "dy=-10.0 should use width-based circumference");
     }
 }

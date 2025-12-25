@@ -16,6 +16,11 @@ public final class MeasurementUtils {
     // are very close to (but not exactly at) the measurement line.
     private static final double EPSILON = 1e-6;
 
+    // Deadband epsilon around dyMm=0 for waist circumference calculation (in mm).
+    // When |dyMm| <= this value, circumference is computed using waist curve lengths
+    // instead of intersection-based width measurement to avoid numerical instability.
+    private static final double WAIST_DEADBAND_EPS = 0.25;
+
     private MeasurementUtils() {
     }
 
@@ -56,6 +61,42 @@ public final class MeasurementUtils {
             return yValues.get(n / 2);
         }
         return (yValues.get(n / 2 - 1) + yValues.get(n / 2)) / 2.0;
+    }
+
+    // -------------------- Curve length --------------------
+    /**
+     * Computes the total length of a curve by summing the lengths of all segments.
+     * 
+     * @param curve The curve to measure
+     * @return Total length in mm, or 0.0 if curve is null or has fewer than 2 points
+     */
+    public static double computeCurveLength(Curve2D curve) {
+        if (curve == null || curve.getPoints() == null || curve.getPoints().size() < 2) {
+            return 0.0;
+        }
+
+        List<Pt> points = curve.getPoints();
+        double length = 0.0;
+
+        for (int i = 0; i < points.size() - 1; i++) {
+            Pt p0 = points.get(i);
+            Pt p1 = points.get(i + 1);
+            if (p0 == null || p1 == null) {
+                continue;
+            }
+
+            double x0 = p0.getX(), y0 = p0.getY();
+            double x1 = p1.getX(), y1 = p1.getY();
+            if (!Double.isFinite(x0) || !Double.isFinite(y0) || !Double.isFinite(x1) || !Double.isFinite(y1)) {
+                continue;
+            }
+
+            double dx = x1 - x0;
+            double dy = y1 - y0;
+            length += Math.sqrt(dx * dx + dy * dy);
+        }
+
+        return length;
     }
 
     // -------------------- Curve length split --------------------
@@ -139,6 +180,39 @@ public final class MeasurementUtils {
         double above = computeCurveLengthPortion(seam, waistY, true);
         double below = computeCurveLengthPortion(seam, waistY, false);
         return new SeamSplit(above, below);
+    }
+
+    // -------------------- Waist circumference (curve-length-based) --------------------
+    /**
+     * Computes half waist circumference by summing waist curve lengths across all panels.
+     * This is the robust method for measuring at dyMm=0, avoiding intersection-based width
+     * calculation which can be numerically unstable at the waist line.
+     * 
+     * @param panels List of panels
+     * @return Half waist circumference in mm (sum of all panel waist curve lengths)
+     */
+    public static double computeHalfWaistCircumference(List<PanelCurves> panels) {
+        if (panels == null || panels.isEmpty()) {
+            return 0.0;
+        }
+
+        double sum = 0.0;
+        for (PanelCurves p : panels) {
+            if (p != null && p.getWaist() != null) {
+                sum += computeCurveLength(p.getWaist());
+            }
+        }
+        return sum;
+    }
+
+    /**
+     * Computes full waist circumference (2 × sum of waist curve lengths).
+     * 
+     * @param panels List of panels
+     * @return Full waist circumference in mm
+     */
+    public static double computeFullWaistCircumference(List<PanelCurves> panels) {
+        return 2.0 * computeHalfWaistCircumference(panels);
     }
 
     // -------------------- Circumference (A..F * 2) --------------------
@@ -288,8 +362,27 @@ public final class MeasurementUtils {
         return sum;
     }
 
-    public static double computeFullCircumference(List<PanelCurves> panels, double dyMm) {
+    /**
+     * Computes full circumference using strict intersection-based width measurement.
+     * For dyMm at/near 0 (within WAIST_DEADBAND_EPS), uses waist curve lengths instead
+     * to avoid numerical instability.
+     * 
+     * @param panels List of panels
+     * @param dyMm Distance from waist in mm (positive = upward, negative = downward)
+     * @return Full circumference in mm
+     */
+    public static double computeFullCircumferenceStrict(List<PanelCurves> panels, double dyMm) {
+        // Use waist-based circumference for dyMm within deadband around zero
+        if (Math.abs(dyMm) <= WAIST_DEADBAND_EPS) {
+            return computeFullWaistCircumference(panels);
+        }
+        
+        // Otherwise use width-based circumference
         return 2.0 * computeHalfCircumference(panels, dyMm);
+    }
+
+    public static double computeFullCircumference(List<PanelCurves> panels, double dyMm) {
+        return computeFullCircumferenceStrict(panels, dyMm);
     }
 
     /**
