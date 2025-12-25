@@ -163,6 +163,7 @@ public final class Canvas2DView {
 
     // --- Measurement line rendering ---
     private static final double MEASUREMENT_LINE_EXTENT = 10000.0; // extent for horizontal measurement line
+    private static final double MIN_DY_FOR_MEASUREMENT_LINE = 0.1; // minimum dyMm to show measurement line (avoid clutter at waist)
     
     // --- Default slider range when panels are empty or invalid ---
     private static final double DEFAULT_MIN_DY = -200.0;
@@ -621,7 +622,7 @@ public final class Canvas2DView {
 
         // Draw horizontal measurement line in WAIST mode
         // In WAIST mode, all waists are aligned to y=0, so the measurement line is at y = -dyMm
-        if (mode == LayoutMode.WAIST && Math.abs(dyMm) > 0.1) {
+        if (mode == LayoutMode.WAIST && Math.abs(dyMm) > MIN_DY_FOR_MEASUREMENT_LINE) {
             g.setStroke(Color.BLUE);
             g.setLineWidth(2.0);
             double measurementY = -dyMm; // In WAIST mode, waist is at y=0, so measurement is at -dyMm

@@ -303,6 +303,9 @@ public final class MeasurementUtils {
 
     // Maximum distance to search for valid measurement range in mm
     private static final double MAX_DY_SEARCH_DISTANCE = 1000.0;
+    
+    // Minimum step size for dy range computation in mm
+    private static final double MIN_STEP_SIZE = 0.5;
 
     /**
      * Computes the valid dy range where ALL panels have measurable width.
@@ -318,7 +321,7 @@ public final class MeasurementUtils {
         }
 
         // Ensure step is positive and reasonable
-        stepMm = Math.max(0.5, Math.abs(stepMm));
+        stepMm = Math.max(MIN_STEP_SIZE, Math.abs(stepMm));
 
         // Find maximum upward range (positive dyMm)
         double maxUpDy = 0.0;
