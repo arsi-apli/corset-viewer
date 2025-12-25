@@ -11,6 +11,11 @@ import java.util.OptionalDouble;
 
 public final class MeasurementUtils {
 
+    // Small epsilon for floating-point comparisons in intersection calculations.
+    // This helps handle numerical precision issues and cases where segment endpoints
+    // are very close to (but not exactly at) the measurement line.
+    private static final double EPSILON = 1e-6;
+
     private MeasurementUtils() {
     }
 
@@ -150,6 +155,7 @@ public final class MeasurementUtils {
     /**
      * Intersect polyline with horizontal line Y=y and return all X
      * intersections. Horizontal segments are ignored.
+     * Uses epsilon tolerance to handle floating-point precision issues.
      */
     public static List<Double> intersectHorizontalXs(Curve2D curve, double y) {
         if (curve == null || curve.getPoints() == null || curve.getPoints().size() < 2) {
@@ -171,10 +177,16 @@ public final class MeasurementUtils {
             if (!Double.isFinite(y0) || !Double.isFinite(y1)) {
                 continue;
             }
-            if (y0 == y1) {
-                continue; // skip horizontal
+            
+            // Skip horizontal segments (within epsilon)
+            if (Math.abs(y1 - y0) < EPSILON) {
+                continue;
             }
-            boolean between = y >= Math.min(y0, y1) && y <= Math.max(y0, y1);
+            
+            // Check if y is between y0 and y1 (with epsilon tolerance)
+            double minY = Math.min(y0, y1) - EPSILON;
+            double maxY = Math.max(y0, y1) + EPSILON;
+            boolean between = y >= minY && y <= maxY;
             if (!between) {
                 continue;
             }
