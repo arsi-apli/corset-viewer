@@ -452,4 +452,55 @@ public class MeasurementUtilsTest {
     //     assertEquals(100.0, result.getDownAbove(), 0.01, "DOWN above should be 100");
     //     assertEquals(100.0, result.getDownBelow(), 0.01, "DOWN below should be 100");
     // }
+
+    @Test
+    public void testComputePanelWidthAtDy_EpsilonTolerance() {
+        // Test that measurement at dy=0 works even with floating-point precision issues
+        // This tests the epsilon tolerance in intersectHorizontalXs
+        
+        final double WAIST_Y = 100.0;
+        final double PANEL_WIDTH = 50.0;
+        
+        // Create waist curve
+        List<Pt> waistPoints = Arrays.asList(
+            new Pt(0, WAIST_Y),
+            new Pt(PANEL_WIDTH, WAIST_Y)
+        );
+        Curve2D waist = new Curve2D("waist", waistPoints);
+        
+        // Left seam endpoints are very close to waist but not exactly (floating-point precision)
+        List<Pt> leftUpPoints = Arrays.asList(
+            new Pt(0, 0),
+            new Pt(0, 99.99999999999)  // Very close to waist
+        );
+        Curve2D leftUp = new Curve2D("leftUp", leftUpPoints);
+        
+        List<Pt> leftDownPoints = Arrays.asList(
+            new Pt(0, 100.00000000001),  // Very close to waist
+            new Pt(0, 200)
+        );
+        Curve2D leftDown = new Curve2D("leftDown", leftDownPoints);
+        
+        // Right seam endpoints are very close to waist
+        List<Pt> rightUpPoints = Arrays.asList(
+            new Pt(PANEL_WIDTH, 0),
+            new Pt(PANEL_WIDTH, 99.99999999999)
+        );
+        Curve2D rightUp = new Curve2D("rightUp", rightUpPoints);
+        
+        List<Pt> rightDownPoints = Arrays.asList(
+            new Pt(PANEL_WIDTH, 100.00000000001),
+            new Pt(PANEL_WIDTH, 200)
+        );
+        Curve2D rightDown = new Curve2D("rightDown", rightDownPoints);
+        
+        PanelCurves panel = new PanelCurves(
+            PanelId.A, null, null, waist, leftUp, leftDown, rightUp, rightDown
+        );
+        
+        // Test at exact waist (dy=0) - should work with epsilon tolerance
+        double width = MeasurementUtils.computePanelWidthAtDy(panel, 0.0).orElse(-1.0);
+        assertEquals(PANEL_WIDTH, width, 0.01, 
+            "Width at waist should work with epsilon tolerance for floating-point precision");
+    }
 }
