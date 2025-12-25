@@ -12,7 +12,7 @@
             <properties>
                 <exec.vmArgs></exec.vmArgs>
                 <exec.args>${exec.vmArgs} -classpath %classpath ${exec.mainClass} ${exec.appArgs}</exec.args>
-                <exec.appArgs>/home/arsi/Downloads/korzet/corset-pattern/V2-conic/P2All-Final-V2-conic-no-image-26.64-clean.svg</exec.appArgs>
+                <exec.appArgs></exec.appArgs>
                 <exec.mainClass>sk.arsi.corset.app.FxApp</exec.mainClass>
                 <exec.executable>java</exec.executable>
             </properties>
@@ -29,7 +29,7 @@
             <properties>
                 <exec.vmArgs>-agentlib:jdwp=transport=dt_socket,server=n,address=${jpda.address}</exec.vmArgs>
                 <exec.args>${exec.vmArgs} -classpath %classpath ${exec.mainClass} ${exec.appArgs}</exec.args>
-                <exec.appArgs>/home/arsi/Downloads/korzet/corset-pattern/V2-conic/P2All-Final-V2-conic-no-image-26.64-clean.svg</exec.appArgs>
+                <exec.appArgs></exec.appArgs>
                 <exec.mainClass>sk.arsi.corset.app.FxApp</exec.mainClass>
                 <exec.executable>java</exec.executable>
                 <jpda.listen>true</jpda.listen>
@@ -49,7 +49,7 @@
                 <exec.args>${exec.vmArgs} -classpath %classpath ${exec.mainClass} ${exec.appArgs}</exec.args>
                 <exec.mainClass>sk.arsi.corset.app.FxApp</exec.mainClass>
                 <exec.executable>java</exec.executable>
-                <exec.appArgs>/home/arsi/Downloads/korzet/corset-pattern/V2-conic/P2All-Final-V2-conic-no-image-26.64-clean.svg</exec.appArgs>
+                <exec.appArgs></exec.appArgs>
             </properties>
         </action>
     </actions>
