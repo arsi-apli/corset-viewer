@@ -169,7 +169,7 @@ public final class Canvas2DView {
     // to the waist and would clutter the display. 0.1mm is chosen as it's below the practical
     // precision of corset measurements while keeping the display clean.
     private static final double MIN_DY_FOR_MEASUREMENT_LINE = 0.1;
-    
+
     // --- Default slider range when panels are empty or invalid ---
     private static final double DEFAULT_MIN_DY = -200.0;
     private static final double DEFAULT_MAX_DY = 200.0;
@@ -225,14 +225,14 @@ public final class Canvas2DView {
         this.canvasHost = new StackPane(canvas);
 
         this.circumferenceSlider = new Slider(-200.0, 200.0, 0.0);
-        
+
         // Initialize spinner with default range, will be updated when panels are loaded
         SpinnerValueFactory<Double> spinnerFactory = new SpinnerValueFactory.DoubleSpinnerValueFactory(
                 -200.0, 200.0, 0.0, 1.0);
         this.dySpinner = new Spinner<>(spinnerFactory);
         this.dySpinner.setEditable(true);
         this.dySpinner.setPrefWidth(100.0);
-        
+
         this.dyLabel = new Label("dyMm: 0.0 mm");
         this.circumferenceLabel = new Label("Circumference: 0.0 mm");
 
@@ -274,13 +274,13 @@ public final class Canvas2DView {
         this.didInitialFit = false;
         rebuildLayout();
         fitToContent();
-        
+
         // Recompute cached measurements when panels change
         this.cachedMeasurements = SeamMeasurementService.computeAllSeamMeasurements(this.panels);
-        
+
         // Update slider range based on valid measurement range
         updateSliderRange();
-        
+
         redraw();
     }
 
@@ -292,9 +292,9 @@ public final class Canvas2DView {
     }
 
     /**
-     * Attach spinner value change listener to synchronize with slider.
-     * This method is called when the spinner is first created and whenever
-     * its value factory is recreated (e.g., when slider range changes).
+     * Attach spinner value change listener to synchronize with slider. This
+     * method is called when the spinner is first created and whenever its value
+     * factory is recreated (e.g., when slider range changes).
      */
     private void attachSpinnerListener() {
         dySpinner.valueProperty().addListener((obs, oldV, newV) -> {
@@ -340,10 +340,10 @@ public final class Canvas2DView {
                 isUpdatingControls = false;
             }
         });
-        
+
         // Spinner for direct numeric input
         attachSpinnerListener();
-        
+
         // Reset button to return to waist (dy=0)
         Button btnReset = new Button("Reset");
         btnReset.setOnAction(e -> {
@@ -685,19 +685,20 @@ public final class Canvas2DView {
     }
 
     private static class SeamHighlight {
+
         final boolean highlightUpTop;
         final boolean highlightUpBottom;
         final boolean highlightDownTop;
         final boolean highlightDownBottom;
 
-        SeamHighlight(boolean highlightUpTop, boolean highlightUpBottom, 
-                      boolean highlightDownTop, boolean highlightDownBottom) {
+        SeamHighlight(boolean highlightUpTop, boolean highlightUpBottom,
+                boolean highlightDownTop, boolean highlightDownBottom) {
             this.highlightUpTop = highlightUpTop;
             this.highlightUpBottom = highlightUpBottom;
             this.highlightDownTop = highlightDownTop;
             this.highlightDownBottom = highlightDownBottom;
         }
-        
+
         static SeamHighlight none() {
             return new SeamHighlight(false, false, false, false);
         }
@@ -705,7 +706,7 @@ public final class Canvas2DView {
 
     private Map<String, SeamHighlight> computeSeamHighlights() {
         Map<String, SeamHighlight> map = new HashMap<>();
-        
+
         if (measurementsView == null || cachedMeasurements == null) {
             return map;
         }
@@ -718,21 +719,19 @@ public final class Canvas2DView {
             boolean upBottomExceeds = Math.abs(data.getDiffUpBottom()) > tolerance;
             boolean downTopExceeds = Math.abs(data.getDiffDownTop()) > tolerance;
             boolean downBottomExceeds = Math.abs(data.getDiffDownBottom()) > tolerance;
-            
+
             // For seam pair AB:
             // - Left panel A uses TO_NEXT (A->B): seamToNextUp and seamToNextDown
             // - Right panel B uses TO_PREV (B->A): seamToPrevUp and seamToPrevDown
             // Both should be highlighted for the same curve type (UP or DOWN) and portion (TOP or BOTTOM)
-            
             // Note: AA and FF are outer seams (edges of the half-corset)
             // They are never part of measurement pairs and will be excluded from highlighting
             // via null neighborId check in drawSeamWithHighlight
-            
             String leftToRight = data.getLeftPanel().name() + "->" + data.getRightPanel().name();
             String rightToLeft = data.getRightPanel().name() + "->" + data.getLeftPanel().name();
-            
-            SeamHighlight highlight = new SeamHighlight(upTopExceeds, upBottomExceeds, 
-                                                        downTopExceeds, downBottomExceeds);
+
+            SeamHighlight highlight = new SeamHighlight(upTopExceeds, upBottomExceeds,
+                    downTopExceeds, downBottomExceeds);
             map.put(leftToRight, highlight);
             map.put(rightToLeft, highlight);
         }
@@ -747,10 +746,10 @@ public final class Canvas2DView {
             boolean isPrev,
             boolean isUp,
             Map<String, SeamHighlight> highlightMap) {
-        
+
         Curve2D curve;
         PanelId neighborId;
-        
+
         if (isPrev) {
             curve = isUp ? rp.panel.getSeamToPrevUp() : rp.panel.getSeamToPrevDown();
             neighborId = getPrevPanelId(panelId);
@@ -761,12 +760,12 @@ public final class Canvas2DView {
 
         // Default color: black
         Color seamColor = Color.web("#222222");
-        
+
         // If curve is null, nothing to draw
         if (curve == null) {
             return;
         }
-        
+
         // If neighborId is null, this is an outer seam (AA or FF) - always draw in black
         if (neighborId == null) {
             strokeCurve(g, rp, curve, seamColor, 1.5);
@@ -775,12 +774,12 @@ public final class Canvas2DView {
 
         String seamKey = panelId.name() + "->" + neighborId.name();
         SeamHighlight highlight = highlightMap.get(seamKey);
-        
+
         if (highlight != null) {
             // Determine which portions to highlight based on curve type (UP or DOWN)
             boolean highlightTop;
             boolean highlightBottom;
-            
+
             if (isUp) {
                 highlightTop = highlight.highlightUpTop;
                 highlightBottom = highlight.highlightUpBottom;
@@ -788,11 +787,11 @@ public final class Canvas2DView {
                 highlightTop = highlight.highlightDownTop;
                 highlightBottom = highlight.highlightDownBottom;
             }
-            
+
             if (highlightTop || highlightBottom) {
                 // Split curve at waist and draw with appropriate colors
                 double waistY = MeasurementUtils.computePanelWaistY0(rp.panel.getWaist());
-                strokeCurveSplit(g, rp, curve, waistY, 
+                strokeCurveSplit(g, rp, curve, waistY,
                         highlightTop ? Color.RED : seamColor,
                         highlightBottom ? Color.RED : seamColor,
                         1.5);
@@ -812,7 +811,7 @@ public final class Canvas2DView {
             Color aboveColor,
             Color belowColor,
             double width) {
-        
+
         if (curve == null) {
             return;
         }
@@ -827,23 +826,23 @@ public final class Canvas2DView {
             // Get original points in panel-local coordinates
             Pt localP0 = pts.get(i);
             Pt localP1 = pts.get(i + 1);
-            
+
             if (localP0 == null || localP1 == null) {
                 continue;
             }
-            
+
             // Get Y coordinates in panel-local coordinates for comparison with waistY
             double localY0 = localP0.getY();
             double localY1 = localP1.getY();
-            
+
             // Determine if points are above or below waist in panel-local coordinates
             boolean p0Above = localY0 < waistY;
             boolean p1Above = localY1 < waistY;
-            
+
             // Transform points to world coordinates for rendering
             Pt p0 = rp.transform.apply(localP0);
             Pt p1 = rp.transform.apply(localP1);
-            
+
             if (p0 == null || p1 == null) {
                 continue;
             }
@@ -862,15 +861,15 @@ public final class Canvas2DView {
                 // Segment crosses waist - split it in panel-local coordinates
                 double t = (waistY - localY0) / (localY1 - localY0);
                 double localXSplit = localP0.getX() + t * (localP1.getX() - localP0.getX());
-                
+
                 // Transform the split point to world coordinates
                 Pt localSplit = new Pt(localXSplit, waistY);
                 Pt worldSplit = rp.transform.apply(localSplit);
-                
+
                 if (worldSplit == null) {
                     continue;
                 }
-                
+
                 double sxSplit = worldToScreenX(worldSplit.getX());
                 double sySplit = worldToScreenY(worldSplit.getY());
 
@@ -890,26 +889,42 @@ public final class Canvas2DView {
     }
 
     private PanelId getPrevPanelId(PanelId id) {
-        if (id == null) return null;
+        if (id == null) {
+            return null;
+        }
         switch (id) {
-            case B: return PanelId.A;
-            case C: return PanelId.B;
-            case D: return PanelId.C;
-            case E: return PanelId.D;
-            case F: return PanelId.E;
-            default: return null;
+            case B:
+                return PanelId.A;
+            case C:
+                return PanelId.B;
+            case D:
+                return PanelId.C;
+            case E:
+                return PanelId.D;
+            case F:
+                return PanelId.E;
+            default:
+                return null;
         }
     }
 
     private PanelId getNextPanelId(PanelId id) {
-        if (id == null) return null;
+        if (id == null) {
+            return null;
+        }
         switch (id) {
-            case A: return PanelId.B;
-            case B: return PanelId.C;
-            case C: return PanelId.D;
-            case D: return PanelId.E;
-            case E: return PanelId.F;
-            default: return null;
+            case A:
+                return PanelId.B;
+            case B:
+                return PanelId.C;
+            case C:
+                return PanelId.D;
+            case D:
+                return PanelId.E;
+            case E:
+                return PanelId.F;
+            default:
+                return null;
         }
     }
 
@@ -1158,7 +1173,7 @@ public final class Canvas2DView {
         if (panels == null || panels.isEmpty()) {
             circumferenceSlider.setMin(DEFAULT_MIN_DY);
             circumferenceSlider.setMax(DEFAULT_MAX_DY);
-            
+
             // Recreate spinner factory with new range
             SpinnerValueFactory<Double> spinnerFactory = new SpinnerValueFactory.DoubleSpinnerValueFactory(
                     DEFAULT_MIN_DY, DEFAULT_MAX_DY, dyMm, 1.0);
@@ -1167,28 +1182,28 @@ public final class Canvas2DView {
         }
 
         MeasurementUtils.DyRange range = MeasurementUtils.computeValidDyRange(panels);
-        
+
         // Set slider range: min = -maxDownDy (negative), max = +maxUpDy (positive)
         double minValue = -range.getMaxDownDy();
         double maxValue = range.getMaxUpDy();
-        
+
         // Ensure we have some range even if computation fails
         if (minValue >= maxValue) {
             minValue = FALLBACK_MIN_DY;
             maxValue = FALLBACK_MAX_DY;
         }
-        
+
         circumferenceSlider.setMin(minValue);
         circumferenceSlider.setMax(maxValue);
-        
+
         // Update spinner range by recreating the factory
         SpinnerValueFactory<Double> spinnerFactory = new SpinnerValueFactory.DoubleSpinnerValueFactory(
                 minValue, maxValue, dyMm, 1.0);
         dySpinner.setValueFactory(spinnerFactory);
-        
+
         // Re-attach listener to new factory
         attachSpinnerListener();
-        
+
         // Clamp current value to new range
         if (dyMm < minValue) {
             isUpdatingControls = true;
@@ -1203,7 +1218,7 @@ public final class Canvas2DView {
             dySpinner.getValueFactory().setValue(maxValue);
             isUpdatingControls = false;
         }
-        
+
         updateCircumferenceMeasurement();
     }
 
@@ -1218,6 +1233,7 @@ public final class Canvas2DView {
         dyLabel.setText(String.format("dyMm: %.1f mm", dyMm));
 
         double fullCirc = MeasurementUtils.computeFullCircumference(panels, dyMm);
-        circumferenceLabel.setText(String.format("Circumference: %.1f mm", fullCirc));
+        double inchFullCirc = fullCirc * 0.0393700787d;
+        circumferenceLabel.setText(String.format("Circumference: %.1f mm/%.1f inch  ", fullCirc, inchFullCirc));
     }
 }
