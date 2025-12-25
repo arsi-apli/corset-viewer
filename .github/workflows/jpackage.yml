@@ -1,4 +1,4 @@
-name: jpackage
+name: jpackage-portable
 
 on:
   workflow_dispatch:
@@ -11,20 +11,17 @@ permissions:
 
 jobs:
   package:
-    name: Package (${{ matrix.os }})
+    name: Portable ZIP (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: windows-latest
             javafx_platform: win
-            pkg_type: msi
           - os: macos-latest
             javafx_platform: mac
-            pkg_type: dmg
           - os: ubuntu-latest
             javafx_platform: linux
-            pkg_type: deb
 
     runs-on: ${{ matrix.os }}
 
@@ -39,17 +36,31 @@ jobs:
           java-version: "17"
           cache: maven
 
-      - name: Resolve version
+      - name: Resolve versions
         shell: bash
         run: |
           VERSION=$(mvn -q -DforceStdout help:evaluate -Dexpression=project.version)
           echo "APP_VERSION=$VERSION" >> "$GITHUB_ENV"
-          echo "Resolved version: $VERSION"
+
+          # jpackage wants X.Y.Z numeric; macOS requires major >= 1
+          RAW=$(echo "$VERSION" | sed -E 's/[^0-9.].*$//')
+          IFS='.' read -r a b c <<< "$RAW"
+          a=${a:-1}; b=${b:-0}; c=${c:-0}
+
+          if [[ "${{ matrix.os }}" == "macos-latest" && "$a" -le 0 ]]; then
+            a=1
+          fi
+
+          JP_VERSION="$a.$b.$c"
+          echo "JP_VERSION=$JP_VERSION" >> "$GITHUB_ENV"
+
+          echo "Resolved Maven version: $VERSION"
+          echo "Resolved jpackage version: $JP_VERSION"
 
       - name: Build (with platform JavaFX)
         shell: bash
         run: |
-          mvn -B -DskipTests -Djavafx.platform=${{ matrix.javafx_platform }} clean package
+          mvn -B -DskipTests "-Djavafx.platform=${{ matrix.javafx_platform }}" clean package
 
       - name: Stage main jar into target/app (required by jpackage --input)
         shell: bash
@@ -59,33 +70,51 @@ jobs:
 
           echo "Staged files:"
           ls -la target/app
-          echo "Staged libs:"
+          echo "Staged libs (sample):"
           ls -la target/app/lib | head -n 50 || true
 
-      - name: JPackage
+      - name: Build app-image (portable)
         shell: bash
         run: |
           APP_NAME="CorsetViewer"
-          echo "Packaging $APP_NAME v${APP_VERSION} for ${{ matrix.os }} (${{ matrix.pkg_type }})"
 
           rm -rf target/jpackage
           mkdir -p target/jpackage
 
           jpackage \
-            --type "${{ matrix.pkg_type }}" \
+            --type app-image \
             --dest "target/jpackage" \
             --name "$APP_NAME" \
-            --app-version "${APP_VERSION}" \
+            --app-version "${JP_VERSION}" \
             --input "target/app" \
             --main-jar "corset-viewer-${APP_VERSION}.jar" \
             --main-class "sk.arsi.corset.app.FxApp" \
+            --add-modules javafx.base,javafx.graphics,javafx.controls \
             --verbose
 
-      - name: Upload workflow artifact (backup)
+      - name: Create portable ZIP
+        shell: bash
+        run: |
+          ZIP_NAME="corset-viewer-${JP_VERSION}-${{ matrix.javafx_platform }}.zip"
+          cd target/jpackage
+
+          # Output folder name is the same as --name
+          APP_DIR="CorsetViewer"
+
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            7z a "../$ZIP_NAME" "$APP_DIR"
+          else
+            zip -r "../$ZIP_NAME" "$APP_DIR"
+          fi
+
+          echo "Created: target/$ZIP_NAME"
+          ls -la ../*.zip
+
+      - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: corset-viewer-${{ matrix.javafx_platform }}-${{ matrix.pkg_type }}
-          path: target/jpackage/**
+          name: corset-viewer-${{ matrix.javafx_platform }}-portable
+          path: target/*.zip
           if-no-files-found: error
 
       - name: Publish GitHub Release assets
@@ -96,11 +125,6 @@ jobs:
           name: ${{ github.ref_name }}
           generate_release_notes: true
           files: |
-            target/jpackage/**/*.msi
-            target/jpackage/**/*.exe
-            target/jpackage/**/*.dmg
-            target/jpackage/**/*.pkg
-            target/jpackage/**/*.deb
-            target/jpackage/**/*.rpm
+            target/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
