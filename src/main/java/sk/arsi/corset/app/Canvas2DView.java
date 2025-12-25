@@ -611,10 +611,10 @@ public final class Canvas2DView {
     }
 
     private static class SeamHighlight {
-        boolean highlightUpTop;
-        boolean highlightUpBottom;
-        boolean highlightDownTop;
-        boolean highlightDownBottom;
+        final boolean highlightUpTop;
+        final boolean highlightUpBottom;
+        final boolean highlightDownTop;
+        final boolean highlightDownBottom;
 
         SeamHighlight(boolean highlightUpTop, boolean highlightUpBottom, 
                       boolean highlightDownTop, boolean highlightDownBottom) {
@@ -622,6 +622,10 @@ public final class Canvas2DView {
             this.highlightUpBottom = highlightUpBottom;
             this.highlightDownTop = highlightDownTop;
             this.highlightDownBottom = highlightDownBottom;
+        }
+        
+        static SeamHighlight none() {
+            return new SeamHighlight(false, false, false, false);
         }
     }
 
@@ -646,16 +650,12 @@ public final class Canvas2DView {
             // - Right panel B uses TO_PREV (B->A): seamToPrevUp and seamToPrevDown
             // Both should be highlighted for the same curve type (UP or DOWN) and portion (TOP or BOTTOM)
             
-            // Exclude AA and FF from highlighting (they should always be black)
-            PanelId leftPanel = data.getLeftPanel();
-            PanelId rightPanel = data.getRightPanel();
+            // Note: AA and FF are outer seams (edges of the half-corset)
+            // They are never part of measurement pairs and will be excluded from highlighting
+            // via null neighborId check in drawSeamWithHighlight
             
-            // AA is A->A (doesn't exist), FF is F->F (doesn't exist)
-            // But we want to exclude A's seamToPrev (which would be A->null) and F's seamToNext (which would be F->null)
-            // These are handled by neighborId being null in drawSeamWithHighlight
-            
-            String leftToRight = leftPanel.name() + "->" + rightPanel.name();
-            String rightToLeft = rightPanel.name() + "->" + leftPanel.name();
+            String leftToRight = data.getLeftPanel().name() + "->" + data.getRightPanel().name();
+            String rightToLeft = data.getRightPanel().name() + "->" + data.getLeftPanel().name();
             
             SeamHighlight highlight = new SeamHighlight(upTopExceeds, upBottomExceeds, 
                                                         downTopExceeds, downBottomExceeds);
