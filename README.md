@@ -37,7 +37,23 @@ Unzip and run:
 Unzip and open:
 - `CorsetViewer.app`
 
-Note: macOS Gatekeeper may warn because the app is not code-signed/notarized.
+## Security prompts (Windows / macOS)
+
+This project currently publishes **unsigned** binaries. That is normal for early development, but it may trigger OS warnings.
+
+### Windows SmartScreen
+You may see a warning like *“Windows protected your PC”*.
+
+To run anyway:
+1. Click **More info**
+2. Click **Run anyway**
+
+### macOS Gatekeeper
+You may see a warning that the app can’t be opened because it is from an unidentified developer.
+
+Options:
+- **Right‑click** the app → **Open** → confirm **Open**
+- Or go to **System Settings → Privacy & Security** and allow the app from there
 
 ## Building from source
 
