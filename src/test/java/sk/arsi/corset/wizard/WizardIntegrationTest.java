@@ -3,6 +3,7 @@ package sk.arsi.corset.wizard;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.w3c.dom.Document;
+import sk.arsi.corset.app.FxApp;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -51,7 +52,8 @@ class WizardIntegrationTest {
             """;
         
         Path sourceFile = Files.createTempFile("wizard_test", ".svg");
-        Path targetFile = sourceFile.getParent().resolve("wizard_test_corset_viewer.svg");
+        String baseName = sourceFile.getFileName().toString().replaceFirst("\\.svg$", "");
+        Path targetFile = sourceFile.getParent().resolve(baseName + FxApp.CORSET_VIEWER_SUFFIX);
         
         try {
             Files.writeString(sourceFile, originalSvg, StandardCharsets.UTF_8);

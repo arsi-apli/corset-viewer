@@ -31,6 +31,9 @@ public final class FxApp extends Application {
 
     private static final String PREF_NODE = "sk.arsi.corset-viewer";
     private static final String PREF_LAST_DIR = "lastSvgDir";
+    
+    /** Suffix for wizard-generated SVG files */
+    public static final String CORSET_VIEWER_SUFFIX = "_corset_viewer.svg";
 
     private Canvas2DView view2d;
     private Pseudo3DView viewPseudo3d;
@@ -261,7 +264,7 @@ public final class FxApp extends Application {
                 // Wizard completed - save modified SVG
                 String originalName = path.getFileName().toString();
                 String baseName = originalName.replaceFirst("\\.svg$", "");
-                String newName = baseName + "_corset_viewer.svg";
+                String newName = baseName + CORSET_VIEWER_SUFFIX;
                 Path newPath = path.getParent().resolve(newName);
                 
                 SvgTextEditor editor = new SvgTextEditor();

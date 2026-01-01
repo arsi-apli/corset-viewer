@@ -67,8 +67,8 @@ public final class IdWizardSession {
                 // Parse path to polyline for hit-testing
                 List<Pt> polyline;
                 try {
-                    polyline = sampler.samplePath(id != null && !id.isEmpty() ? id : "path_" + index, 
-                                                  d, 0.5).getPoints();
+                    String pathId = getPathIdOrDefault(id, index);
+                    polyline = sampler.samplePath(pathId, d, 0.5).getPoints();
                 } catch (Exception e) {
                     // Skip invalid paths
                     continue;
@@ -201,5 +201,15 @@ public final class IdWizardSession {
      */
     public List<RequiredPath> getAllSteps() {
         return allSteps;
+    }
+
+    /**
+     * Helper method to get path ID or generate a default one.
+     */
+    private String getPathIdOrDefault(String id, int index) {
+        if (id != null && !id.isEmpty()) {
+            return id;
+        }
+        return "path_" + index;
     }
 }
