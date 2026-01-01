@@ -1,0 +1,395 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="1052.5948mm"
+   height="310.077mm"
+   viewBox="0 0 1052.5949 310.07701"
+   version="1.1"
+   id="svg1"
+   inkscape:version="1.4.2 (1:1.4.2+202505120737+ebf0e940d0)"
+   sodipodi:docname="P2All-Final-V2-conic-no-image-26.64-clean.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     inkscape:zoom="0.50016297"
+     inkscape:cx="1744.4314"
+     inkscape:cy="623.79668"
+     inkscape:window-width="1920"
+     inkscape:window-height="1012"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="g15-2-0" />
+  <defs
+     id="defs1" />
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <g
+       id="g1"
+       style="display:inline">
+      <path
+         style="fill:#0000ff;fill-rule:evenodd;stroke:#0fce2e;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.49999882624595776"
+         d="M 326.959 155.799 L 379.235 155.773"
+         id="C_WAIST" />
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#c60817;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.49999982624561023"
+         d="M 326.901 155.747 C 327.149 151.773 327.211 147.645 327.318 143.419 C 327.405 140.009 320.743 61.4467 319.434 43.2322"
+         id="CB_UP" />
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#c60817;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.49999982624561023"
+         d="M 288.94 291.386 C 315.184 190.612 324.488 198.039 326.901 155.747"
+         id="CB_DOWN" />
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#c60817;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.49999882624595776"
+         d="M 379.208 155.823 C 379.194 151.754 379.3 147.545 379.6 143.419 C 382.266 106.851 387.94 72.0323 392.104 34.1362"
+         id="CD_UP" />
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#c60817;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.49999882624595776"
+         d="M 401.352 273.247 C 388.11 196.013 377.719 194.678 379.208 155.823"
+         id="CD_DOWN" />
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#c60817;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.49999882624595776"
+         d="M 319.434 43.2322 C 336.602 40.4334 362.746 34.3333 392.104 34.1362"
+         id="C_TOP" />
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#c60817;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.49999882624595776"
+         d="M 288.94 291.386 C 393.132 278.131 401.352 273.247 401.352 273.247"
+         id="C_BOTTOM" />
+      <text
+         xml:space="preserve"
+         style="font-style:italic;font-size:6.35px;line-height:1.25;font-family:Arial;-inkscape-font-specification:'Arial, Italic';text-align:center;text-anchor:middle;stroke-width:0.264583"
+         x="62.073544"
+         y="265.52731"
+         id="text35"
+         transform="matrix(0.999998 0.00181796 -0.00181796 0.999998 241.861 13.5106)"><tspan
+           sodipodi:role="line"
+           id="tspan34"
+           style="font-size:6.35px;stroke-width:0.2645829080550846"
+           x="62.073544"
+           y="265.52731">2C-CH</tspan></text>
+    </g>
+    <g
+       id="g15">
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#00ff05;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.4999988796754762"
+         d="M 243.769 155.976 L 295.698 156.001"
+         id="B_WAIST" />
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#f31a22;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.4999988796754762"
+         d="M 243.759 155.897 C 243.245 180.751 229.931 287.958 227.149 306.02"
+         id="BA_DOWN" />
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#f31a22;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.4999988796754762"
+         d="M 244.445 44.4469 C 244.27 81.063 245.129 134.067 243.759 155.897"
+         id="BA_UP" />
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#f31a22;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.4999988796754762"
+         d="M 295.695 155.935 C 303.814 121.987 316.804 45.1222 316.804 45.1222"
+         id="BC_UP" />
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#f31a22;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.4999988796754762"
+         d="M 277.965 296.115 C 278.466 250.906 288.655 186.142 295.695 155.935"
+         id="BC_DOWN" />
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:0.881122;stroke:#f31a22;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.4999988796754762"
+         d="M 244.445 44.4469 C 252.591 44.4865 266.729 43.1235 316.794 45.178"
+         id="B_TOP" />
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:0.881122;stroke:#f31a22;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.4999988796754762"
+         d="M 277.965 296.115 C 264.002 301.711 244.776 304.7 227.149 306.02"
+         id="B_BOTTOM" />
+      <text
+         xml:space="preserve"
+         style="font-style:italic;font-size:6.35px;line-height:1.25;font-family:Arial;-inkscape-font-specification:'Arial, Italic';text-align:center;text-anchor:middle;stroke-width:0.264583"
+         x="128.51147"
+         y="40.121681"
+         id="text36"
+         transform="matrix(0.999998 -0.00184383 0.00184383 0.999998 177.886 15.4908)"><tspan
+           sodipodi:role="line"
+           id="tspan35"
+           style="font-size:6.35px;stroke-width:0.2645829363282257"
+           x="128.51147"
+           y="40.121681">2B-C</tspan></text>
+    </g>
+    <g
+       id="g15-2"
+       style="opacity:0.726631">
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#0fce2e;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.5000632557689588"
+         d="M 417.486 155.994 L 468.116 156.055"
+         id="D_WAIST" />
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#ff1100;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.5000632557689588"
+         d="M 417.449 155.831 C 417.448 151.682 417.399 147.546 417.082 143.419 C 416.433 134.989 404.168 71.2707 395.208 36.0061"
+         id="DC_UP" />
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#ff1100;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.5000632557689588"
+         d="M 402.553 274.798 C 405.434 244.204 417.722 194.057 417.449 155.831"
+         id="DC_DOWN" />
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#ff1100;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.5000632557689588"
+         d="M 468.1 156.048 C 468.034 151.697 467.931 147.495 468.137 143.419 C 470.312 100.529 476.136 53.0969 478.59 20.5246"
+         id="DE_UP" />
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#ff1100;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.5000632557689588"
+         d="M 494.219 274.919 C 483.966 221.908 467.276 196.198 468.1 156.048"
+         id="DE_DOWN" />
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#c60817;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.5000632557689588"
+         d="M 402.553 274.798 C 426.292 279.771 494.219 274.92 494.219 274.92"
+         id="D_BOTTOM" />
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#ff1100;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.5000632557689588"
+         d="M 395.208 36.0061 C 435.693 24.0643 456.673 22.5737 478.59 20.5246"
+         id="D_TOP" />
+      <text
+         xml:space="preserve"
+         style="font-style:italic;font-size:24px;line-height:1.25;font-family:Arial;-inkscape-font-specification:'Arial, Italic';text-align:center;text-anchor:middle;stroke-width:0.999998"
+         x="1413.8483"
+         y="3543.7539"
+         id="text37"
+         transform="matrix(0.264583 0.000381586 -0.000381586 0.264583 105.127 -671.762)"><tspan
+           sodipodi:role="line"
+           style="font-size:24px;stroke-width:0.26458320404362295"
+           x="1413.8483"
+           y="3543.7539"
+           id="tspan4">2D-CH</tspan></text>
+    </g>
+    <g
+       id="g17">
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#09ff00;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.5000614804365057"
+         d="M 509.623 155.901 L 561.176 155.785"
+         id="E_WAIST" />
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#f41f08;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.5000614804365057"
+         d="M 509.592 155.897 C 511.002 189.67 497.57 252.102 496.088 277.648"
+         id="ED_DOWN" />
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#f41f08;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.5000614804365057"
+         d="M 492.086 21.3248 C 499.429 77.9239 505.497 118.543 508.641 143.419 C 509.195 147.8 509.536 151.919 509.592 155.897"
+         id="ED_UP" />
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#f41f08;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.5000614804365057"
+         d="M 578.272 5.46273 C 544.811 6.7746 522.689 11.9222 492.086 21.3248"
+         id="E_TOP" />
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#f41f08;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.5000614804365057"
+         d="M 561.197 155.785 C 561.252 152.035 561.355 147.879 561.802 143.419 C 565.552 106.048 572.985 44.8722 578.272 5.46273"
+         id="EF_UP" />
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#f41f08;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.5000614804365057"
+         d="M 580.252 285.8 C 574.902 244.271 559.351 202.024 561.197 155.785"
+         id="EF_DOWN" />
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#f41f08;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.5000614804365057"
+         d="M 496.088 277.648 C 579.693 288.4 580.252 285.8 580.252 285.8"
+         id="E_BOTTOM" />
+      <text
+         xml:space="preserve"
+         style="font-style:italic;font-size:24px;line-height:1.25;font-family:Arial;-inkscape-font-specification:'Arial, Italic';text-align:center;text-anchor:middle"
+         x="1270.3457"
+         y="2875.0876"
+         id="text17"
+         transform="matrix(0.264579 0.00141689 -0.00141689 0.264579 230.479 -742.648)"><tspan
+           sodipodi:role="line"
+           id="tspan17"
+           x="1270.3457"
+           y="2875.0876"
+           style="font-size:24px">2E-C</tspan></text>
+    </g>
+    <g
+       id="g15-1"
+       style="display:inline">
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#01ff00;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.5000633108979632"
+         d="M 173.319 156.151 L 225.355 155.981"
+         id="A_WAIST" />
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#ff1b00;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.5000633108979632"
+         d="M 173.348 156.037 L 169.487 305.679"
+         id="AA_DOWN" />
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#ff1b00;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.5000633108979632"
+         d="M 176.686 38.7233 L 173.348 156.037"
+         id="AA_UP" />
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#ff1b00;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.5000633108979632"
+         d="M 225.32 156.01 C 223.14 181.847 221.679 285.116 220.166 307.147"
+         id="AB_DOWN" />
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#ff1b00;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.5000633108979632"
+         d="M 243.195 46.202 C 239.483 66.2638 228.647 123.075 225.32 156.01"
+         id="AB_UP" />
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#ff1b00;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.5000633108979632"
+         d="M 169.487 305.679 L 220.166 307.147"
+         id="A_BOTTOM" />
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#ff1b00;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.5000633108979632"
+         d="M 176.686 38.7233 C 223.715 37.9335 226.134 42.616 243.195 46.202"
+         id="A_TOP" />
+      <text
+         xml:space="preserve"
+         style="font-style:italic;font-size:24px;line-height:1.25;font-family:Arial;-inkscape-font-specification:'Arial, Italic';text-align:center;text-anchor:middle"
+         x="1038.3431"
+         y="2816.0251"
+         id="text15"
+         transform="matrix(0.263135 0.0276503 -0.0276503 0.263135 36.454 -715.859)"><tspan
+           sodipodi:role="line"
+           id="tspan15"
+           x="1038.3431"
+           y="2816.0251"
+           style="font-size:24px">2A-C</tspan></text>
+    </g>
+    <g
+       id="g14">
+      <path
+         style="fill:none;fill-opacity:1;fill-rule:evenodd;opacity:1;stroke:#00ff06;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.5000623992670801"
+         d="M 597.637 155.858 L 677.565 155.927"
+         id="F_WAIST" />
+      <path
+         style="fill:none;fill-opacity:1;fill-rule:evenodd;opacity:1;stroke:#ff0000;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.5000015451126718"
+         d="M 682.162 1.05298 L 677.558 155.929"
+         id="FF_UP" />
+      <path
+         style="fill:none;fill-opacity:1;fill-rule:evenodd;opacity:1;stroke:#ff0000;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.5000623992670801"
+         d="M 597.645 155.843 C 597.464 200.281 588.376 220.507 582.749 286.659"
+         id="FE_DOWN" />
+      <path
+         style="fill:none;fill-opacity:1;fill-rule:evenodd;opacity:1;stroke:#ff0000;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.5000623992670801"
+         d="M 591.248 4.57724 C 593.577 46.3684 597.391 135.94 597.566 143.421 C 597.676 148.134 597.784 152.315 597.645 155.843"
+         id="FE_UP" />
+      <path
+         style="fill:none;fill-opacity:1;fill-rule:evenodd;opacity:1;stroke:#ff0000;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.5000623992670801"
+         d="M 591.248 4.57724 C 614.482 1.36017 661.5 0.796498 682.162 1.05298"
+         id="F_TOP" />
+      <path
+         style="fill:none;fill-opacity:1;fill-rule:evenodd;opacity:1;stroke:#ff0000;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.5000623992670801"
+         d="M 582.749 286.659 C 624.791 302.212 622.077 308.575 673.366 310.575"
+         id="F_BOTTOM" />
+      <text
+         xml:space="preserve"
+         style="font-style:italic;font-size:24px;line-height:1.25;font-family:Arial;-inkscape-font-specification:'Arial, Italic';text-align:center;text-anchor:middle"
+         x="1088.4149"
+         y="3244.4922"
+         id="text14"
+         transform="matrix(0.264456 0.00820586 -0.00820586 0.264456 338.317 -850.494)"><tspan
+           sodipodi:role="line"
+           id="tspan14"
+           x="1088.4149"
+           y="3244.4922"
+           style="font-size:24px">2F-C</tspan></text>
+      <path
+         style="fill:#0b2228;fill-rule:evenodd;opacity:1;stroke:#ff0000;stroke-dasharray:none;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.5000015451126718"
+         d="M 673.366 310.575 L 677.558 155.927"
+         id="FF_DOWN" />
+    </g>
+    <path
+       style="display:none;fill:#0000ff;fill-rule:evenodd;opacity:0.518285;stroke:#0812c6;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.499999"
+       d="M 0.25034 155.896 L 1052.35 155.896"
+       id="path15" />
+    <g
+       id="g1-2"
+       style="display:inline;opacity:1;stroke:#060606;stroke-opacity:1">
+      <path
+         style="fill:#0000ff;fill-rule:evenodd;stroke:#060606;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.5000000461683535"
+         d="M 729.824 155.88 L 782.1 155.941"
+         id="C_WAIST-2" />
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#060606;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.5000000461683535"
+         d="M 729.766 155.828 C 730.022 151.828 730.322 147.673 730.205 143.419 C 730.016 136.55 724.701 66.366 722.487 43.3001"
+         id="CB_UP-8" />
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#060606;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.5000000461683535"
+         d="M 691.578 291.403 C 714.795 196.563 727.413 199.066 729.766 155.828"
+         id="CB_DOWN-9" />
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#060606;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.4999990461682612"
+         d="M 782.073 155.99 C 782.065 151.868 782.397 147.681 782.497 143.419 C 782.722 133.803 792.279 67.6821 795.172 34.3257"
+         id="CD_UP-7" />
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#060606;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.4999990461682612"
+         d="M 807.523 273.512 C 798.671 213.947 782.059 205.474 782.073 155.99"
+         id="CD_DOWN-3" />
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#060606;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.4999990461682612"
+         d="M 722.487 43.3001 C 737.995 40.7092 768.155 34.1571 795.172 34.3257"
+         id="C_TOP-6" />
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#060606;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.4999990461682612"
+         d="M 691.578 291.403 C 708.72 289.979 765.088 283.969 807.523 273.512"
+         id="C_BOTTOM-1" />
+      <text
+         xml:space="preserve"
+         style="font-style:italic;font-size:6.35px;line-height:1.25;font-family:Arial;-inkscape-font-specification:'Arial, Italic';text-align:center;text-anchor:middle;stroke:#060606;stroke-width:0.264583;stroke-opacity:1"
+         x="63.02282"
+         y="265.13284"
+         id="text35-2"
+         transform="matrix(0.999994 0.00349065 -0.00349065 0.999994 644.964 13.4488)"><tspan
+           sodipodi:role="line"
+           id="tspan34-9"
+           style="font-size:6.35px;stroke:#060606;stroke-opacity:1;stroke-width:0.26458302443072296"
+           x="63.02282"
+           y="265.13284">2C-CF</tspan></text>
+    </g>
+    <g
+       id="g15-2-0"
+       style="opacity:1;stroke:#060606;stroke-opacity:1">
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#060606;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.49999977382325306"
+         d="M 842.31 155.944 L 892.94 155.933"
+         id="D_WAIST-3" />
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#060606;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.5000632739215287"
+         d="M 842.273 155.781 C 842.337 151.733 842.428 147.593 841.995 143.419 C 840.999 133.827 828.464 72.9914 819.859 35.989"
+         id="DC_UP-6" />
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#060606;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.5000632739215287"
+         d="M 823.727 275.169 C 826.564 244.571 842.602 194.007 842.273 155.781"
+         id="DC_DOWN-1" />
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#060606;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.5000632739215287"
+         d="M 892.924 155.926 C 892.853 151.618 892.89 147.461 892.941 143.419 C 893.007 138.18 898.492 68.0605 903.219 20.3873"
+         id="DE_UP-0" />
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#060606;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.5000632739215287"
+         d="M 919.215 274.759 C 908.885 221.762 892.158 196.077 892.924 155.926"
+         id="DE_DOWN-6" />
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#060606;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.5000632739215287"
+         d="M 823.727 275.169 C 854.211 277.621 871.849 278.616 919.215 274.759"
+         id="D_BOTTOM-3" />
+      <path
+         style="fill:none;fill-rule:evenodd;opacity:1;stroke:#060606;stroke-dasharray:none;stroke-dashoffset:0;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-width:0.5000632739215287"
+         d="M 819.859 35.989 C 843.182 28.5664 867.075 23.5069 903.219 20.3873"
+         id="D_TOP-2" />
+      <text
+         xml:space="preserve"
+         style="font-style:italic;font-size:24px;line-height:1.25;font-family:Arial;-inkscape-font-specification:'Arial, Italic';text-align:center;text-anchor:middle;stroke:#060606;stroke-width:0.999998;stroke-opacity:1"
+         x="1420.6888"
+         y="3558.175"
+         id="text37-0"
+         transform="matrix(0.264584 1.18542e-09 -1.18542e-09 0.264584 528.758 -671.36)"><tspan
+           sodipodi:role="line"
+           style="font-size:24px;stroke:#060606;stroke-opacity:1;stroke-width:0.2645832136481381"
+           x="1420.6888"
+           y="3558.175"
+           id="tspan4-6">2D-CF</tspan></text>
+    </g>
+  </g>
+</svg>
