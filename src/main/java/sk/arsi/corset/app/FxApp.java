@@ -3,6 +3,7 @@ package sk.arsi.corset.app;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.scene.Scene;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.layout.BorderPane;
@@ -11,11 +12,17 @@ import javafx.stage.Stage;
 import sk.arsi.corset.io.SvgFileWatcher;
 import sk.arsi.corset.io.SvgPanelLoader;
 import sk.arsi.corset.model.PanelCurves;
+import sk.arsi.corset.svg.SvgDocument;
+import sk.arsi.corset.svg.SvgLoader;
+import sk.arsi.corset.wizard.IdAssignmentWizard;
+import sk.arsi.corset.wizard.IdWizardSession;
+import sk.arsi.corset.wizard.SvgTextEditor;
 
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.prefs.Preferences;
@@ -51,7 +58,13 @@ public final class FxApp extends Application {
             return;
         }
 
-        List<PanelCurves> panels = panelLoader.loadPanelsWithRetry(svgPath, 3, 250);
+        // Try to load panels, launch wizard if required IDs are missing
+        List<PanelCurves> panels = loadPanelsOrLaunchWizard(stage, svgPath);
+        if (panels == null) {
+            // User cancelled wizard or error occurred
+            Platform.exit();
+            return;
+        }
 
         // --- Measurements ---
         viewMeasurements = new MeasurementsView();
@@ -181,9 +194,102 @@ public final class FxApp extends Application {
                         viewPseudo3d.setPanels(panels);
                     }
                 });
-            } catch (Exception ignored) {
-                // ignore reload failures, user can fix svg and save again
+            } catch (Exception e) {
+                // If reload fails due to missing IDs, we could potentially re-launch wizard
+                // For now, ignore reload failures - user can fix svg and save again
             }
+        });
+    }
+
+    /**
+     * Try to load panels, launch wizard if required IDs are missing.
+     * Returns null if user cancelled wizard.
+     */
+    private List<PanelCurves> loadPanelsOrLaunchWizard(Stage stage, Path path) {
+        try {
+            return panelLoader.loadPanelsWithRetry(path, 3, 250);
+        } catch (Exception e) {
+            // Check if this is a missing ID exception
+            if (e instanceof IllegalStateException && e.getMessage() != null && 
+                e.getMessage().contains("Missing required SVG element id=")) {
+                
+                // Launch wizard
+                boolean success = launchWizard(stage, path);
+                if (!success) {
+                    return null;
+                }
+                
+                // Try loading again with the new file
+                try {
+                    return panelLoader.loadPanelsWithRetry(svgPath, 3, 250);
+                } catch (Exception ex) {
+                    showError("Failed to load SVG after wizard completion", ex.getMessage());
+                    return null;
+                }
+            } else {
+                // Some other error
+                showError("Failed to load SVG", e.getMessage());
+                return null;
+            }
+        }
+    }
+
+    /**
+     * Launch the ID assignment wizard.
+     * Returns true if wizard completed successfully, false if cancelled.
+     */
+    private boolean launchWizard(Stage stage, Path path) {
+        try {
+            // Load SVG document
+            SvgLoader loader = new SvgLoader();
+            SvgDocument doc = loader.load(path);
+            
+            // Create wizard session
+            IdWizardSession session = new IdWizardSession(doc.getDocument());
+            
+            // Check if there are actually missing steps
+            if (session.totalMissing() == 0) {
+                // No missing IDs, shouldn't have gotten here
+                return true;
+            }
+            
+            // Show wizard dialog
+            IdAssignmentWizard wizard = new IdAssignmentWizard(session);
+            Optional<Boolean> result = wizard.showAndWait();
+            
+            if (result.isPresent() && result.get()) {
+                // Wizard completed - save modified SVG
+                String originalName = path.getFileName().toString();
+                String baseName = originalName.replaceFirst("\\.svg$", "");
+                String newName = baseName + "_corset_viewer.svg";
+                Path newPath = path.getParent().resolve(newName);
+                
+                SvgTextEditor editor = new SvgTextEditor();
+                editor.saveWithAssignments(path, newPath, session);
+                
+                // Update svgPath to the new file
+                svgPath = newPath;
+                
+                return true;
+            } else {
+                // User cancelled
+                showError("Wizard cancelled", "You must assign required IDs to load the SVG.");
+                return false;
+            }
+        } catch (Exception e) {
+            showError("Wizard error", e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    private void showError(String title, String message) {
+        Platform.runLater(() -> {
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle(title);
+            alert.setHeaderText(null);
+            alert.setContentText(message);
+            alert.showAndWait();
         });
     }
 
