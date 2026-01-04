@@ -101,6 +101,11 @@ public final class GeometryUtils {
             double dy = p1.getY() - p0.getY();
             double segmentLength = Math.sqrt(dx * dx + dy * dy);
             
+            if (segmentLength <= 0.0) {
+                // Skip zero-length segments
+                continue;
+            }
+            
             if (currentLength + segmentLength >= targetLength) {
                 // Target point is on this segment
                 double t = (targetLength - currentLength) / segmentLength;
@@ -151,11 +156,14 @@ public final class GeometryUtils {
             double dy = p1.getY() - p0.getY();
             double segmentLength = Math.sqrt(dx * dx + dy * dy);
             
+            if (segmentLength <= 0.0) {
+                // Skip zero-length segments
+                continue;
+            }
+            
             if (currentLength + segmentLength >= targetLength || i == points.size() - 2) {
                 // Target point is on this segment, return normalized tangent
-                if (segmentLength > 0.0) {
-                    return new Pt(dx / segmentLength, dy / segmentLength);
-                }
+                return new Pt(dx / segmentLength, dy / segmentLength);
             }
             
             currentLength += segmentLength;

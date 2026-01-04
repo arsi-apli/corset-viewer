@@ -19,6 +19,8 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.stage.FileChooser;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import sk.arsi.corset.export.SvgExporter;
 import sk.arsi.corset.measure.MeasurementUtils;
 import sk.arsi.corset.measure.SeamMeasurementData;
@@ -36,6 +38,8 @@ import java.util.List;
 import java.util.Map;
 
 public final class Canvas2DView {
+
+    private static final Logger log = LoggerFactory.getLogger(Canvas2DView.class);
 
     private Button btnWaist;
 
@@ -1329,7 +1333,7 @@ public final class Canvas2DView {
                     "\n\nNotch count: " + notchCount +
                     "\nNotch length: " + notchLength + " mm");
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Failed to export SVG with notches", e);
             showAlert("Export Failed", "Failed to export SVG:\n" + e.getMessage());
         }
     }
