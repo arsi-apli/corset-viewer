@@ -115,6 +115,9 @@ public final class SvgAllowanceExporter {
 
     /**
      * Find existing allowances group or create a new one.
+     * 
+     * Note: Inkscape namespace attributes are added without explicit namespace declaration.
+     * The XML serializer will handle namespace declarations automatically when writing the document.
      */
     private Element findOrCreateAllowancesGroup(Document doc, Element root) {
         // Look for existing group with id="allowances"
