@@ -20,6 +20,8 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.stage.FileChooser;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import sk.arsi.corset.export.SvgExporter;
 import sk.arsi.corset.measure.MeasurementUtils;
 import sk.arsi.corset.measure.SeamMeasurementData;
@@ -28,6 +30,7 @@ import sk.arsi.corset.model.Curve2D;
 import sk.arsi.corset.model.PanelCurves;
 import sk.arsi.corset.model.PanelId;
 import sk.arsi.corset.model.Pt;
+import sk.arsi.corset.svg.SvgDocument;
 import sk.arsi.corset.util.SeamAllowanceComputer;
 
 import java.io.File;
@@ -328,6 +331,10 @@ public final class Canvas2DView {
         if (measurementsView != null) {
             measurementsView.setOnToleranceChanged(tolerance -> redraw());
         }
+    }
+
+    public void setSvgDocument(SvgDocument svgDocument) {
+        this.svgDocument = svgDocument;
     }
 
     /**
@@ -1412,6 +1419,47 @@ public final class Canvas2DView {
 
         try {
             SvgExporter.exportWithAllowances(panels, allowanceDistance, file);
+            showAlert(Alert.AlertType.INFORMATION, "Export successful", 
+                    "SVG exported to: " + file.getAbsolutePath());
+        } catch (Exception e) {
+            showAlert(Alert.AlertType.ERROR, "Export failed", 
+                    "Failed to export SVG: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Export SVG with notches and allowances.
+     */
+    private void exportWithNotches() {
+        if (panels == null || panels.isEmpty()) {
+            showAlert(Alert.AlertType.WARNING, "No panels loaded", "Cannot export: no panels loaded.");
+            return;
+        }
+
+        if (svgDocument == null) {
+            showAlert(Alert.AlertType.WARNING, "No SVG document loaded", 
+                    "Cannot export: SVG document not available. Please load an SVG file first.");
+            return;
+        }
+
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Export SVG with Notches and Allowances");
+        fileChooser.getExtensionFilters().add(
+                new FileChooser.ExtensionFilter("SVG files (*.svg)", "*.svg")
+        );
+        fileChooser.setInitialFileName("panels_with_notches.svg");
+
+        File file = fileChooser.showSaveDialog(root.getScene().getWindow());
+        if (file == null) {
+            return; // User cancelled
+        }
+
+        try {
+            int notchCount = notchCountSpinner.getValue();
+            double notchLength = notchLengthSpinner.getValue();
+            
+            SvgExporter.exportWithNotches(svgDocument, panels, file, notchCount, notchLength, allowanceDistance);
             showAlert(Alert.AlertType.INFORMATION, "Export successful", 
                     "SVG exported to: " + file.getAbsolutePath());
         } catch (Exception e) {
