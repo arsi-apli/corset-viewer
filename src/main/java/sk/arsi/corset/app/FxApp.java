@@ -12,6 +12,9 @@ import javafx.stage.Stage;
 import sk.arsi.corset.io.SvgFileWatcher;
 import sk.arsi.corset.io.SvgPanelLoader;
 import sk.arsi.corset.model.PanelCurves;
+import sk.arsi.corset.svg.PathSampler;
+import sk.arsi.corset.svg.PatternContract;
+import sk.arsi.corset.svg.PatternExtractor;
 import sk.arsi.corset.svg.SvgDocument;
 import sk.arsi.corset.svg.SvgLoader;
 import sk.arsi.corset.wizard.IdAssignmentWizard;
@@ -40,6 +43,7 @@ public final class FxApp extends Application {
     private MeasurementsView viewMeasurements;
 
     private Path svgPath;
+    private SvgDocument svgDocument;
 
     private SvgFileWatcher watcher;
 
@@ -77,6 +81,7 @@ public final class FxApp extends Application {
         view2d = new Canvas2DView();
         view2d.setPanels(panels);
         view2d.setSeamMeasurements(viewMeasurements);
+        view2d.setSvgDocument(svgDocument);
 
         // --- Pseudo 3D ---
         viewPseudo3d = new Pseudo3DView();
@@ -207,10 +212,20 @@ public final class FxApp extends Application {
     /**
      * Try to load panels, launch wizard if required IDs are missing.
      * Returns null if user cancelled wizard.
+     * Also sets the svgDocument field for export functionality.
      */
     private List<PanelCurves> loadPanelsOrLaunchWizard(Stage stage, Path path) {
         try {
-            return panelLoader.loadPanelsWithRetry(path, 3, 250);
+            // Load the SVG document
+            SvgLoader loader = new SvgLoader();
+            svgDocument = loader.load(path);
+            
+            // Extract panels from the document
+            PatternContract contract = new PatternContract();
+            PathSampler sampler = new PathSampler();
+            PatternExtractor extractor = new PatternExtractor(contract, sampler);
+            
+            return extractor.extractPanels(svgDocument, 0.2, 0.5);
         } catch (Exception e) {
             // Check if this is a missing ID exception
             if (e instanceof IllegalStateException && e.getMessage() != null && 
@@ -224,7 +239,14 @@ public final class FxApp extends Application {
                 
                 // Try loading again with the new file
                 try {
-                    return panelLoader.loadPanelsWithRetry(svgPath, 3, 250);
+                    SvgLoader loader = new SvgLoader();
+                    svgDocument = loader.load(svgPath);
+                    
+                    PatternContract contract = new PatternContract();
+                    PathSampler sampler = new PathSampler();
+                    PatternExtractor extractor = new PatternExtractor(contract, sampler);
+                    
+                    return extractor.extractPanels(svgDocument, 0.2, 0.5);
                 } catch (Exception ex) {
                     showError("Failed to load SVG after wizard completion", ex.getMessage());
                     return null;

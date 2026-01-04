@@ -4,6 +4,7 @@ import javafx.geometry.Insets;
 import javafx.scene.Node;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.Slider;
@@ -15,7 +16,10 @@ import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
+import javafx.stage.FileChooser;
+import sk.arsi.corset.export.SvgExporter;
 import sk.arsi.corset.measure.MeasurementUtils;
 import sk.arsi.corset.measure.SeamMeasurementData;
 import sk.arsi.corset.measure.SeamMeasurementService;
@@ -23,7 +27,9 @@ import sk.arsi.corset.model.Curve2D;
 import sk.arsi.corset.model.PanelCurves;
 import sk.arsi.corset.model.PanelId;
 import sk.arsi.corset.model.Pt;
+import sk.arsi.corset.svg.SvgDocument;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -219,6 +225,11 @@ public final class Canvas2DView {
     // Measurement: height offset from waist in mm
     private double dyMm;
 
+    // Export configuration
+    private SvgDocument svgDocument;
+    private Spinner<Integer> notchCountSpinner;
+    private Spinner<Double> notchLengthSpinner;
+
     public Canvas2DView() {
         this.canvas = new Canvas(1200, 700);
         this.root = new BorderPane();
@@ -370,7 +381,38 @@ public final class Canvas2DView {
                 sliderLabel, circumferenceSlider, dySpinner, btnReset, dyLabel, circumferenceLabel
         );
         toolbar.setPadding(new Insets(8.0));
-        root.setTop(toolbar);
+
+        // --- Export toolbar (second row) ---
+        HBox exportToolbar = new HBox(8.0);
+        exportToolbar.setPadding(new Insets(4.0, 8.0, 4.0, 8.0));
+        
+        // Export button
+        Button btnExport = new Button("Export SVG with Notches");
+        btnExport.setOnAction(e -> exportWithNotches());
+        
+        // Notch count spinner
+        Label notchCountLabel = new Label("Notches:");
+        notchCountSpinner = new Spinner<>(new SpinnerValueFactory.IntegerSpinnerValueFactory(1, 10, 3, 1));
+        notchCountSpinner.setEditable(true);
+        notchCountSpinner.setPrefWidth(70.0);
+        
+        // Notch length spinner
+        Label notchLengthLabel = new Label("Length (mm):");
+        notchLengthSpinner = new Spinner<>(new SpinnerValueFactory.DoubleSpinnerValueFactory(3.0, 5.0, 4.0, 0.5));
+        notchLengthSpinner.setEditable(true);
+        notchLengthSpinner.setPrefWidth(70.0);
+        
+        exportToolbar.getChildren().addAll(
+                btnExport,
+                new javafx.scene.control.Separator(javafx.geometry.Orientation.VERTICAL),
+                notchCountLabel, notchCountSpinner,
+                notchLengthLabel, notchLengthSpinner
+        );
+
+        // Combine toolbars vertically
+        VBox topPanel = new VBox();
+        topPanel.getChildren().addAll(toolbar, exportToolbar);
+        root.setTop(topPanel);
 
         // --- Center ---
         root.setCenter(canvasHost);
@@ -1241,4 +1283,63 @@ public final class Canvas2DView {
         double inchFullCirc = fullCirc * 0.0393700787d;
         circumferenceLabel.setText(String.format("Circumference: %.1f mm/%.1f inch  ", fullCirc, inchFullCirc));
     }
+
+    /**
+     * Set the SVG document for export functionality.
+     */
+    public void setSvgDocument(SvgDocument doc) {
+        this.svgDocument = doc;
+    }
+
+    /**
+     * Export panels with notches to SVG file.
+     */
+    private void exportWithNotches() {
+        if (panels == null || panels.isEmpty()) {
+            showAlert("No Panels", "No panels loaded to export.");
+            return;
+        }
+
+        if (svgDocument == null) {
+            showAlert("No SVG Document", "No SVG document loaded. Cannot export.");
+            return;
+        }
+
+        // Show file chooser
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Export SVG with Notches");
+        fileChooser.getExtensionFilters().add(
+                new FileChooser.ExtensionFilter("SVG Files", "*.svg")
+        );
+        fileChooser.setInitialFileName("corset_with_notches.svg");
+
+        File file = fileChooser.showSaveDialog(root.getScene().getWindow());
+        if (file == null) {
+            return; // User cancelled
+        }
+
+        try {
+            int notchCount = notchCountSpinner.getValue();
+            double notchLength = notchLengthSpinner.getValue();
+
+            SvgExporter.exportWithNotches(svgDocument, panels, file, notchCount, notchLength);
+
+            showAlert("Export Successful", 
+                    "SVG exported successfully to:\n" + file.getAbsolutePath() +
+                    "\n\nNotch count: " + notchCount +
+                    "\nNotch length: " + notchLength + " mm");
+        } catch (Exception e) {
+            e.printStackTrace();
+            showAlert("Export Failed", "Failed to export SVG:\n" + e.getMessage());
+        }
+    }
+
+    private void showAlert(String title, String message) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
+    }
+
 }
