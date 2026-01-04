@@ -2,6 +2,8 @@ package sk.arsi.corset.export;
 
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
 import sk.arsi.corset.model.Curve2D;
 import sk.arsi.corset.model.PanelCurves;
 import sk.arsi.corset.model.Pt;
@@ -444,6 +446,173 @@ public final class SvgExporter {
             path.setAttribute("stroke-width", "0.5");
             path.setAttribute("fill", "none");
             group.appendChild(path);
+        }
+    }
+
+    /**
+     * Export panels with allowances and notches to SVG by modifying the original SVG document.
+     * This approach preserves the original SVG structure and styles.
+     * 
+     * @param svgDocument Original SVG document
+     * @param panels List of panels to export
+     * @param outputFile Output SVG file
+     * @param notchCount Number of notches per seam
+     * @param notchLengthMm Length of each notch tick in mm
+     * @param allowanceDistance Allowance distance in mm
+     * @throws Exception if export fails
+     */
+    public static void exportWithAllowancesAndNotches(
+            SvgDocument svgDocument,
+            List<PanelCurves> panels,
+            File outputFile,
+            int notchCount,
+            double notchLengthMm,
+            double allowanceDistance) throws Exception {
+        
+        if (svgDocument == null) {
+            throw new IllegalArgumentException("SVG document is required");
+        }
+        if (panels == null || panels.isEmpty()) {
+            throw new IllegalArgumentException("No panels to export");
+        }
+
+        // Clone the original document to avoid modifying it
+        Document doc = (Document) svgDocument.getDocument().cloneNode(true);
+        
+        // Generate notches for all panels
+        List<PanelNotches> allNotches = NotchGenerator.generateAllNotches(panels, notchCount, notchLengthMm);
+
+        // For each panel, find or create container and add allowances/notches groups
+        for (int i = 0; i < panels.size(); i++) {
+            PanelCurves panel = panels.get(i);
+            PanelNotches panelNotches = allNotches.get(i);
+            String panelName = panel.getPanelId().name();
+            
+            // Find container element for this panel
+            Element container = findPanelContainer(doc, svgDocument, panelName);
+            
+            if (container == null) {
+                // Skip this panel if we can't find a container
+                continue;
+            }
+            
+            // Create or update allowances group
+            Element allowancesGroup = findOrCreateGroup(doc, container, panelName + "_ALLOWANCES");
+            clearElement(allowancesGroup);
+            exportPanelAllowancesToGroup(doc, allowancesGroup, panel, allowanceDistance);
+            
+            // Create or update notches group
+            Element notchesGroup = findOrCreateGroup(doc, container, panelName + "_NOTCHES");
+            clearElement(notchesGroup);
+            exportNotchesToGroup(doc, notchesGroup, panelNotches);
+        }
+
+        // Write to file
+        TransformerFactory transformerFactory = TransformerFactory.newInstance();
+        Transformer transformer = transformerFactory.newTransformer();
+        transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+        transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
+        transformer.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
+
+        DOMSource source = new DOMSource(doc);
+        StreamResult result = new StreamResult(outputFile);
+        transformer.transform(source, result);
+    }
+
+    /**
+     * Find the container element for a panel.
+     * First tries to find <PANEL>_PANEL group.
+     * Falls back to finding <PANEL>_WAIST element and using its parent.
+     */
+    private static Element findPanelContainer(Document doc, SvgDocument svgDocument, String panelName) {
+        // Try to find <PANEL>_PANEL group in the cloned document
+        Element panelGroup = findElementByIdInDocument(doc, panelName + "_PANEL");
+        if (panelGroup != null) {
+            return panelGroup;
+        }
+        
+        // Fallback: find <PANEL>_WAIST and use its parent
+        Element waistElement = findElementByIdInDocument(doc, panelName + "_WAIST");
+        if (waistElement != null && waistElement.getParentNode() instanceof Element) {
+            return (Element) waistElement.getParentNode();
+        }
+        
+        // Try other required elements as fallback
+        String[] fallbackIds = {
+            panelName + "_TOP",
+            panelName + "_BOTTOM",
+            panelName + "A_UP",
+            panelName + "A_DOWN"
+        };
+        
+        for (String fallbackId : fallbackIds) {
+            Element element = findElementByIdInDocument(doc, fallbackId);
+            if (element != null && element.getParentNode() instanceof Element) {
+                return (Element) element.getParentNode();
+            }
+        }
+        
+        return null;
+    }
+
+    /**
+     * Find element by ID in a document by traversing all elements.
+     */
+    private static Element findElementByIdInDocument(Document doc, String id) {
+        return findElementByIdRecursive(doc.getDocumentElement(), id);
+    }
+
+    /**
+     * Recursively search for element with given ID.
+     */
+    private static Element findElementByIdRecursive(Element root, String id) {
+        if (root.hasAttribute("id") && id.equals(root.getAttribute("id"))) {
+            return root;
+        }
+        
+        NodeList children = root.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            Node child = children.item(i);
+            if (child instanceof Element) {
+                Element found = findElementByIdRecursive((Element) child, id);
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
+        
+        return null;
+    }
+
+    /**
+     * Find or create a group element with the given ID as a child of the container.
+     */
+    private static Element findOrCreateGroup(Document doc, Element container, String groupId) {
+        // Check if group already exists as a direct child
+        NodeList children = container.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            Node child = children.item(i);
+            if (child instanceof Element) {
+                Element elem = (Element) child;
+                if ("g".equals(elem.getLocalName()) && groupId.equals(elem.getAttribute("id"))) {
+                    return elem;
+                }
+            }
+        }
+        
+        // Create new group
+        Element group = doc.createElementNS(SVG_NAMESPACE, "g");
+        group.setAttribute("id", groupId);
+        container.appendChild(group);
+        return group;
+    }
+
+    /**
+     * Remove all child nodes from an element.
+     */
+    private static void clearElement(Element element) {
+        while (element.hasChildNodes()) {
+            element.removeChild(element.getFirstChild());
         }
     }
 }

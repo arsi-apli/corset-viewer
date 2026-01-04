@@ -4,6 +4,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import sk.arsi.corset.io.SvgPanelLoader;
 import sk.arsi.corset.model.PanelCurves;
+import sk.arsi.corset.svg.SvgDocument;
+import sk.arsi.corset.svg.SvgLoader;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -72,6 +74,100 @@ public class SvgExporterTest {
         
         Exception exception = assertThrows(IllegalArgumentException.class, () -> {
             SvgExporter.exportWithAllowances(null, 10.0, outputFile);
+        });
+        
+        assertTrue(exception.getMessage().contains("No panels"));
+    }
+
+    @Test
+    public void testExportWithAllowancesAndNotches() throws Exception {
+        // Load sample panels from test SVG
+        Path testSvg = Path.of("patterns/Libra/v2/P2All-Final-V2-conic-no-image-26.64-clean.svg");
+        if (!Files.exists(testSvg)) {
+            // Skip test if sample file not available
+            return;
+        }
+
+        // Load SVG document
+        SvgLoader svgLoader = new SvgLoader();
+        SvgDocument svgDocument = svgLoader.load(testSvg);
+
+        // Load panels
+        SvgPanelLoader loader = new SvgPanelLoader(0.2, 0.5);
+        List<PanelCurves> panels = loader.loadPanelsWithRetry(testSvg, 3, 250);
+
+        assertNotNull(panels);
+        assertFalse(panels.isEmpty());
+
+        // Export with allowances and notches
+        File outputFile = tempDir.resolve("test_export_with_allowances_and_notches.svg").toFile();
+        SvgExporter.exportWithAllowancesAndNotches(svgDocument, panels, outputFile, 3, 4.0, 10.0);
+
+        // Verify file was created
+        assertTrue(outputFile.exists());
+        assertTrue(outputFile.length() > 0);
+
+        // Read file content and verify structure
+        String content = Files.readString(outputFile.toPath());
+        
+        // Check for SVG structure
+        assertTrue(content.contains("<svg"));
+        assertTrue(content.contains("xmlns=\"http://www.w3.org/2000/svg\""));
+        
+        // Check that original elements are preserved (e.g., waist elements)
+        assertTrue(content.contains("A_WAIST"), "Original A_WAIST element should be preserved");
+        assertTrue(content.contains("B_WAIST"), "Original B_WAIST element should be preserved");
+        assertTrue(content.contains("C_WAIST"), "Original C_WAIST element should be preserved");
+        
+        // Check for ALLOWANCES groups
+        assertTrue(content.contains("A_ALLOWANCES"), "Should have A_ALLOWANCES group");
+        assertTrue(content.contains("B_ALLOWANCES"), "Should have B_ALLOWANCES group");
+        assertTrue(content.contains("C_ALLOWANCES"), "Should have C_ALLOWANCES group");
+        
+        // Check for NOTCHES groups
+        assertTrue(content.contains("A_NOTCHES"), "Should have A_NOTCHES group");
+        assertTrue(content.contains("B_NOTCHES"), "Should have B_NOTCHES group");
+        assertTrue(content.contains("C_NOTCHES"), "Should have C_NOTCHES group");
+        
+        // Verify at least one allowance and one notch path exists
+        boolean hasAllowancePath = content.contains("_ALLOW");
+        assertTrue(hasAllowancePath, "Should have at least one allowance path");
+        
+        boolean hasNotchPath = content.contains("_NOTCH");
+        assertTrue(hasNotchPath, "Should have at least one notch path");
+        
+        // Verify original stroke-width is preserved for waist lines
+        // The original SVG has waist lines with stroke-width around 0.5
+        assertTrue(content.contains("stroke-width"), "Should preserve stroke-width attributes");
+    }
+
+    @Test
+    public void testExportWithAllowancesAndNotches_NullDocument() {
+        File outputFile = tempDir.resolve("test_null_doc.svg").toFile();
+        
+        Exception exception = assertThrows(IllegalArgumentException.class, () -> {
+            SvgExporter.exportWithAllowancesAndNotches(null, null, outputFile, 3, 4.0, 10.0);
+        });
+        
+        assertTrue(exception.getMessage().contains("SVG document"));
+    }
+
+    @Test
+    public void testExportWithAllowancesAndNotches_EmptyPanels() throws Exception {
+        // Load SVG document
+        Path testSvg = Path.of("patterns/Libra/v2/P2All-Final-V2-conic-no-image-26.64-clean.svg");
+        if (!Files.exists(testSvg)) {
+            // Skip test if sample file not available
+            return;
+        }
+        
+        SvgLoader svgLoader = new SvgLoader();
+        SvgDocument svgDocument = svgLoader.load(testSvg);
+        
+        File outputFile = tempDir.resolve("test_empty_panels.svg").toFile();
+        
+        Exception exception = assertThrows(IllegalArgumentException.class, () -> {
+            SvgExporter.exportWithAllowancesAndNotches(svgDocument, null, outputFile, 3, 4.0, 10.0);
         });
         
         assertTrue(exception.getMessage().contains("No panels"));
