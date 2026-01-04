@@ -427,27 +427,6 @@ public final class Canvas2DView {
         // Allowance label
         Label allowanceLabel = new Label("Allowance (mm):");
         allowanceLabel.setStyle("-fx-font-size: " + FONT_LABEL + "px;");
-
-        // Export button
-        Button btnExportSvg = new Button("Export SVG with Allowances");
-        btnExportSvg.setOnAction(e -> exportSvgWithAllowances());
-
-        toolbar.getChildren().addAll(
-                btnTop, btnWaist, btnBottom,
-                new javafx.scene.control.Separator(javafx.geometry.Orientation.VERTICAL),
-                sliderLabel, circumferenceSlider, dySpinner, btnReset, dyLabel, circumferenceLabel,
-                new javafx.scene.control.Separator(javafx.geometry.Orientation.VERTICAL),
-                showAllowancesCheckBox, allowanceLabel, allowanceSpinner, btnExportSvg
-        );
-        toolbar.setPadding(new Insets(8.0));
-
-        // --- Export toolbar (second row) ---
-        HBox exportToolbar = new HBox(8.0);
-        exportToolbar.setPadding(new Insets(4.0, 8.0, 4.0, 8.0));
-        
-        // Export button
-        Button btnExport = new Button("Export SVG with Notches");
-        btnExport.setOnAction(e -> exportWithNotches());
         
         // Notch count spinner
         Label notchCountLabel = new Label("Notches:");
@@ -475,19 +454,24 @@ public final class Canvas2DView {
         showNotchesCheckBox = new CheckBox("Show notches");
         showNotchesCheckBox.setSelected(false);
         showNotchesCheckBox.setOnAction(e -> redraw());
-        
-        exportToolbar.getChildren().addAll(
-                btnExport,
-                new javafx.scene.control.Separator(javafx.geometry.Orientation.VERTICAL),
-                notchCountLabel, notchCountSpinner,
-                notchLengthLabel, notchLengthSpinner,
-                showNotchesCheckBox
-        );
 
-        // Combine toolbars vertically
-        VBox topPanel = new VBox();
-        topPanel.getChildren().addAll(toolbar, exportToolbar);
-        root.setTop(topPanel);
+        // Combined export button
+        Button btnExport = new Button("Export SVG (Allowances + Notches)");
+        btnExport.setOnAction(e -> exportSvgWithAllowancesAndNotches());
+
+        toolbar.getChildren().addAll(
+                btnTop, btnWaist, btnBottom,
+                new javafx.scene.control.Separator(javafx.geometry.Orientation.VERTICAL),
+                sliderLabel, circumferenceSlider, dySpinner, btnReset, dyLabel, circumferenceLabel,
+                new javafx.scene.control.Separator(javafx.geometry.Orientation.VERTICAL),
+                showAllowancesCheckBox, allowanceLabel, allowanceSpinner,
+                showNotchesCheckBox, notchCountLabel, notchCountSpinner,
+                notchLengthLabel, notchLengthSpinner,
+                btnExport
+        );
+        toolbar.setPadding(new Insets(8.0));
+
+        root.setTop(toolbar);
 
         // --- Center ---
         root.setCenter(canvasHost);
@@ -1487,46 +1471,9 @@ public final class Canvas2DView {
     }
 
     /**
-     * Export SVG with allowances.
+     * Export SVG with allowances and notches combined.
      */
-    private void exportSvgWithAllowances() {
-        if (panels == null || panels.isEmpty()) {
-            showAlert(Alert.AlertType.WARNING, "No panels loaded", "Cannot export: no panels loaded.");
-            return;
-        }
-
-        FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle("Export SVG with Allowances");
-        fileChooser.getExtensionFilters().add(
-                new FileChooser.ExtensionFilter("SVG files (*.svg)", "*.svg")
-        );
-        fileChooser.setInitialFileName("panels_with_allowances.svg");
-        
-        // Set initial directory to the directory of the currently loaded SVG
-        if (svgPath != null && svgPath.getParent() != null) {
-            fileChooser.setInitialDirectory(svgPath.getParent().toFile());
-        }
-
-        File file = fileChooser.showSaveDialog(root.getScene().getWindow());
-        if (file == null) {
-            return; // User cancelled
-        }
-
-        try {
-            SvgExporter.exportWithAllowances(panels, allowanceDistance, file);
-            showAlert(Alert.AlertType.INFORMATION, "Export successful", 
-                    "SVG exported to: " + file.getAbsolutePath());
-        } catch (Exception e) {
-            showAlert(Alert.AlertType.ERROR, "Export failed", 
-                    "Failed to export SVG: " + e.getMessage());
-            e.printStackTrace();
-        }
-    }
-
-    /**
-     * Export SVG with notches and allowances.
-     */
-    private void exportWithNotches() {
+    private void exportSvgWithAllowancesAndNotches() {
         if (panels == null || panels.isEmpty()) {
             showAlert(Alert.AlertType.WARNING, "No panels loaded", "Cannot export: no panels loaded.");
             return;
@@ -1539,11 +1486,11 @@ public final class Canvas2DView {
         }
 
         FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle("Export SVG with Notches and Allowances");
+        fileChooser.setTitle("Export SVG (Allowances + Notches)");
         fileChooser.getExtensionFilters().add(
                 new FileChooser.ExtensionFilter("SVG files (*.svg)", "*.svg")
         );
-        fileChooser.setInitialFileName("panels_with_notches.svg");
+        fileChooser.setInitialFileName("panels_with_allowances_and_notches.svg");
         
         // Set initial directory to the directory of the currently loaded SVG
         if (svgPath != null && svgPath.getParent() != null) {
@@ -1559,7 +1506,7 @@ public final class Canvas2DView {
             int notchCount = notchCountSpinner.getValue();
             double notchLength = notchLengthSpinner.getValue();
             
-            SvgExporter.exportWithNotches(svgDocument, panels, file, notchCount, notchLength, allowanceDistance);
+            SvgExporter.exportWithAllowancesAndNotches(svgDocument, panels, file, notchCount, notchLength, allowanceDistance);
             showAlert(Alert.AlertType.INFORMATION, "Export successful", 
                     "SVG exported to: " + file.getAbsolutePath());
         } catch (Exception e) {
