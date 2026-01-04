@@ -17,6 +17,7 @@ import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.stage.FileChooser;
 import sk.arsi.corset.export.SvgExporter;
@@ -36,6 +37,8 @@ import java.util.List;
 import java.util.Map;
 
 public final class Canvas2DView {
+
+    private static final Logger log = LoggerFactory.getLogger(Canvas2DView.class);
 
     private Button btnWaist;
 
@@ -230,6 +233,11 @@ public final class Canvas2DView {
     // Measurement: height offset from waist in mm
     private double dyMm;
 
+    // Export configuration
+    private SvgDocument svgDocument;
+    private Spinner<Integer> notchCountSpinner;
+    private Spinner<Double> notchLengthSpinner;
+
     public Canvas2DView() {
         this.canvas = new Canvas(1200, 700);
         this.root = new BorderPane();
@@ -409,7 +417,38 @@ public final class Canvas2DView {
                 showAllowancesCheckBox, allowanceLabel, allowanceSpinner, btnExportSvg
         );
         toolbar.setPadding(new Insets(8.0));
-        root.setTop(toolbar);
+
+        // --- Export toolbar (second row) ---
+        HBox exportToolbar = new HBox(8.0);
+        exportToolbar.setPadding(new Insets(4.0, 8.0, 4.0, 8.0));
+        
+        // Export button
+        Button btnExport = new Button("Export SVG with Notches");
+        btnExport.setOnAction(e -> exportWithNotches());
+        
+        // Notch count spinner
+        Label notchCountLabel = new Label("Notches:");
+        notchCountSpinner = new Spinner<>(new SpinnerValueFactory.IntegerSpinnerValueFactory(1, 10, 3, 1));
+        notchCountSpinner.setEditable(true);
+        notchCountSpinner.setPrefWidth(70.0);
+        
+        // Notch length spinner
+        Label notchLengthLabel = new Label("Length (mm):");
+        notchLengthSpinner = new Spinner<>(new SpinnerValueFactory.DoubleSpinnerValueFactory(3.0, 5.0, 4.0, 0.5));
+        notchLengthSpinner.setEditable(true);
+        notchLengthSpinner.setPrefWidth(70.0);
+        
+        exportToolbar.getChildren().addAll(
+                btnExport,
+                new javafx.scene.control.Separator(javafx.geometry.Orientation.VERTICAL),
+                notchCountLabel, notchCountSpinner,
+                notchLengthLabel, notchLengthSpinner
+        );
+
+        // Combine toolbars vertically
+        VBox topPanel = new VBox();
+        topPanel.getChildren().addAll(toolbar, exportToolbar);
+        root.setTop(topPanel);
 
         // --- Center ---
         root.setCenter(canvasHost);
