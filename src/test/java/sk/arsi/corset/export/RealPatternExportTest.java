@@ -62,7 +62,7 @@ public class RealPatternExportTest {
         System.out.println("Notch length: " + notchLength + " mm");
         System.out.println("Allowance distance: " + allowanceDistance + " mm");
         
-        SvgExporter.exportWithNotches(doc, panels, outputFile, notchCount, notchLength, allowanceDistance);
+        SvgExporter.exportWithAllowancesAndNotches(doc, panels, outputFile, notchCount, notchLength, allowanceDistance);
         
         // Verify output file was created
         assertTrue(outputFile.exists(), "Output SVG file should be created");
