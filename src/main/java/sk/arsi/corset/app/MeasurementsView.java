@@ -6,6 +6,7 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.scene.Node;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.Spinner;
 import javafx.scene.control.SpinnerValueFactory;
@@ -45,6 +46,11 @@ public final class MeasurementsView {
     private final Spinner<Double> toleranceSpinner;
     private final DoubleProperty toleranceProperty;
 
+    // Allowance control
+    private final Spinner<Double> allowanceSpinner;
+    private final DoubleProperty allowanceProperty;
+    private final Button exportButton;
+
     // Top seams (UP, above waist)
     private final TableView<SeamMeasurementData> topTable;
     private final ObservableList<SeamMeasurementData> topData;
@@ -55,11 +61,16 @@ public final class MeasurementsView {
 
     private List<PanelCurves> panels;
     private Consumer<Double> onToleranceChanged;
+    private Runnable onExportRequested;
 
     public MeasurementsView() {
         this.root = new VBox(15.0);
         this.toleranceProperty = new SimpleDoubleProperty(0.5);
         this.toleranceSpinner = createToleranceSpinner();
+
+        this.allowanceProperty = new SimpleDoubleProperty(10.0);
+        this.allowanceSpinner = createAllowanceSpinner();
+        this.exportButton = createExportButton();
 
         this.topData = FXCollections.observableArrayList();
         this.bottomData = FXCollections.observableArrayList();
@@ -85,12 +96,24 @@ public final class MeasurementsView {
         this.onToleranceChanged = callback;
     }
 
+    public void setOnExportRequested(Runnable callback) {
+        this.onExportRequested = callback;
+    }
+
     public double getTolerance() {
         return toleranceProperty.get();
     }
 
     public DoubleProperty toleranceProperty() {
         return toleranceProperty;
+    }
+
+    public double getAllowance() {
+        return allowanceProperty.get();
+    }
+
+    public DoubleProperty allowanceProperty() {
+        return allowanceProperty;
     }
 
     private void initUi() {
@@ -104,6 +127,13 @@ public final class MeasurementsView {
         HBox toleranceBox = new HBox(10.0, toleranceLabel, toleranceSpinner);
         toleranceBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
 
+        // Allowance control and export button
+        Label allowanceLabel = new Label("Seam Allowance (mm):");
+        allowanceLabel.setStyle("-fx-font-size: " + FONT_LABEL + "px;");
+
+        HBox allowanceBox = new HBox(10.0, allowanceLabel, allowanceSpinner, exportButton);
+        allowanceBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+
         Label topLbl = new Label("Top seams (UP)");
         topLbl.setStyle("-fx-font-weight: bold; -fx-font-size: " + FONT_LABEL + "px;");
 
@@ -113,6 +143,7 @@ public final class MeasurementsView {
         root.getChildren().addAll(
                 title,
                 toleranceBox,
+                allowanceBox,
                 topLbl,
                 topTable,
                 bottomLbl,
@@ -147,6 +178,33 @@ public final class MeasurementsView {
         });
 
         return spinner;
+    }
+
+    private Spinner<Double> createAllowanceSpinner() {
+        SpinnerValueFactory<Double> valueFactory
+                = new SpinnerValueFactory.DoubleSpinnerValueFactory(0.0, 100.0, 10.0, 0.5);
+
+        Spinner<Double> spinner = new Spinner<>(valueFactory);
+        spinner.setEditable(true);
+        spinner.setPrefWidth(100.0);
+
+        spinner.valueProperty().addListener((obs, oldV, newV) -> {
+            if (newV != null) {
+                allowanceProperty.set(newV);
+            }
+        });
+
+        return spinner;
+    }
+
+    private Button createExportButton() {
+        Button button = new Button("Export SVG (with allowances)");
+        button.setOnAction(e -> {
+            if (onExportRequested != null) {
+                onExportRequested.run();
+            }
+        });
+        return button;
     }
 
     private TableView<SeamMeasurementData> createTopSeamsTable(ObservableList<SeamMeasurementData> data) {
