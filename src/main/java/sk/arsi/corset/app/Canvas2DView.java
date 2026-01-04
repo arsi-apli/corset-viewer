@@ -4,6 +4,7 @@ import javafx.geometry.Insets;
 import javafx.scene.Node;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
@@ -17,6 +18,8 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
+import javafx.stage.FileChooser;
+import sk.arsi.corset.export.SvgExporter;
 import sk.arsi.corset.measure.MeasurementUtils;
 import sk.arsi.corset.measure.SeamMeasurementData;
 import sk.arsi.corset.measure.SeamMeasurementService;
@@ -26,6 +29,7 @@ import sk.arsi.corset.model.PanelId;
 import sk.arsi.corset.model.Pt;
 import sk.arsi.corset.util.SeamAllowanceComputer;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -393,12 +397,16 @@ public final class Canvas2DView {
         Label allowanceLabel = new Label("Allowance (mm):");
         allowanceLabel.setStyle("-fx-font-size: " + FONT_LABEL + "px;");
 
+        // Export button
+        Button btnExportSvg = new Button("Export SVG with Allowances");
+        btnExportSvg.setOnAction(e -> exportSvgWithAllowances());
+
         toolbar.getChildren().addAll(
                 btnTop, btnWaist, btnBottom,
                 new javafx.scene.control.Separator(javafx.geometry.Orientation.VERTICAL),
                 sliderLabel, circumferenceSlider, dySpinner, btnReset, dyLabel, circumferenceLabel,
                 new javafx.scene.control.Separator(javafx.geometry.Orientation.VERTICAL),
-                showAllowancesCheckBox, allowanceLabel, allowanceSpinner
+                showAllowancesCheckBox, allowanceLabel, allowanceSpinner, btnExportSvg
         );
         toolbar.setPadding(new Insets(8.0));
         root.setTop(toolbar);
@@ -1340,5 +1348,45 @@ public final class Canvas2DView {
         double fullCirc = MeasurementUtils.computeFullCircumference(panels, dyMm);
         double inchFullCirc = fullCirc * 0.0393700787d;
         circumferenceLabel.setText(String.format("Circumference: %.1f mm/%.1f inch  ", fullCirc, inchFullCirc));
+    }
+
+    /**
+     * Export SVG with allowances.
+     */
+    private void exportSvgWithAllowances() {
+        if (panels == null || panels.isEmpty()) {
+            showAlert(Alert.AlertType.WARNING, "No panels loaded", "Cannot export: no panels loaded.");
+            return;
+        }
+
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Export SVG with Allowances");
+        fileChooser.getExtensionFilters().add(
+                new FileChooser.ExtensionFilter("SVG files (*.svg)", "*.svg")
+        );
+        fileChooser.setInitialFileName("panels_with_allowances.svg");
+
+        File file = fileChooser.showSaveDialog(root.getScene().getWindow());
+        if (file == null) {
+            return; // User cancelled
+        }
+
+        try {
+            SvgExporter.exportWithAllowances(panels, allowanceDistance, file);
+            showAlert(Alert.AlertType.INFORMATION, "Export successful", 
+                    "SVG exported to: " + file.getAbsolutePath());
+        } catch (Exception e) {
+            showAlert(Alert.AlertType.ERROR, "Export failed", 
+                    "Failed to export SVG: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private void showAlert(Alert.AlertType type, String title, String message) {
+        Alert alert = new Alert(type);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
     }
 }
