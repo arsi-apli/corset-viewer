@@ -66,9 +66,10 @@ public final class SeamAllowanceComputer {
         }
 
         // Determine offset direction using mid-point test
+        // offsetSign is +1 to offset away from interior, -1 to offset toward interior (then negated)
         int offsetSign = determineOffsetSign(points, interiorRef);
 
-        // Generate offset polyline
+        // Generate offset polyline (offsetSign applied to distance to control direction)
         return generateOffsetPolyline(points, offsetDistance * offsetSign);
     }
 

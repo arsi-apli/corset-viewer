@@ -23,6 +23,10 @@ import java.util.List;
 public final class SvgExporter {
 
     private static final String SVG_NAMESPACE = "http://www.w3.org/2000/svg";
+    
+    // Default dimensions when panel bounds cannot be computed
+    private static final double DEFAULT_VIEWPORT_WIDTH = 1000.0;
+    private static final double DEFAULT_VIEWPORT_HEIGHT = 1000.0;
 
     private SvgExporter() {
         // utility class
@@ -244,7 +248,7 @@ public final class SvgExporter {
         // Fallback if no valid bounds found
         if (!Double.isFinite(minX) || !Double.isFinite(minY) || 
             !Double.isFinite(maxX) || !Double.isFinite(maxY)) {
-            return new double[]{0, 0, 1000, 1000};
+            return new double[]{0, 0, DEFAULT_VIEWPORT_WIDTH, DEFAULT_VIEWPORT_HEIGHT};
         }
 
         return new double[]{minX, minY, maxX, maxY};
