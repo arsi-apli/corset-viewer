@@ -14,6 +14,10 @@ import java.util.List;
  */
 public final class SeamAllowanceComputer {
 
+    // Geometric test parameters
+    private static final double EPSILON = 1e-9; // Tolerance for floating-point comparisons
+    private static final double TEST_DISTANCE = 1.0; // Distance for interior/exterior test (in mm)
+
     private SeamAllowanceComputer() {
         // utility class
     }
@@ -130,7 +134,7 @@ public final class SeamAllowanceComputer {
 
         // Normalize normal
         double nLen = Math.sqrt(nx * nx + ny * ny);
-        if (nLen < 1e-9) {
+        if (nLen < EPSILON) {
             return 1; // degenerate segment
         }
         nx /= nLen;
@@ -141,13 +145,11 @@ public final class SeamAllowanceComputer {
         double my = (p0.getY() + p1.getY()) / 2.0;
 
         // Test two points: pMid + n*eps and pMid - n*eps
-        double eps = 1.0; // test distance
+        double xPlus = mx + nx * TEST_DISTANCE;
+        double yPlus = my + ny * TEST_DISTANCE;
 
-        double xPlus = mx + nx * eps;
-        double yPlus = my + ny * eps;
-
-        double xMinus = mx - nx * eps;
-        double yMinus = my - ny * eps;
+        double xMinus = mx - nx * TEST_DISTANCE;
+        double yMinus = my - ny * TEST_DISTANCE;
 
         // Distance to interior reference
         double distPlus = distanceSquared(xPlus, yPlus, interiorRef.getX(), interiorRef.getY());
@@ -221,7 +223,7 @@ public final class SeamAllowanceComputer {
 
             // Normalize
             double nLen = Math.sqrt(nx * nx + ny * ny);
-            if (nLen < 1e-9) {
+            if (nLen < EPSILON) {
                 result.add(p);
                 continue;
             }

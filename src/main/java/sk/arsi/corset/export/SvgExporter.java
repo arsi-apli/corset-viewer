@@ -52,10 +52,26 @@ public final class SvgExporter {
         svgRoot.setAttribute("version", "1.1");
         svgRoot.setAttribute("xmlns", SVG_NAMESPACE);
         
-        // Set viewBox based on panel bounds (simple heuristic)
-        svgRoot.setAttribute("viewBox", "0 0 1000 1000");
-        svgRoot.setAttribute("width", "1000");
-        svgRoot.setAttribute("height", "1000");
+        // Compute bounds from panels to set appropriate viewBox
+        double[] bounds = computePanelBounds(panels);
+        double minX = bounds[0];
+        double minY = bounds[1];
+        double maxX = bounds[2];
+        double maxY = bounds[3];
+        
+        // Add some padding (10% on each side)
+        double width = maxX - minX;
+        double height = maxY - minY;
+        double padding = Math.max(width, height) * 0.1;
+        
+        minX -= padding;
+        minY -= padding;
+        width += 2 * padding;
+        height += 2 * padding;
+        
+        svgRoot.setAttribute("viewBox", String.format("%.2f %.2f %.2f %.2f", minX, minY, width, height));
+        svgRoot.setAttribute("width", String.format("%.2f", width));
+        svgRoot.setAttribute("height", String.format("%.2f", height));
         doc.appendChild(svgRoot);
 
         // Create layers
@@ -193,5 +209,44 @@ public final class SvgExporter {
         }
 
         return sb.toString();
+    }
+
+    /**
+     * Compute bounds [minX, minY, maxX, maxY] from all panels.
+     */
+    private static double[] computePanelBounds(List<PanelCurves> panels) {
+        double minX = Double.POSITIVE_INFINITY;
+        double minY = Double.POSITIVE_INFINITY;
+        double maxX = Double.NEGATIVE_INFINITY;
+        double maxY = Double.NEGATIVE_INFINITY;
+
+        for (PanelCurves panel : panels) {
+            // Check all curves in the panel
+            for (Curve2D curve : new Curve2D[]{
+                panel.getTop(), panel.getBottom(), panel.getWaist(),
+                panel.getSeamToPrevUp(), panel.getSeamToPrevDown(),
+                panel.getSeamToNextUp(), panel.getSeamToNextDown()
+            }) {
+                if (curve == null || curve.getPoints() == null) {
+                    continue;
+                }
+                for (Pt p : curve.getPoints()) {
+                    if (p != null && Double.isFinite(p.getX()) && Double.isFinite(p.getY())) {
+                        minX = Math.min(minX, p.getX());
+                        minY = Math.min(minY, p.getY());
+                        maxX = Math.max(maxX, p.getX());
+                        maxY = Math.max(maxY, p.getY());
+                    }
+                }
+            }
+        }
+
+        // Fallback if no valid bounds found
+        if (!Double.isFinite(minX) || !Double.isFinite(minY) || 
+            !Double.isFinite(maxX) || !Double.isFinite(maxY)) {
+            return new double[]{0, 0, 1000, 1000};
+        }
+
+        return new double[]{minX, minY, maxX, maxY};
     }
 }
