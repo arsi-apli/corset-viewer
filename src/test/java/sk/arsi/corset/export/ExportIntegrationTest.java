@@ -70,15 +70,19 @@ public class ExportIntegrationTest {
         assertEquals(PanelId.A, panelNotches.getPanelId());
         
         List<Notch> notches = panelNotches.getNotches();
-        // Should have 3 notches on the right seam (toNext)
+        // Should have 6 notches on the right seam (toNext): 3 on UP curve, 3 on DOWN curve
         // Left seam (toPrev) is null, so no notches there
-        assertEquals(3, notches.size());
+        assertEquals(6, notches.size());
         
         // Verify notch properties
         for (Notch notch : notches) {
             assertNotNull(notch.getStart());
             assertNotNull(notch.getEnd());
             assertNotNull(notch.getId());
+            
+            // Verify notch ID includes segment (UP or DOWN)
+            assertTrue(notch.getId().contains("_UP_") || notch.getId().contains("_DOWN_"),
+                "Notch ID should include segment identifier (UP or DOWN)");
             
             // Verify notch is horizontal (perpendicular to vertical seam)
             // Since seam is vertical at x=50, notches should point left (inward)
@@ -123,15 +127,18 @@ public class ExportIntegrationTest {
         
         List<PanelCurves> panels = Arrays.asList(panel);
         
-        // Generate 3 notches
+        // Generate 3 notches per curve segment
         List<PanelNotches> allNotches = NotchGenerator.generateAllNotches(panels, 3, 4.0);
         
         List<Notch> notches = allNotches.get(0).getNotches();
-        assertEquals(3, notches.size());
+        // 6 notches total: 3 on UP curve + 3 on DOWN curve
+        assertEquals(6, notches.size());
         
-        // Combined seam goes from y=0 to y=100, length=100
-        // Notch positions should be at 25%, 50%, 75% = y=25, y=50, y=75
-        List<Double> expectedYPositions = Arrays.asList(25.0, 50.0, 75.0);
+        // UP curve goes from y=50 to y=0, length=50
+        // Notch positions should be at 25%, 50%, 75% along the UP curve = y=37.5, y=25, y=12.5
+        // DOWN curve goes from y=50 to y=100, length=50
+        // Notch positions should be at 25%, 50%, 75% along the DOWN curve = y=62.5, y=75, y=87.5
+        List<Double> expectedYPositions = Arrays.asList(12.5, 25.0, 37.5, 62.5, 75.0, 87.5);
         List<Double> actualYPositions = new ArrayList<>();
         
         for (Notch notch : notches) {
@@ -142,7 +149,8 @@ public class ExportIntegrationTest {
         actualYPositions.sort(Double::compareTo);
         expectedYPositions.sort(Double::compareTo);
         
-        for (int i = 0; i < 3; i++) {
+        assertEquals(6, actualYPositions.size());
+        for (int i = 0; i < 6; i++) {
             assertEquals(expectedYPositions.get(i), actualYPositions.get(i), 1.0,
                 "Notch position " + i + " should be at expected Y coordinate");
         }

@@ -42,12 +42,13 @@ Open the exported SVG in Inkscape or your preferred vector graphics software. Yo
 
 ### Notch Placement Algorithm
 
-1. **Seam Definition**: Each seam is defined by combining its UP and DOWN curves into one continuous polyline
-2. **Position Calculation**: Notches are placed at equally-spaced arc-length percentages along the seam
-   - For count=3: positions are at 25%, 50%, 75%
-   - For count=n: positions are at i/(n+1) for i=1..n
+1. **Seam Definition**: Each seam consists of two separate curves: UP (above waist) and DOWN (below waist)
+2. **Independent Generation**: Notches are generated separately for UP and DOWN curves
+   - Each curve gets N notches positioned at i/(N+1) along its own length
+   - For count=3: each curve gets notches at 25%, 50%, 75% = 6 notches total per seam
+   - For count=n: each curve gets n notches = 2n notches total per seam
 3. **Direction Calculation**:
-   - Compute the local tangent vector at each notch position
+   - Compute the local tangent vector at each notch position on the curve
    - Compute the normal (perpendicular) to the tangent
    - Choose the inward normal using the panel's interior reference point (waist curve centroid)
 4. **Tick Generation**: Create a short line segment from the seam point into the panel interior
@@ -67,12 +68,18 @@ The exported SVG maintains this structure:
     <path id="AB_UP" ... />
     <path id="AB_DOWN" ... />
     <g id="A_NOTCHES">
-      <path id="A_NOTCH_A_25" d="M ... L ..." />
-      <path id="A_NOTCH_A_50" d="M ... L ..." />
-      <path id="A_NOTCH_A_75" d="M ... L ..." />
-      <path id="A_NOTCH_B_25" d="M ... L ..." />
-      <path id="A_NOTCH_B_50" d="M ... L ..." />
-      <path id="A_NOTCH_B_75" d="M ... L ..." />
+      <path id="A_NOTCH_A_UP_25" d="M ... L ..." />
+      <path id="A_NOTCH_A_UP_50" d="M ... L ..." />
+      <path id="A_NOTCH_A_UP_75" d="M ... L ..." />
+      <path id="A_NOTCH_A_DOWN_25" d="M ... L ..." />
+      <path id="A_NOTCH_A_DOWN_50" d="M ... L ..." />
+      <path id="A_NOTCH_A_DOWN_75" d="M ... L ..." />
+      <path id="A_NOTCH_B_UP_25" d="M ... L ..." />
+      <path id="A_NOTCH_B_UP_50" d="M ... L ..." />
+      <path id="A_NOTCH_B_UP_75" d="M ... L ..." />
+      <path id="A_NOTCH_B_DOWN_25" d="M ... L ..." />
+      <path id="A_NOTCH_B_DOWN_50" d="M ... L ..." />
+      <path id="A_NOTCH_B_DOWN_75" d="M ... L ..." />
     </g>
   </g>
   <!-- More panels... -->
@@ -87,16 +94,36 @@ The exported SVG maintains this structure:
 
 ## Notes
 
+- Notches are generated separately for UP and DOWN curves on each seam
+- Each curve gets N notches when you set notch count to N (total: 2N per seam)
 - Notches are generated for BOTH vertical seams of each panel (seam to previous + seam to next)
 - Outer seams (AA and FF edges) also receive notches
 - The original panel geometry is never modified; notches are added as separate elements
-- Notch tick marks are drawn as blue lines with 0.5px stroke width
+- Notch tick marks are drawn as black lines with 0.5px stroke width
+- Notch IDs include the segment identifier (UP or DOWN) to avoid collisions
+
+## Preview in 2D View
+
+Before exporting, you can preview notches in the 2D view:
+1. Check the **"Show notches"** checkbox in the export toolbar
+2. Adjust the notch count and length to see the preview update in real-time
+3. Notches appear as black tick marks on the panel seams
+4. The preview uses the same geometry computation as the exporter
 
 ## Example
 
-For a panel with a 200mm tall seam and 3 notches configured:
-- Notch 1 at 50mm from top (25%)
-- Notch 2 at 100mm from top (50%)
-- Notch 3 at 150mm from top (75%)
+For a panel with UP curve (100mm) and DOWN curve (100mm) with 3 notches configured:
+
+**UP Curve Notches:**
+- Notch 1 at 25mm from waist (25% along UP curve)
+- Notch 2 at 50mm from waist (50% along UP curve)
+- Notch 3 at 75mm from waist (75% along UP curve)
+
+**DOWN Curve Notches:**
+- Notch 1 at 25mm from waist (25% along DOWN curve)
+- Notch 2 at 50mm from waist (50% along DOWN curve)
+- Notch 3 at 75mm from waist (75% along DOWN curve)
+
+Total: 6 notches per seam (3 on UP + 3 on DOWN)
 
 Each notch is a 4mm line pointing inward from the seam toward the panel interior.

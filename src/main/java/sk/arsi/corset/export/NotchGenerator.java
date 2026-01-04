@@ -78,7 +78,9 @@ public final class NotchGenerator {
     }
 
     /**
-     * Generate notches for a single seam (combination of UP and DOWN curves).
+     * Generate notches for a single seam.
+     * Notches are generated separately for UP and DOWN curves.
+     * Each curve gets N notches independently positioned at i/(N+1) along its length.
      */
     private static List<Notch> generateSeamNotches(
             Curve2D upCurve,
@@ -91,9 +93,52 @@ public final class NotchGenerator {
         
         List<Notch> notches = new ArrayList<>();
         
-        // Combine UP and DOWN curves into continuous seam
-        List<Pt> seamPolyline = GeometryUtils.combineCurves(upCurve, downCurve);
-        if (seamPolyline.isEmpty()) {
+        // Generate notches for UP curve
+        if (upCurve != null && upCurve.getPoints() != null && !upCurve.getPoints().isEmpty()) {
+            List<Notch> upNotches = generateCurveNotches(
+                    upCurve.getPoints(),
+                    interior,
+                    notchCount,
+                    notchLengthMm,
+                    panelName,
+                    neighborName,
+                    "UP"
+            );
+            notches.addAll(upNotches);
+        }
+        
+        // Generate notches for DOWN curve
+        if (downCurve != null && downCurve.getPoints() != null && !downCurve.getPoints().isEmpty()) {
+            List<Notch> downNotches = generateCurveNotches(
+                    downCurve.getPoints(),
+                    interior,
+                    notchCount,
+                    notchLengthMm,
+                    panelName,
+                    neighborName,
+                    "DOWN"
+            );
+            notches.addAll(downNotches);
+        }
+        
+        return notches;
+    }
+
+    /**
+     * Generate notches for a single curve segment (UP or DOWN).
+     */
+    private static List<Notch> generateCurveNotches(
+            List<Pt> curvePoints,
+            Pt interior,
+            int notchCount,
+            double notchLengthMm,
+            String panelName,
+            String neighborName,
+            String segment) {
+        
+        List<Notch> notches = new ArrayList<>();
+        
+        if (curvePoints == null || curvePoints.isEmpty()) {
             return notches;
         }
         
@@ -104,14 +149,14 @@ public final class NotchGenerator {
         for (int i = 0; i < positions.size(); i++) {
             double percentage = positions.get(i);
             
-            // Find point on seam at this percentage
-            Pt seamPoint = GeometryUtils.pointAtArcLength(seamPolyline, percentage);
+            // Find point on curve at this percentage
+            Pt seamPoint = GeometryUtils.pointAtArcLength(curvePoints, percentage);
             if (seamPoint == null) {
                 continue;
             }
             
             // Find tangent at this position
-            Pt tangent = GeometryUtils.tangentAtArcLength(seamPolyline, percentage);
+            Pt tangent = GeometryUtils.tangentAtArcLength(curvePoints, percentage);
             if (tangent == null) {
                 continue;
             }
@@ -125,11 +170,12 @@ public final class NotchGenerator {
                     seamPoint.getY() + inwardNormal.getY() * notchLengthMm
             );
             
-            // Generate notch ID
+            // Generate notch ID with segment identifier (UP or DOWN)
             int percentInt = (int) Math.round(percentage * 100);
-            String notchId = String.format("%s_NOTCH_%s_%d",
+            String notchId = String.format("%s_NOTCH_%s_%s_%d",
                     panelName,
                     neighborName != null ? neighborName : "EDGE",
+                    segment,
                     percentInt);
             
             notches.add(new Notch(seamPoint, notchEnd, notchId));

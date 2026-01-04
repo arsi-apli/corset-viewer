@@ -238,8 +238,15 @@ public final class Canvas2DView {
 
     // Export configuration
     private SvgDocument svgDocument;
+    private java.nio.file.Path svgPath;
     private Spinner<Integer> notchCountSpinner;
     private Spinner<Double> notchLengthSpinner;
+    private CheckBox showNotchesCheckBox;
+    
+    // Cached notches for preview
+    private List<sk.arsi.corset.export.PanelNotches> cachedNotches;
+    private int cachedNotchCount = -1;
+    private double cachedNotchLength = -1.0;
 
     public Canvas2DView() {
         this.canvas = new Canvas(1200, 700);
@@ -319,6 +326,11 @@ public final class Canvas2DView {
 
         // Recompute cached measurements when panels change
         this.cachedMeasurements = SeamMeasurementService.computeAllSeamMeasurements(this.panels);
+        
+        // Invalidate notch cache when panels change
+        this.cachedNotches = null;
+        this.cachedNotchCount = -1;
+        this.cachedNotchLength = -1.0;
 
         // Update slider range based on valid measurement range
         updateSliderRange();
@@ -335,6 +347,10 @@ public final class Canvas2DView {
 
     public void setSvgDocument(SvgDocument svgDocument) {
         this.svgDocument = svgDocument;
+    }
+
+    public void setSvgPath(java.nio.file.Path svgPath) {
+        this.svgPath = svgPath;
     }
 
     /**
@@ -438,18 +454,34 @@ public final class Canvas2DView {
         notchCountSpinner = new Spinner<>(new SpinnerValueFactory.IntegerSpinnerValueFactory(1, 10, 3, 1));
         notchCountSpinner.setEditable(true);
         notchCountSpinner.setPrefWidth(70.0);
+        notchCountSpinner.valueProperty().addListener((obs, oldV, newV) -> {
+            if (showNotchesCheckBox != null && showNotchesCheckBox.isSelected()) {
+                redraw();
+            }
+        });
         
         // Notch length spinner
         Label notchLengthLabel = new Label("Length (mm):");
         notchLengthSpinner = new Spinner<>(new SpinnerValueFactory.DoubleSpinnerValueFactory(3.0, 5.0, 4.0, 0.5));
         notchLengthSpinner.setEditable(true);
         notchLengthSpinner.setPrefWidth(70.0);
+        notchLengthSpinner.valueProperty().addListener((obs, oldV, newV) -> {
+            if (showNotchesCheckBox != null && showNotchesCheckBox.isSelected()) {
+                redraw();
+            }
+        });
+        
+        // Show notches checkbox
+        showNotchesCheckBox = new CheckBox("Show notches");
+        showNotchesCheckBox.setSelected(false);
+        showNotchesCheckBox.setOnAction(e -> redraw());
         
         exportToolbar.getChildren().addAll(
                 btnExport,
                 new javafx.scene.control.Separator(javafx.geometry.Orientation.VERTICAL),
                 notchCountLabel, notchCountSpinner,
-                notchLengthLabel, notchLengthSpinner
+                notchLengthLabel, notchLengthSpinner,
+                showNotchesCheckBox
         );
 
         // Combine toolbars vertically
@@ -769,6 +801,11 @@ public final class Canvas2DView {
             drawAllowances(g);
         }
 
+        // Draw notches if enabled
+        if (showNotchesCheckBox != null && showNotchesCheckBox.isSelected()) {
+            drawNotches(g);
+        }
+
         // Draw horizontal measurement line in WAIST mode
         // In WAIST mode, all waists are aligned to y=0, so the measurement line is at y = -dyMm
         if (mode == LayoutMode.WAIST && Math.abs(dyMm) > MIN_DY_FOR_MEASUREMENT_LINE) {
@@ -840,6 +877,59 @@ public final class Canvas2DView {
             double sy1 = worldToScreenY(p1World.getY());
 
             g.strokeLine(sx0, sy0, sx1, sy1);
+        }
+    }
+
+    /**
+     * Draw notches for all panels.
+     */
+    private void drawNotches(GraphicsContext g) {
+        if (panels == null || panels.isEmpty()) {
+            return;
+        }
+
+        int notchCount = notchCountSpinner != null ? notchCountSpinner.getValue() : 3;
+        double notchLength = notchLengthSpinner != null ? notchLengthSpinner.getValue() : 4.0;
+
+        // Use cached notches if parameters haven't changed
+        if (cachedNotches == null || cachedNotchCount != notchCount || 
+            Math.abs(cachedNotchLength - notchLength) > 0.01) {
+            // Regenerate notches when parameters change
+            cachedNotches = sk.arsi.corset.export.NotchGenerator.generateAllNotches(
+                    panels, notchCount, notchLength);
+            cachedNotchCount = notchCount;
+            cachedNotchLength = notchLength;
+        }
+
+        g.setStroke(Color.BLACK);
+        g.setLineWidth(1.0);
+
+        // Draw notches for each panel with its transform
+        for (int i = 0; i < rendered.size() && i < cachedNotches.size(); i++) {
+            RenderedPanel rp = rendered.get(i);
+            sk.arsi.corset.export.PanelNotches panelNotches = cachedNotches.get(i);
+
+            if (panelNotches == null || panelNotches.getNotches() == null) {
+                continue;
+            }
+
+            for (sk.arsi.corset.export.Notch notch : panelNotches.getNotches()) {
+                // Transform notch points from panel-local to world coordinates
+                Pt startWorld = rp.transform.apply(notch.getStart());
+                Pt endWorld = rp.transform.apply(notch.getEnd());
+
+                if (startWorld == null || endWorld == null) {
+                    continue;
+                }
+
+                // Convert to screen coordinates and draw
+                double sx0 = worldToScreenX(startWorld.getX());
+                double sy0 = worldToScreenY(startWorld.getY());
+                double sx1 = worldToScreenX(endWorld.getX());
+                double sy1 = worldToScreenY(endWorld.getY());
+
+                g.strokeLine(sx0, sy0, sx1, sy1);
+            }
         }
     }
 
@@ -1411,6 +1501,11 @@ public final class Canvas2DView {
                 new FileChooser.ExtensionFilter("SVG files (*.svg)", "*.svg")
         );
         fileChooser.setInitialFileName("panels_with_allowances.svg");
+        
+        // Set initial directory to the directory of the currently loaded SVG
+        if (svgPath != null && svgPath.getParent() != null) {
+            fileChooser.setInitialDirectory(svgPath.getParent().toFile());
+        }
 
         File file = fileChooser.showSaveDialog(root.getScene().getWindow());
         if (file == null) {
@@ -1449,6 +1544,11 @@ public final class Canvas2DView {
                 new FileChooser.ExtensionFilter("SVG files (*.svg)", "*.svg")
         );
         fileChooser.setInitialFileName("panels_with_notches.svg");
+        
+        // Set initial directory to the directory of the currently loaded SVG
+        if (svgPath != null && svgPath.getParent() != null) {
+            fileChooser.setInitialDirectory(svgPath.getParent().toFile());
+        }
 
         File file = fileChooser.showSaveDialog(root.getScene().getWindow());
         if (file == null) {
