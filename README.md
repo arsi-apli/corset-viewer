@@ -11,6 +11,14 @@
 Corset Viewer is a small JavaFX tool for viewing and validating corset panel geometry exported as an SVG file.  
 It reads specific `<path>` elements by their `id` attributes, samples them into polylines, and renders the result in 2D (and a pseudo‑3D chained view).
 
+## Features
+
+- **Pattern Visualization**: View corset patterns in 2D and pseudo-3D modes
+- **Measurements**: Calculate circumferences at different heights from the waist
+- **Seam Validation**: Highlight seam mismatches that exceed tolerance
+- **SVG Export with Notches**: Export patterns with sewing notches for fabric alignment (NEW!)
+- **ID Assignment Wizard**: Interactive tool to assign required IDs to SVG elements
+
 ## Downloads
 
 Prebuilt portable packages are published on the **Releases** page:
@@ -140,6 +148,21 @@ All required elements must be `<path>` elements.
 If an ID exists but is not a `<path>`, the app fails with an error like:
 
 `Element id=<ID> must be <path>, but is <...>`
+
+## Exporting Patterns with Sewing Notches
+
+Corset Viewer can export your pattern with sewing notches added to help align fabric pieces during construction.
+
+**To export with notches:**
+
+1. Load your corset SVG file
+2. In the 2D view, configure the notch settings:
+   - **Notches**: Number of notches per seam (1-10, default: 3)
+   - **Length (mm)**: Notch tick length (3-5mm, default: 4.0)
+3. Click **"Export SVG with Notches"**
+4. Choose a filename and save
+
+The exported SVG will contain all your original geometry plus notch tick marks organized in panel groups. See [EXPORT_NOTCHES_GUIDE.md](EXPORT_NOTCHES_GUIDE.md) for detailed information.
 
 ## Notes / troubleshooting
 
