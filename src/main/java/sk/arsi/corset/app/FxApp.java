@@ -9,6 +9,10 @@ import javafx.scene.control.TabPane;
 import javafx.scene.layout.BorderPane;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import sk.arsi.corset.allowance.OutputFileNamer;
+import sk.arsi.corset.allowance.SvgAllowanceExporter;
 import sk.arsi.corset.io.SvgFileWatcher;
 import sk.arsi.corset.io.SvgPanelLoader;
 import sk.arsi.corset.model.PanelCurves;
@@ -32,6 +36,7 @@ import java.util.prefs.Preferences;
 
 public final class FxApp extends Application {
 
+    private static final Logger LOG = LoggerFactory.getLogger(FxApp.class);
     private static final String PREF_NODE = "sk.arsi.corset-viewer";
     private static final String PREF_LAST_DIR = "lastSvgDir";
     
@@ -76,6 +81,7 @@ public final class FxApp extends Application {
         // --- Measurements ---
         viewMeasurements = new MeasurementsView();
         viewMeasurements.setPanels(panels);
+        viewMeasurements.setOnExportRequested(() -> handleExportWithAllowances(panels));
 
         // --- 2D ---
         view2d = new Canvas2DView();
@@ -316,6 +322,41 @@ public final class FxApp extends Application {
             alert.setContentText(message);
             alert.showAndWait();
         });
+    }
+
+    private void showInfo(String title, String message) {
+        Platform.runLater(() -> {
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle(title);
+            alert.setHeaderText(null);
+            alert.setContentText(message);
+            alert.showAndWait();
+        });
+    }
+
+    private void handleExportWithAllowances(List<PanelCurves> panels) {
+        if (svgPath == null) {
+            showError("Export Error", "No SVG file loaded.");
+            return;
+        }
+
+        try {
+            double allowanceMm = viewMeasurements.getAllowance();
+            
+            OutputFileNamer namer = new OutputFileNamer();
+            Path outputPath = namer.generateOutputPath(svgPath);
+            
+            SvgAllowanceExporter exporter = new SvgAllowanceExporter();
+            exporter.export(svgPath, outputPath, panels, allowanceMm);
+            
+            showInfo("Export Successful", 
+                "SVG with allowances exported to:\n" + outputPath.getFileName());
+            
+            LOG.info("Exported SVG with allowances to: {}", outputPath);
+        } catch (Exception e) {
+            LOG.error("Failed to export SVG with allowances", e);
+            showError("Export Error", "Failed to export SVG: " + e.getMessage());
+        }
     }
 
     private void stopResources() {
