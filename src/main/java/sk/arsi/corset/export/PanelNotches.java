@@ -7,7 +7,7 @@ import java.util.List;
 /**
  * Represents all notches for a single panel.
  */
-final class PanelNotches {
+public final class PanelNotches {
     private final PanelId panelId;
     private final List<Notch> notches;
 

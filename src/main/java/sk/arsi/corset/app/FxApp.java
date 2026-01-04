@@ -88,6 +88,7 @@ public final class FxApp extends Application {
         view2d.setPanels(panels);
         view2d.setSeamMeasurements(viewMeasurements);
         view2d.setSvgDocument(svgDocument);
+        view2d.setSvgPath(svgPath);
 
         // --- Pseudo 3D ---
         viewPseudo3d = new Pseudo3DView();
