@@ -5,6 +5,7 @@ import org.w3c.dom.Element;
 import sk.arsi.corset.model.Curve2D;
 import sk.arsi.corset.model.PanelCurves;
 import sk.arsi.corset.model.Pt;
+import sk.arsi.corset.svg.SvgDocument;
 import sk.arsi.corset.util.SeamAllowanceComputer;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -252,5 +253,197 @@ public final class SvgExporter {
         }
 
         return new double[]{minX, minY, maxX, maxY};
+    }
+
+    /**
+     * Export panels with notches and allowances to SVG file.
+     * Creates a structured SVG with panel groups, each containing allowances and notches subgroups.
+     * 
+     * @param svgDocument Original SVG document (used for reference)
+     * @param panels List of panels to export
+     * @param outputFile Output SVG file
+     * @param notchCount Number of notches per seam
+     * @param notchLengthMm Length of each notch tick in mm
+     * @param allowanceDistance Allowance distance in mm
+     * @throws Exception if export fails
+     */
+    public static void exportWithNotches(
+            SvgDocument svgDocument,
+            List<PanelCurves> panels,
+            File outputFile,
+            int notchCount,
+            double notchLengthMm,
+            double allowanceDistance) throws Exception {
+        
+        if (panels == null || panels.isEmpty()) {
+            throw new IllegalArgumentException("No panels to export");
+        }
+
+        // Generate notches for all panels
+        List<PanelNotches> allNotches = NotchGenerator.generateAllNotches(panels, notchCount, notchLengthMm);
+
+        // Create new SVG document
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        factory.setNamespaceAware(true);
+        DocumentBuilder builder = factory.newDocumentBuilder();
+        Document doc = builder.newDocument();
+
+        // Create root SVG element
+        Element svgRoot = doc.createElementNS(SVG_NAMESPACE, "svg");
+        svgRoot.setAttribute("version", "1.1");
+        svgRoot.setAttribute("xmlns", SVG_NAMESPACE);
+        
+        // Compute bounds from panels to set appropriate viewBox
+        double[] bounds = computePanelBounds(panels);
+        double minX = bounds[0];
+        double minY = bounds[1];
+        double maxX = bounds[2];
+        double maxY = bounds[3];
+        
+        // Add some padding (10% on each side)
+        double width = maxX - minX;
+        double height = maxY - minY;
+        double padding = Math.max(width, height) * 0.1;
+        
+        minX -= padding;
+        minY -= padding;
+        width += 2 * padding;
+        height += 2 * padding;
+        
+        svgRoot.setAttribute("viewBox", String.format("%.2f %.2f %.2f %.2f", minX, minY, width, height));
+        svgRoot.setAttribute("width", String.format("%.2f", width));
+        svgRoot.setAttribute("height", String.format("%.2f", height));
+        doc.appendChild(svgRoot);
+
+        // Export each panel in its own group with subgroups for allowances and notches
+        for (int i = 0; i < panels.size(); i++) {
+            PanelCurves panel = panels.get(i);
+            PanelNotches panelNotches = allNotches.get(i);
+            
+            // Create panel group
+            Element panelGroup = doc.createElementNS(SVG_NAMESPACE, "g");
+            panelGroup.setAttribute("id", panel.getPanelId().name() + "_PANEL");
+            svgRoot.appendChild(panelGroup);
+            
+            // Export panel curves
+            exportPanelCurvesToGroup(doc, panelGroup, panel);
+            
+            // Create and populate allowances subgroup
+            Element allowancesGroup = doc.createElementNS(SVG_NAMESPACE, "g");
+            allowancesGroup.setAttribute("id", panel.getPanelId().name() + "_ALLOWANCES");
+            panelGroup.appendChild(allowancesGroup);
+            exportPanelAllowancesToGroup(doc, allowancesGroup, panel, allowanceDistance);
+            
+            // Create and populate notches subgroup
+            Element notchesGroup = doc.createElementNS(SVG_NAMESPACE, "g");
+            notchesGroup.setAttribute("id", panel.getPanelId().name() + "_NOTCHES");
+            panelGroup.appendChild(notchesGroup);
+            exportNotchesToGroup(doc, notchesGroup, panelNotches);
+        }
+
+        // Write to file
+        TransformerFactory transformerFactory = TransformerFactory.newInstance();
+        Transformer transformer = transformerFactory.newTransformer();
+        transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+        transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
+        transformer.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
+
+        DOMSource source = new DOMSource(doc);
+        StreamResult result = new StreamResult(outputFile);
+        transformer.transform(source, result);
+    }
+
+    /**
+     * Export all curves of a panel to a specific group.
+     */
+    private static void exportPanelCurvesToGroup(Document doc, Element group, PanelCurves panel) {
+        // Export main curves
+        if (panel.getTop() != null) {
+            appendPath(doc, group, panel.getTop(), "black", 2.0);
+        }
+        if (panel.getBottom() != null) {
+            appendPath(doc, group, panel.getBottom(), "black", 2.0);
+        }
+        if (panel.getWaist() != null) {
+            appendPath(doc, group, panel.getWaist(), "black", 3.0);
+        }
+
+        // Export seam curves
+        if (panel.getSeamToPrevUp() != null) {
+            appendPath(doc, group, panel.getSeamToPrevUp(), "black", 1.5);
+        }
+        if (panel.getSeamToPrevDown() != null) {
+            appendPath(doc, group, panel.getSeamToPrevDown(), "black", 1.5);
+        }
+        if (panel.getSeamToNextUp() != null) {
+            appendPath(doc, group, panel.getSeamToNextUp(), "black", 1.5);
+        }
+        if (panel.getSeamToNextDown() != null) {
+            appendPath(doc, group, panel.getSeamToNextDown(), "black", 1.5);
+        }
+    }
+
+    /**
+     * Export allowance offset curves for internal seams to a specific group.
+     */
+    private static void exportPanelAllowancesToGroup(Document doc, Element group, PanelCurves panel, double allowanceDistance) {
+        exportSeamAllowanceToGroup(doc, group, panel.getSeamToPrevUp(), panel, allowanceDistance);
+        exportSeamAllowanceToGroup(doc, group, panel.getSeamToPrevDown(), panel, allowanceDistance);
+        exportSeamAllowanceToGroup(doc, group, panel.getSeamToNextUp(), panel, allowanceDistance);
+        exportSeamAllowanceToGroup(doc, group, panel.getSeamToNextDown(), panel, allowanceDistance);
+    }
+
+    /**
+     * Export allowance for a single seam to a specific group if it should have one.
+     */
+    private static void exportSeamAllowanceToGroup(Document doc, Element group, Curve2D seamCurve, PanelCurves panel, double allowanceDistance) {
+        if (seamCurve == null) {
+            return;
+        }
+
+        String seamId = seamCurve.getId();
+        if (!SeamAllowanceComputer.shouldGenerateAllowance(seamId)) {
+            return;
+        }
+
+        // Compute offset curve
+        List<Pt> offsetPoints = SeamAllowanceComputer.computeOffsetCurve(seamCurve, panel, allowanceDistance);
+        if (offsetPoints == null || offsetPoints.size() < 2) {
+            return;
+        }
+
+        // Create path element for allowance
+        Element path = doc.createElementNS(SVG_NAMESPACE, "path");
+        path.setAttribute("id", seamId + "_ALLOW");
+        path.setAttribute("d", pointsToPathData(offsetPoints));
+        path.setAttribute("stroke", "green");
+        path.setAttribute("stroke-width", "1");
+        path.setAttribute("fill", "none");
+        group.appendChild(path);
+    }
+
+    /**
+     * Export notches to a specific group.
+     */
+    private static void exportNotchesToGroup(Document doc, Element group, PanelNotches panelNotches) {
+        if (panelNotches == null || panelNotches.getNotches() == null) {
+            return;
+        }
+
+        for (Notch notch : panelNotches.getNotches()) {
+            Element path = doc.createElementNS(SVG_NAMESPACE, "path");
+            path.setAttribute("id", notch.getId());
+            
+            // Create a simple line from start to end
+            StringBuilder pathData = new StringBuilder();
+            pathData.append("M ").append(notch.getStart().getX()).append(" ").append(notch.getStart().getY());
+            pathData.append(" L ").append(notch.getEnd().getX()).append(" ").append(notch.getEnd().getY());
+            
+            path.setAttribute("d", pathData.toString());
+            path.setAttribute("stroke", "black");
+            path.setAttribute("stroke-width", "0.5");
+            path.setAttribute("fill", "none");
+            group.appendChild(path);
+        }
     }
 }
