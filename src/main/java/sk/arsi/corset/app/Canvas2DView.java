@@ -242,6 +242,11 @@ public final class Canvas2DView {
     private Spinner<Integer> notchCountSpinner;
     private Spinner<Double> notchLengthSpinner;
     private CheckBox showNotchesCheckBox;
+    
+    // Cached notches for preview
+    private List<sk.arsi.corset.export.PanelNotches> cachedNotches;
+    private int cachedNotchCount = -1;
+    private double cachedNotchLength = -1.0;
 
     public Canvas2DView() {
         this.canvas = new Canvas(1200, 700);
@@ -321,6 +326,11 @@ public final class Canvas2DView {
 
         // Recompute cached measurements when panels change
         this.cachedMeasurements = SeamMeasurementService.computeAllSeamMeasurements(this.panels);
+        
+        // Invalidate notch cache when panels change
+        this.cachedNotches = null;
+        this.cachedNotchCount = -1;
+        this.cachedNotchLength = -1.0;
 
         // Update slider range based on valid measurement range
         updateSliderRange();
@@ -881,17 +891,23 @@ public final class Canvas2DView {
         int notchCount = notchCountSpinner != null ? notchCountSpinner.getValue() : 3;
         double notchLength = notchLengthSpinner != null ? notchLengthSpinner.getValue() : 4.0;
 
-        // Generate notches for all panels using the same algorithm as export
-        List<sk.arsi.corset.export.PanelNotches> allNotches = 
-                sk.arsi.corset.export.NotchGenerator.generateAllNotches(panels, notchCount, notchLength);
+        // Use cached notches if parameters haven't changed
+        if (cachedNotches == null || cachedNotchCount != notchCount || 
+            Math.abs(cachedNotchLength - notchLength) > 0.01) {
+            // Regenerate notches when parameters change
+            cachedNotches = sk.arsi.corset.export.NotchGenerator.generateAllNotches(
+                    panels, notchCount, notchLength);
+            cachedNotchCount = notchCount;
+            cachedNotchLength = notchLength;
+        }
 
         g.setStroke(Color.BLACK);
         g.setLineWidth(1.0);
 
         // Draw notches for each panel with its transform
-        for (int i = 0; i < rendered.size() && i < allNotches.size(); i++) {
+        for (int i = 0; i < rendered.size() && i < cachedNotches.size(); i++) {
             RenderedPanel rp = rendered.get(i);
-            sk.arsi.corset.export.PanelNotches panelNotches = allNotches.get(i);
+            sk.arsi.corset.export.PanelNotches panelNotches = cachedNotches.get(i);
 
             if (panelNotches == null || panelNotches.getNotches() == null) {
                 continue;
