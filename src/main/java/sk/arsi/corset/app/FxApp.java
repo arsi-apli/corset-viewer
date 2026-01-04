@@ -11,8 +11,6 @@ import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import sk.arsi.corset.allowance.OutputFileNamer;
-import sk.arsi.corset.allowance.SvgAllowanceExporter;
 import sk.arsi.corset.io.SvgFileWatcher;
 import sk.arsi.corset.io.SvgPanelLoader;
 import sk.arsi.corset.model.PanelCurves;
@@ -81,7 +79,6 @@ public final class FxApp extends Application {
         // --- Measurements ---
         viewMeasurements = new MeasurementsView();
         viewMeasurements.setPanels(panels);
-        viewMeasurements.setOnExportRequested(() -> handleExportWithAllowances(panels));
 
         // --- 2D ---
         view2d = new Canvas2DView();
@@ -333,31 +330,6 @@ public final class FxApp extends Application {
             alert.setContentText(message);
             alert.showAndWait();
         });
-    }
-
-    private void handleExportWithAllowances(List<PanelCurves> panels) {
-        if (svgPath == null) {
-            showError("Export Error", "No SVG file loaded.");
-            return;
-        }
-
-        try {
-            double allowanceMm = viewMeasurements.getAllowance();
-            
-            OutputFileNamer namer = new OutputFileNamer();
-            Path outputPath = namer.generateOutputPath(svgPath);
-            
-            SvgAllowanceExporter exporter = new SvgAllowanceExporter();
-            exporter.export(svgPath, outputPath, panels, allowanceMm);
-            
-            showInfo("Export Successful", 
-                "SVG with allowances exported to:\n" + outputPath.getFileName());
-            
-            LOG.info("Exported SVG with allowances to: {}", outputPath);
-        } catch (Exception e) {
-            LOG.error("Failed to export SVG with allowances", e);
-            showError("Export Error", "Failed to export SVG: " + e.getMessage());
-        }
     }
 
     private void stopResources() {
