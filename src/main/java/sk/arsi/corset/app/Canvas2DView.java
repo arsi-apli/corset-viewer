@@ -4,7 +4,9 @@ import javafx.geometry.Insets;
 import javafx.scene.Node;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.Slider;
 import javafx.scene.control.Spinner;
@@ -16,6 +18,8 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
+import javafx.stage.FileChooser;
+import sk.arsi.corset.export.SvgExporter;
 import sk.arsi.corset.measure.MeasurementUtils;
 import sk.arsi.corset.measure.SeamMeasurementData;
 import sk.arsi.corset.measure.SeamMeasurementService;
@@ -23,7 +27,9 @@ import sk.arsi.corset.model.Curve2D;
 import sk.arsi.corset.model.PanelCurves;
 import sk.arsi.corset.model.PanelId;
 import sk.arsi.corset.model.Pt;
+import sk.arsi.corset.util.SeamAllowanceComputer;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -196,6 +202,11 @@ public final class Canvas2DView {
     private final Label circumferenceLabel;
     private boolean isUpdatingControls; // Flag to prevent recursive updates
 
+    // allowance UI
+    private final CheckBox showAllowancesCheckBox;
+    private final Spinner<Double> allowanceSpinner;
+    private double allowanceDistance; // in mm
+
     private List<PanelCurves> panels;
     private List<RenderedPanel> rendered;
     private MeasurementsView measurementsView;
@@ -237,6 +248,24 @@ public final class Canvas2DView {
 
         this.dyLabel = new Label("dyMm: 0.0 mm");
         this.circumferenceLabel = new Label("Circumference: 0.0 mm");
+
+        // Allowance controls
+        this.showAllowancesCheckBox = new CheckBox("Show allowances");
+        this.showAllowancesCheckBox.setSelected(true);
+        this.showAllowancesCheckBox.setOnAction(e -> redraw());
+
+        SpinnerValueFactory<Double> allowanceFactory = new SpinnerValueFactory.DoubleSpinnerValueFactory(
+                0.0, 50.0, 10.0, 1.0);
+        this.allowanceSpinner = new Spinner<>(allowanceFactory);
+        this.allowanceSpinner.setEditable(true);
+        this.allowanceSpinner.setPrefWidth(80.0);
+        this.allowanceSpinner.valueProperty().addListener((obs, oldV, newV) -> {
+            if (newV != null) {
+                allowanceDistance = newV;
+                redraw();
+            }
+        });
+        this.allowanceDistance = 10.0; // default 10mm
 
         this.panels = new ArrayList<PanelCurves>();
         this.rendered = new ArrayList<RenderedPanel>();
@@ -364,10 +393,20 @@ public final class Canvas2DView {
         dyLabel.setStyle("-fx-font-size: " + FONT_VALUE + "px; -fx-font-weight: bold;");
         circumferenceLabel.setStyle("-fx-font-size: " + FONT_VALUE + "px; -fx-font-weight: bold;");
 
+        // Allowance label
+        Label allowanceLabel = new Label("Allowance (mm):");
+        allowanceLabel.setStyle("-fx-font-size: " + FONT_LABEL + "px;");
+
+        // Export button
+        Button btnExportSvg = new Button("Export SVG with Allowances");
+        btnExportSvg.setOnAction(e -> exportSvgWithAllowances());
+
         toolbar.getChildren().addAll(
                 btnTop, btnWaist, btnBottom,
                 new javafx.scene.control.Separator(javafx.geometry.Orientation.VERTICAL),
-                sliderLabel, circumferenceSlider, dySpinner, btnReset, dyLabel, circumferenceLabel
+                sliderLabel, circumferenceSlider, dySpinner, btnReset, dyLabel, circumferenceLabel,
+                new javafx.scene.control.Separator(javafx.geometry.Orientation.VERTICAL),
+                showAllowancesCheckBox, allowanceLabel, allowanceSpinner, btnExportSvg
         );
         toolbar.setPadding(new Insets(8.0));
         root.setTop(toolbar);
@@ -679,6 +718,11 @@ public final class Canvas2DView {
             strokeCurve(g, rp, rp.panel.getWaist(), Color.BLACK, 3.0);
         }
 
+        // Draw allowances if enabled
+        if (showAllowancesCheckBox.isSelected() && allowanceDistance > 0) {
+            drawAllowances(g);
+        }
+
         // Draw horizontal measurement line in WAIST mode
         // In WAIST mode, all waists are aligned to y=0, so the measurement line is at y = -dyMm
         if (mode == LayoutMode.WAIST && Math.abs(dyMm) > MIN_DY_FOR_MEASUREMENT_LINE) {
@@ -686,6 +730,70 @@ public final class Canvas2DView {
             g.setLineWidth(2.0);
             double measurementY = -dyMm; // In WAIST mode, waist is at y=0, so measurement is at -dyMm
             drawLineWorld(g, -MEASUREMENT_LINE_EXTENT, measurementY, MEASUREMENT_LINE_EXTENT, measurementY);
+        }
+    }
+
+    /**
+     * Draw seam allowance offset curves for all internal seams.
+     */
+    private void drawAllowances(GraphicsContext g) {
+        g.setStroke(Color.GREEN);
+        g.setLineWidth(1.0);
+
+        for (RenderedPanel rp : rendered) {
+            PanelCurves panel = rp.panel;
+
+            // Draw allowances for each seam that should have one
+            drawAllowanceForSeam(g, rp, panel.getSeamToPrevUp(), panel);
+            drawAllowanceForSeam(g, rp, panel.getSeamToPrevDown(), panel);
+            drawAllowanceForSeam(g, rp, panel.getSeamToNextUp(), panel);
+            drawAllowanceForSeam(g, rp, panel.getSeamToNextDown(), panel);
+        }
+    }
+
+    /**
+     * Draw allowance offset curve for a single seam if it should have one.
+     */
+    private void drawAllowanceForSeam(GraphicsContext g, RenderedPanel rp, Curve2D seamCurve, PanelCurves panel) {
+        if (seamCurve == null) {
+            return;
+        }
+
+        String seamId = seamCurve.getId();
+        if (!SeamAllowanceComputer.shouldGenerateAllowance(seamId)) {
+            return;
+        }
+
+        // Compute offset curve in panel-local coordinates
+        List<Pt> offsetPoints = SeamAllowanceComputer.computeOffsetCurve(seamCurve, panel, allowanceDistance);
+        if (offsetPoints == null || offsetPoints.size() < 2) {
+            return;
+        }
+
+        // Transform and draw
+        for (int i = 0; i < offsetPoints.size() - 1; i++) {
+            Pt p0Local = offsetPoints.get(i);
+            Pt p1Local = offsetPoints.get(i + 1);
+
+            if (p0Local == null || p1Local == null) {
+                continue;
+            }
+
+            // Apply panel transform to get world coordinates
+            Pt p0World = rp.transform.apply(p0Local);
+            Pt p1World = rp.transform.apply(p1Local);
+
+            if (p0World == null || p1World == null) {
+                continue;
+            }
+
+            // Convert to screen coordinates and draw
+            double sx0 = worldToScreenX(p0World.getX());
+            double sy0 = worldToScreenY(p0World.getY());
+            double sx1 = worldToScreenX(p1World.getX());
+            double sy1 = worldToScreenY(p1World.getY());
+
+            g.strokeLine(sx0, sy0, sx1, sy1);
         }
     }
 
@@ -1240,5 +1348,45 @@ public final class Canvas2DView {
         double fullCirc = MeasurementUtils.computeFullCircumference(panels, dyMm);
         double inchFullCirc = fullCirc * 0.0393700787d;
         circumferenceLabel.setText(String.format("Circumference: %.1f mm/%.1f inch  ", fullCirc, inchFullCirc));
+    }
+
+    /**
+     * Export SVG with allowances.
+     */
+    private void exportSvgWithAllowances() {
+        if (panels == null || panels.isEmpty()) {
+            showAlert(Alert.AlertType.WARNING, "No panels loaded", "Cannot export: no panels loaded.");
+            return;
+        }
+
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Export SVG with Allowances");
+        fileChooser.getExtensionFilters().add(
+                new FileChooser.ExtensionFilter("SVG files (*.svg)", "*.svg")
+        );
+        fileChooser.setInitialFileName("panels_with_allowances.svg");
+
+        File file = fileChooser.showSaveDialog(root.getScene().getWindow());
+        if (file == null) {
+            return; // User cancelled
+        }
+
+        try {
+            SvgExporter.exportWithAllowances(panels, allowanceDistance, file);
+            showAlert(Alert.AlertType.INFORMATION, "Export successful", 
+                    "SVG exported to: " + file.getAbsolutePath());
+        } catch (Exception e) {
+            showAlert(Alert.AlertType.ERROR, "Export failed", 
+                    "Failed to export SVG: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private void showAlert(Alert.AlertType type, String title, String message) {
+        Alert alert = new Alert(type);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
     }
 }
