@@ -68,25 +68,42 @@ Each panel has:
 - Left side (seamToPrev): receives negative shift on grow, positive on shrink
 - Right side (seamToNext): receives positive shift on grow, negative on shrink
 
-Side determination is based on the average X coordinate of curve points relative to the waist curve.
+Seam side determination uses explicit naming convention:
+- `seamToPrev*` curves are always on the left side
+- `seamToNext*` curves are always on the right side
 
 ### Resize Behavior
 
+#### Panel-Edge Curves (TOP, BOTTOM, WAIST)
+Panel-edge curves span the entire panel width, so they use **point-level interpolation**:
+1. Compute minimum and maximum X coordinates in the curve
+2. For each point, calculate interpolation factor: `t = (x - minX) / (maxX - minX)`
+3. Apply interpolated shift: `shift = leftShift + t * (rightShift - leftShift)`
+4. This ensures leftmost points shift by `leftShift` and rightmost points shift by `rightShift`
+5. Points in-between are smoothly interpolated
+
+#### Seam Curves
+Seam curves lie on one side of the panel, so they use **uniform shifting**:
+- All points in the curve shift by the same amount (leftShift or rightShift)
+
 #### GLOBAL Mode
-- Shifts all curves: TOP, WAIST, BOTTOM
-- Shifts all seams: seamToPrevUp, seamToPrevDown, seamToNextUp, seamToNextDown
+- TOP, WAIST, BOTTOM curves: point-level interpolation with leftShift and rightShift
+- seamToPrevUp, seamToPrevDown: uniform shift by leftShift
+- seamToNextUp, seamToNextDown: uniform shift by rightShift
 - Maintains consistent panel width change from top to bottom
 
 #### TOP Mode
-- Shifts only TOP curve
-- Shifts only UP seams (seamToPrevUp, seamToNextUp)
-- Waist and bottom remain at original width
+- TOP curve: point-level interpolation with leftShift and rightShift
+- seamToPrevUp: uniform shift by leftShift
+- seamToNextUp: uniform shift by rightShift
+- Waist, bottom, and DOWN seams remain at original positions
 - Useful for adjusting bust circumference independently
 
 #### BOTTOM Mode
-- Shifts only BOTTOM curve
-- Shifts only DOWN seams (seamToPrevDown, seamToNextDown)
-- Waist and top remain at original width
+- BOTTOM curve: point-level interpolation with leftShift and rightShift
+- seamToPrevDown: uniform shift by leftShift
+- seamToNextDown: uniform shift by rightShift
+- Waist, top, and UP seams remain at original positions
 - Useful for adjusting hip circumference independently
 
 ## Implementation Details
@@ -98,7 +115,8 @@ Side determination is based on the average X coordinate of curve points relative
 
 2. **PanelResizer** (utility class)
    - `computeSideShift(deltaMm, panelCount)`: Calculates per-side shift amount
-   - `isLeftSide(curve, panel)`: Determines if a curve is on the left side
+   - `resizePanelEdgeCurve(curve, leftShift, rightShift)`: Applies point-level interpolation to panel-edge curves (TOP/BOTTOM/WAIST)
+   - `resizeSeamCurve(curve, shift)`: Applies uniform shift to seam curves
    - `shiftPointsX(points, shiftX)`: Applies X-only shift to point list
    - `resizeCurve(curve, shiftX)`: Creates resized curve with shifted points
    - `resizePanel(panel, mode, deltaMm, panelCount)`: Creates ResizedPanel wrapper
@@ -146,8 +164,15 @@ The export preserves the original SVG structure:
 ### Unit Tests (PanelResizerTest)
 - Side shift calculation verification
 - Point shifting in X-only
-- Curve resizing
-- Side detection logic
+- Curve resizing with uniform shift
+- Point-level interpolation for panel-edge curves
+- Both endpoints moving in opposite directions
+- Interpolation correctness for intermediate points
+- Uniform shifting for seam curves
+- Mode-specific behavior:
+  - GLOBAL mode: all curves resized with correct methods
+  - TOP mode: waist unchanged, bottom unchanged, DOWN seams unchanged
+  - BOTTOM mode: waist unchanged, top unchanged, UP seams unchanged
 - Panel resizing with different modes
 
 ### Integration Tests (ResizeIntegrationTest)
