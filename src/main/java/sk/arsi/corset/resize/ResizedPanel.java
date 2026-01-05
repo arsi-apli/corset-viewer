@@ -37,53 +37,45 @@ public final class ResizedPanel {
         // Determine which curves to resize based on mode
         switch (mode) {
             case GLOBAL:
-                // Resize all curves
-                resizedTop = resizeCurveIfNotNull(original.getTop());
-                resizedBottom = resizeCurveIfNotNull(original.getBottom());
-                resizedWaist = resizeCurveIfNotNull(original.getWaist());
-                resizedSeamToPrevUp = resizeCurveIfNotNull(original.getSeamToPrevUp());
-                resizedSeamToPrevDown = resizeCurveIfNotNull(original.getSeamToPrevDown());
-                resizedSeamToNextUp = resizeCurveIfNotNull(original.getSeamToNextUp());
-                resizedSeamToNextDown = resizeCurveIfNotNull(original.getSeamToNextDown());
+                // Resize panel-edge curves using point-level interpolation
+                resizedTop = PanelResizer.resizePanelEdgeCurve(original.getTop(), leftShift, rightShift);
+                resizedBottom = PanelResizer.resizePanelEdgeCurve(original.getBottom(), leftShift, rightShift);
+                resizedWaist = PanelResizer.resizePanelEdgeCurve(original.getWaist(), leftShift, rightShift);
+                
+                // Resize seams uniformly using explicit side detection
+                // seamToPrev* are on the left side, seamToNext* are on the right side
+                resizedSeamToPrevUp = PanelResizer.resizeSeamCurve(original.getSeamToPrevUp(), leftShift);
+                resizedSeamToPrevDown = PanelResizer.resizeSeamCurve(original.getSeamToPrevDown(), leftShift);
+                resizedSeamToNextUp = PanelResizer.resizeSeamCurve(original.getSeamToNextUp(), rightShift);
+                resizedSeamToNextDown = PanelResizer.resizeSeamCurve(original.getSeamToNextDown(), rightShift);
                 break;
                 
             case TOP:
-                // Resize only TOP curve and UP seams
-                resizedTop = resizeCurveIfNotNull(original.getTop());
+                // Resize only TOP curve using point-level interpolation
+                resizedTop = PanelResizer.resizePanelEdgeCurve(original.getTop(), leftShift, rightShift);
                 resizedBottom = original.getBottom(); // unchanged
                 resizedWaist = original.getWaist(); // unchanged
-                resizedSeamToPrevUp = resizeCurveIfNotNull(original.getSeamToPrevUp());
+                
+                // Resize only UP seams using explicit side detection
+                resizedSeamToPrevUp = PanelResizer.resizeSeamCurve(original.getSeamToPrevUp(), leftShift);
                 resizedSeamToPrevDown = original.getSeamToPrevDown(); // unchanged
-                resizedSeamToNextUp = resizeCurveIfNotNull(original.getSeamToNextUp());
+                resizedSeamToNextUp = PanelResizer.resizeSeamCurve(original.getSeamToNextUp(), rightShift);
                 resizedSeamToNextDown = original.getSeamToNextDown(); // unchanged
                 break;
                 
             case BOTTOM:
-                // Resize only BOTTOM curve and DOWN seams
+                // Resize only BOTTOM curve using point-level interpolation
                 resizedTop = original.getTop(); // unchanged
-                resizedBottom = resizeCurveIfNotNull(original.getBottom());
+                resizedBottom = PanelResizer.resizePanelEdgeCurve(original.getBottom(), leftShift, rightShift);
                 resizedWaist = original.getWaist(); // unchanged
+                
+                // Resize only DOWN seams using explicit side detection
                 resizedSeamToPrevUp = original.getSeamToPrevUp(); // unchanged
-                resizedSeamToPrevDown = resizeCurveIfNotNull(original.getSeamToPrevDown());
+                resizedSeamToPrevDown = PanelResizer.resizeSeamCurve(original.getSeamToPrevDown(), leftShift);
                 resizedSeamToNextUp = original.getSeamToNextUp(); // unchanged
-                resizedSeamToNextDown = resizeCurveIfNotNull(original.getSeamToNextDown());
+                resizedSeamToNextDown = PanelResizer.resizeSeamCurve(original.getSeamToNextDown(), rightShift);
                 break;
         }
-    }
-    
-    /**
-     * Resize a curve if it's not null, determining which shift to use based on side.
-     */
-    private Curve2D resizeCurveIfNotNull(Curve2D curve) {
-        if (curve == null) {
-            return null;
-        }
-        
-        // Determine actual side based on curve position
-        boolean actuallyLeft = PanelResizer.isLeftSide(curve, original);
-        double shift = actuallyLeft ? leftShift : rightShift;
-        
-        return PanelResizer.resizeCurve(curve, shift);
     }
     
     public PanelCurves getOriginal() {
