@@ -615,4 +615,121 @@ public final class SvgExporter {
             element.removeChild(element.getFirstChild());
         }
     }
+    
+    /**
+     * Export resized SVG preserving original styles and only updating path coordinates.
+     * 
+     * @param svgDocument Original SVG document
+     * @param originalPanels Original panels (before resize)
+     * @param resizedPanels Resized panels
+     * @param mode Resize mode
+     * @param outputFile Output SVG file
+     * @throws Exception if export fails
+     */
+    public static void exportResizedSvg(
+            sk.arsi.corset.svg.SvgDocument svgDocument,
+            java.util.List<sk.arsi.corset.model.PanelCurves> originalPanels,
+            java.util.List<sk.arsi.corset.resize.ResizedPanel> resizedPanels,
+            sk.arsi.corset.resize.ResizeMode mode,
+            java.io.File outputFile) throws Exception {
+        
+        if (svgDocument == null) {
+            throw new IllegalArgumentException("SVG document is required");
+        }
+        if (originalPanels == null || originalPanels.isEmpty()) {
+            throw new IllegalArgumentException("No panels to export");
+        }
+        if (resizedPanels == null || resizedPanels.size() != originalPanels.size()) {
+            throw new IllegalArgumentException("Resized panels size mismatch");
+        }
+        
+        // Clone the original document to avoid modifying it
+        org.w3c.dom.Document doc = (org.w3c.dom.Document) svgDocument.getDocument().cloneNode(true);
+        
+        // Create pattern contract for ID generation
+        sk.arsi.corset.svg.PatternContract contract = new sk.arsi.corset.svg.PatternContract();
+        
+        // For each panel, update the path 'd' attributes based on mode
+        for (int i = 0; i < resizedPanels.size(); i++) {
+            sk.arsi.corset.resize.ResizedPanel resized = resizedPanels.get(i);
+            sk.arsi.corset.model.PanelCurves original = originalPanels.get(i);
+            sk.arsi.corset.model.PanelId panelId = original.getPanelId();
+            
+            // Update curves based on mode
+            switch (mode) {
+                case GLOBAL:
+                    // Update all curves
+                    updatePathInDocument(doc, contract.topId(panelId), resized.getTop());
+                    updatePathInDocument(doc, contract.bottomId(panelId), resized.getBottom());
+                    updatePathInDocument(doc, contract.waistId(panelId), resized.getWaist());
+                    
+                    // Update seams using actual IDs from curves
+                    if (resized.getSeamToPrevUp() != null) {
+                        updatePathInDocument(doc, resized.getSeamToPrevUp().getId(), resized.getSeamToPrevUp());
+                    }
+                    if (resized.getSeamToPrevDown() != null) {
+                        updatePathInDocument(doc, resized.getSeamToPrevDown().getId(), resized.getSeamToPrevDown());
+                    }
+                    if (resized.getSeamToNextUp() != null) {
+                        updatePathInDocument(doc, resized.getSeamToNextUp().getId(), resized.getSeamToNextUp());
+                    }
+                    if (resized.getSeamToNextDown() != null) {
+                        updatePathInDocument(doc, resized.getSeamToNextDown().getId(), resized.getSeamToNextDown());
+                    }
+                    break;
+                    
+                case TOP:
+                    // Update only TOP curve and UP seams
+                    updatePathInDocument(doc, contract.topId(panelId), resized.getTop());
+                    if (resized.getSeamToPrevUp() != null) {
+                        updatePathInDocument(doc, resized.getSeamToPrevUp().getId(), resized.getSeamToPrevUp());
+                    }
+                    if (resized.getSeamToNextUp() != null) {
+                        updatePathInDocument(doc, resized.getSeamToNextUp().getId(), resized.getSeamToNextUp());
+                    }
+                    break;
+                    
+                case BOTTOM:
+                    // Update only BOTTOM curve and DOWN seams
+                    updatePathInDocument(doc, contract.bottomId(panelId), resized.getBottom());
+                    if (resized.getSeamToPrevDown() != null) {
+                        updatePathInDocument(doc, resized.getSeamToPrevDown().getId(), resized.getSeamToPrevDown());
+                    }
+                    if (resized.getSeamToNextDown() != null) {
+                        updatePathInDocument(doc, resized.getSeamToNextDown().getId(), resized.getSeamToNextDown());
+                    }
+                    break;
+            }
+        }
+        
+        // Write to file
+        javax.xml.transform.TransformerFactory transformerFactory = javax.xml.transform.TransformerFactory.newInstance();
+        javax.xml.transform.Transformer transformer = transformerFactory.newTransformer();
+        transformer.setOutputProperty(javax.xml.transform.OutputKeys.INDENT, "yes");
+        transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
+        transformer.setOutputProperty(javax.xml.transform.OutputKeys.ENCODING, "UTF-8");
+        
+        javax.xml.transform.dom.DOMSource source = new javax.xml.transform.dom.DOMSource(doc);
+        javax.xml.transform.stream.StreamResult result = new javax.xml.transform.stream.StreamResult(outputFile);
+        transformer.transform(source, result);
+    }
+    
+    /**
+     * Update a path element's 'd' attribute in the document.
+     */
+    private static void updatePathInDocument(org.w3c.dom.Document doc, String pathId, sk.arsi.corset.model.Curve2D curve) {
+        if (curve == null) {
+            return;
+        }
+        
+        org.w3c.dom.Element pathElement = findElementByIdInDocument(doc, pathId);
+        if (pathElement == null) {
+            // Path not found in document, skip
+            return;
+        }
+        
+        // Update the 'd' attribute with new path data
+        String newPathData = pointsToPathData(curve.getPoints());
+        pathElement.setAttribute("d", newPathData);
+    }
 }
