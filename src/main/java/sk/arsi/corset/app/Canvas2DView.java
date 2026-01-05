@@ -491,8 +491,8 @@ public final class Canvas2DView {
                 if (previewResizeCheckBox != null && previewResizeCheckBox.isSelected()) {
                     cachedNotches = null;
                     // Only rebuild layout for GLOBAL mode; TOP/BOTTOM modes keep original panel transforms
-                    ResizeMode mode = resizeModeComboBox != null ? resizeModeComboBox.getValue() : ResizeMode.GLOBAL;
-                    if (mode == ResizeMode.GLOBAL) {
+                    ResizeMode mode = resizeModeComboBox != null ? resizeModeComboBox.getValue() : null;
+                    if (mode == null || mode == ResizeMode.GLOBAL) {
                         rebuildLayout();
                     }
                     redraw();
