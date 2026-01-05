@@ -22,6 +22,9 @@ import java.util.List;
  */
 public final class PanelResizer {
     
+    /** Threshold below which a shift is considered negligible */
+    private static final double NEGLIGIBLE_SHIFT_THRESHOLD = 0.001;
+    
     private PanelResizer() {
         // utility class
     }
@@ -124,7 +127,7 @@ public final class PanelResizer {
             return null;
         }
         
-        if (Math.abs(shiftX) < 0.001) {
+        if (Math.abs(shiftX) < NEGLIGIBLE_SHIFT_THRESHOLD) {
             // No meaningful shift, return original
             return curve;
         }

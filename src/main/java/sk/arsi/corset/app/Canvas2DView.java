@@ -196,6 +196,10 @@ public final class Canvas2DView {
     // --- Fonts: bigger / readable ---
     private static final int FONT_LABEL = 15;
     private static final int FONT_VALUE = 18;
+    
+    // --- Thresholds for floating point comparisons ---
+    private static final double NOTCH_LENGTH_THRESHOLD = 0.01;
+    private static final double RESIZE_THRESHOLD = 0.01;
 
     private final Canvas canvas;
     private final BorderPane root;
@@ -974,7 +978,7 @@ public final class Canvas2DView {
         // Use cached notches if parameters haven't changed
         // Note: We regenerate if preview state changes because effective panels change
         if (cachedNotches == null || cachedNotchCount != notchCount
-                || Math.abs(cachedNotchLength - notchLength) > 0.01) {
+                || Math.abs(cachedNotchLength - notchLength) > NOTCH_LENGTH_THRESHOLD) {
             // Regenerate notches when parameters change
             cachedNotches = sk.arsi.corset.export.NotchGenerator.generateAllNotches(
                     effectivePanels, notchCount, notchLength);
@@ -1638,7 +1642,7 @@ public final class Canvas2DView {
             return;
         }
         
-        if (Math.abs(currentResizeMm) < 0.01) {
+        if (Math.abs(currentResizeMm) < RESIZE_THRESHOLD) {
             showAlert(Alert.AlertType.WARNING, "No resize applied",
                     "Resize value is zero. Please adjust the resize value before exporting.");
             return;

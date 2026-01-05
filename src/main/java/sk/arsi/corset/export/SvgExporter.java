@@ -646,37 +646,58 @@ public final class SvgExporter {
         // Clone the original document to avoid modifying it
         org.w3c.dom.Document doc = (org.w3c.dom.Document) svgDocument.getDocument().cloneNode(true);
         
+        // Create pattern contract for ID generation
+        sk.arsi.corset.svg.PatternContract contract = new sk.arsi.corset.svg.PatternContract();
+        
         // For each panel, update the path 'd' attributes based on mode
         for (int i = 0; i < resizedPanels.size(); i++) {
             sk.arsi.corset.resize.ResizedPanel resized = resizedPanels.get(i);
             sk.arsi.corset.model.PanelCurves original = originalPanels.get(i);
-            String panelName = original.getPanelId().name();
+            sk.arsi.corset.model.PanelId panelId = original.getPanelId();
             
             // Update curves based on mode
             switch (mode) {
                 case GLOBAL:
                     // Update all curves
-                    updatePathInDocument(doc, panelName + "_TOP", resized.getTop());
-                    updatePathInDocument(doc, panelName + "_BOTTOM", resized.getBottom());
-                    updatePathInDocument(doc, panelName + "_WAIST", resized.getWaist());
-                    updatePathInDocument(doc, getSeamId(panelName, true, true), resized.getSeamToPrevUp());
-                    updatePathInDocument(doc, getSeamId(panelName, true, false), resized.getSeamToPrevDown());
-                    updatePathInDocument(doc, getSeamId(panelName, false, true), resized.getSeamToNextUp());
-                    updatePathInDocument(doc, getSeamId(panelName, false, false), resized.getSeamToNextDown());
+                    updatePathInDocument(doc, contract.topId(panelId), resized.getTop());
+                    updatePathInDocument(doc, contract.bottomId(panelId), resized.getBottom());
+                    updatePathInDocument(doc, contract.waistId(panelId), resized.getWaist());
+                    
+                    // Update seams using actual IDs from curves
+                    if (resized.getSeamToPrevUp() != null) {
+                        updatePathInDocument(doc, resized.getSeamToPrevUp().getId(), resized.getSeamToPrevUp());
+                    }
+                    if (resized.getSeamToPrevDown() != null) {
+                        updatePathInDocument(doc, resized.getSeamToPrevDown().getId(), resized.getSeamToPrevDown());
+                    }
+                    if (resized.getSeamToNextUp() != null) {
+                        updatePathInDocument(doc, resized.getSeamToNextUp().getId(), resized.getSeamToNextUp());
+                    }
+                    if (resized.getSeamToNextDown() != null) {
+                        updatePathInDocument(doc, resized.getSeamToNextDown().getId(), resized.getSeamToNextDown());
+                    }
                     break;
                     
                 case TOP:
                     // Update only TOP curve and UP seams
-                    updatePathInDocument(doc, panelName + "_TOP", resized.getTop());
-                    updatePathInDocument(doc, getSeamId(panelName, true, true), resized.getSeamToPrevUp());
-                    updatePathInDocument(doc, getSeamId(panelName, false, true), resized.getSeamToNextUp());
+                    updatePathInDocument(doc, contract.topId(panelId), resized.getTop());
+                    if (resized.getSeamToPrevUp() != null) {
+                        updatePathInDocument(doc, resized.getSeamToPrevUp().getId(), resized.getSeamToPrevUp());
+                    }
+                    if (resized.getSeamToNextUp() != null) {
+                        updatePathInDocument(doc, resized.getSeamToNextUp().getId(), resized.getSeamToNextUp());
+                    }
                     break;
                     
                 case BOTTOM:
                     // Update only BOTTOM curve and DOWN seams
-                    updatePathInDocument(doc, panelName + "_BOTTOM", resized.getBottom());
-                    updatePathInDocument(doc, getSeamId(panelName, true, false), resized.getSeamToPrevDown());
-                    updatePathInDocument(doc, getSeamId(panelName, false, false), resized.getSeamToNextDown());
+                    updatePathInDocument(doc, contract.bottomId(panelId), resized.getBottom());
+                    if (resized.getSeamToPrevDown() != null) {
+                        updatePathInDocument(doc, resized.getSeamToPrevDown().getId(), resized.getSeamToPrevDown());
+                    }
+                    if (resized.getSeamToNextDown() != null) {
+                        updatePathInDocument(doc, resized.getSeamToNextDown().getId(), resized.getSeamToNextDown());
+                    }
                     break;
             }
         }
@@ -691,19 +712,6 @@ public final class SvgExporter {
         javax.xml.transform.dom.DOMSource source = new javax.xml.transform.dom.DOMSource(doc);
         javax.xml.transform.stream.StreamResult result = new javax.xml.transform.stream.StreamResult(outputFile);
         transformer.transform(source, result);
-    }
-    
-    /**
-     * Get the seam ID for a panel based on naming convention.
-     * Seams are named like AA_UP, AB_DOWN, etc.
-     */
-    private static String getSeamId(String panelName, boolean isPrev, boolean isUp) {
-        // For seamToPrev, the seam ID is <panelName>A_<UP|DOWN>
-        // For seamToNext, the seam ID is <panelName>B_<UP|DOWN>
-        // This is a simplification; actual seam IDs may vary
-        String suffix = isPrev ? "A" : "B";
-        String direction = isUp ? "_UP" : "_DOWN";
-        return panelName + suffix + direction;
     }
     
     /**
