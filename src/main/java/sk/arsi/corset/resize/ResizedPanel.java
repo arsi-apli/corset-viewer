@@ -38,47 +38,43 @@ public final class ResizedPanel {
         switch (mode) {
             case GLOBAL:
                 // Resize all curves
-                resizedTop = resizeCurveIfNotNull(original.getTop(), true);
-                resizedBottom = resizeCurveIfNotNull(original.getBottom(), false);
-                resizedWaist = resizeCurveIfNotNull(original.getWaist(), true);
-                resizedSeamToPrevUp = resizeCurveIfNotNull(original.getSeamToPrevUp(), true);
-                resizedSeamToPrevDown = resizeCurveIfNotNull(original.getSeamToPrevDown(), false);
-                resizedSeamToNextUp = resizeCurveIfNotNull(original.getSeamToNextUp(), false);
-                resizedSeamToNextDown = resizeCurveIfNotNull(original.getSeamToNextDown(), false);
+                resizedTop = resizeCurveIfNotNull(original.getTop());
+                resizedBottom = resizeCurveIfNotNull(original.getBottom());
+                resizedWaist = resizeCurveIfNotNull(original.getWaist());
+                resizedSeamToPrevUp = resizeCurveIfNotNull(original.getSeamToPrevUp());
+                resizedSeamToPrevDown = resizeCurveIfNotNull(original.getSeamToPrevDown());
+                resizedSeamToNextUp = resizeCurveIfNotNull(original.getSeamToNextUp());
+                resizedSeamToNextDown = resizeCurveIfNotNull(original.getSeamToNextDown());
                 break;
                 
             case TOP:
                 // Resize only TOP curve and UP seams
-                resizedTop = resizeCurveIfNotNull(original.getTop(), true);
+                resizedTop = resizeCurveIfNotNull(original.getTop());
                 resizedBottom = original.getBottom(); // unchanged
                 resizedWaist = original.getWaist(); // unchanged
-                resizedSeamToPrevUp = resizeCurveIfNotNull(original.getSeamToPrevUp(), true);
+                resizedSeamToPrevUp = resizeCurveIfNotNull(original.getSeamToPrevUp());
                 resizedSeamToPrevDown = original.getSeamToPrevDown(); // unchanged
-                resizedSeamToNextUp = resizeCurveIfNotNull(original.getSeamToNextUp(), false);
+                resizedSeamToNextUp = resizeCurveIfNotNull(original.getSeamToNextUp());
                 resizedSeamToNextDown = original.getSeamToNextDown(); // unchanged
                 break;
                 
             case BOTTOM:
                 // Resize only BOTTOM curve and DOWN seams
                 resizedTop = original.getTop(); // unchanged
-                resizedBottom = resizeCurveIfNotNull(original.getBottom(), false);
+                resizedBottom = resizeCurveIfNotNull(original.getBottom());
                 resizedWaist = original.getWaist(); // unchanged
                 resizedSeamToPrevUp = original.getSeamToPrevUp(); // unchanged
-                resizedSeamToPrevDown = resizeCurveIfNotNull(original.getSeamToPrevDown(), false);
+                resizedSeamToPrevDown = resizeCurveIfNotNull(original.getSeamToPrevDown());
                 resizedSeamToNextUp = original.getSeamToNextUp(); // unchanged
-                resizedSeamToNextDown = resizeCurveIfNotNull(original.getSeamToNextDown(), false);
+                resizedSeamToNextDown = resizeCurveIfNotNull(original.getSeamToNextDown());
                 break;
         }
     }
     
     /**
      * Resize a curve if it's not null, determining which shift to use based on side.
-     * 
-     * @param curve Original curve
-     * @param isLeft true if this is a left-side curve (seamToPrev), false for right-side (seamToNext)
-     * @return Resized curve or original if null
      */
-    private Curve2D resizeCurveIfNotNull(Curve2D curve, boolean isLeft) {
+    private Curve2D resizeCurveIfNotNull(Curve2D curve) {
         if (curve == null) {
             return null;
         }
