@@ -2,6 +2,8 @@ package sk.arsi.corset.resize;
 
 import org.junit.jupiter.api.Test;
 import sk.arsi.corset.model.Curve2D;
+import sk.arsi.corset.model.PanelCurves;
+import sk.arsi.corset.model.PanelId;
 import sk.arsi.corset.model.Pt;
 
 import java.util.Arrays;
@@ -13,6 +15,87 @@ import static org.junit.jupiter.api.Assertions.*;
  * Unit tests for PanelResizer.
  */
 class PanelResizerTest {
+
+    @Test
+    void testResizePanel_disabledMode() {
+        // Create a simple panel
+        List<Pt> points = Arrays.asList(new Pt(0.0, 50.0), new Pt(100.0, 50.0));
+        Curve2D top = new Curve2D("top", points);
+        Curve2D bottom = new Curve2D("bottom", points);
+        Curve2D waist = new Curve2D("waist", points);
+        
+        PanelCurves panel = new PanelCurves(
+            PanelId.A, top, bottom, waist, null, null, null, null
+        );
+
+        // DISABLED mode should return original panel unchanged
+        PanelCurves resized = PanelResizer.resizePanel(panel, ResizeMode.DISABLED, 10.0);
+        
+        assertNotNull(resized);
+        assertSame(panel, resized, "DISABLED mode should return the original panel");
+    }
+
+    @Test
+    void testResizePanel_globalMode() {
+        // Create a simple panel with horizontal curves
+        List<Pt> edgePoints = Arrays.asList(
+            new Pt(0.0, 50.0),
+            new Pt(50.0, 50.0),
+            new Pt(100.0, 50.0)
+        );
+        List<Pt> seamPoints = Arrays.asList(
+            new Pt(10.0, 0.0),
+            new Pt(10.0, 100.0)
+        );
+        
+        Curve2D top = new Curve2D("top", edgePoints);
+        Curve2D bottom = new Curve2D("bottom", edgePoints);
+        Curve2D waist = new Curve2D("waist", edgePoints);
+        Curve2D seamPrev = new Curve2D("seamPrev", seamPoints);
+        Curve2D seamNext = new Curve2D("seamNext", seamPoints);
+        
+        PanelCurves panel = new PanelCurves(
+            PanelId.B, top, bottom, waist, seamPrev, null, seamNext, null
+        );
+
+        double sideShift = 10.0;
+        PanelCurves resized = PanelResizer.resizePanel(panel, ResizeMode.GLOBAL, sideShift);
+        
+        assertNotNull(resized);
+        assertNotSame(panel, resized, "GLOBAL mode should return a new panel");
+        
+        // Check that edge curves are resized
+        Pt leftTop = resized.getTop().getPoints().get(0);
+        assertEquals(-10.0, leftTop.getX(), 0.001);
+        
+        Pt rightTop = resized.getTop().getPoints().get(2);
+        assertEquals(110.0, rightTop.getX(), 0.001);
+        
+        // Check that seam curves are shifted
+        Pt seamPrevPt = resized.getSeamToPrevUp().getPoints().get(0);
+        assertEquals(0.0, seamPrevPt.getX(), 0.001); // 10 - 10 = 0
+        
+        Pt seamNextPt = resized.getSeamToNextUp().getPoints().get(0);
+        assertEquals(20.0, seamNextPt.getX(), 0.001); // 10 + 10 = 20
+    }
+
+    @Test
+    void testResizePanel_nullPanel() {
+        PanelCurves resized = PanelResizer.resizePanel(null, ResizeMode.GLOBAL, 10.0);
+        assertNull(resized);
+    }
+
+    @Test
+    void testResizePanel_nullMode() {
+        List<Pt> points = Arrays.asList(new Pt(0.0, 50.0), new Pt(100.0, 50.0));
+        Curve2D top = new Curve2D("top", points);
+        PanelCurves panel = new PanelCurves(
+            PanelId.A, top, top, top, null, null, null, null
+        );
+        
+        PanelCurves resized = PanelResizer.resizePanel(panel, null, 10.0);
+        assertSame(panel, resized, "Null mode should return original panel");
+    }
 
     @Test
     void testCalculateSideShift() {

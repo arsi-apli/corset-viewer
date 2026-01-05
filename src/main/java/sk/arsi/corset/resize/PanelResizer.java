@@ -1,6 +1,7 @@
 package sk.arsi.corset.resize;
 
 import sk.arsi.corset.model.Curve2D;
+import sk.arsi.corset.model.PanelCurves;
 import sk.arsi.corset.model.Pt;
 
 import java.util.ArrayList;
@@ -14,6 +15,49 @@ public final class PanelResizer {
 
     private PanelResizer() {
         // Utility class
+    }
+
+    /**
+     * Resize a panel according to the specified mode and side shift.
+     * 
+     * @param panel original panel curves
+     * @param mode resize mode (DISABLED, GLOBAL, TOP, etc.)
+     * @param sideShiftMm side shift amount in mm
+     * @return new panel with resized curves, or original panel if mode is DISABLED
+     */
+    public static PanelCurves resizePanel(PanelCurves panel, ResizeMode mode, double sideShiftMm) {
+        if (panel == null || mode == null) {
+            return panel;
+        }
+
+        // DISABLED mode: return original panel unchanged
+        if (mode == ResizeMode.DISABLED) {
+            return panel;
+        }
+
+        // GLOBAL mode: apply horizontal resize
+        if (mode == ResizeMode.GLOBAL) {
+            return new PanelCurves(
+                panel.getPanelId(),
+                resizeEdgeCurve(panel.getTop(), sideShiftMm),
+                resizeEdgeCurve(panel.getBottom(), sideShiftMm),
+                resizeEdgeCurve(panel.getWaist(), sideShiftMm),
+                resizeSeamCurve(panel.getSeamToPrevUp(), -sideShiftMm),
+                resizeSeamCurve(panel.getSeamToPrevDown(), -sideShiftMm),
+                resizeSeamCurve(panel.getSeamToNextUp(), sideShiftMm),
+                resizeSeamCurve(panel.getSeamToNextDown(), sideShiftMm)
+            );
+        }
+
+        // TOP mode: shift only top endpoints and minY of up seams
+        // (Placeholder for future implementation - for now return original)
+        if (mode == ResizeMode.TOP) {
+            // TODO: Implement TOP mode behavior
+            return panel;
+        }
+
+        // Other modes not yet implemented
+        return panel;
     }
 
     /**

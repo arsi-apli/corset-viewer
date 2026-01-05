@@ -5,6 +5,11 @@ package sk.arsi.corset.resize;
  */
 public enum ResizeMode {
     /**
+     * Disabled - no resizing applied.
+     */
+    DISABLED,
+    
+    /**
      * Global resize - affects entire panel uniformly.
      */
     GLOBAL,
