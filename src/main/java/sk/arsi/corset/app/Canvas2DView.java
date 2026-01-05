@@ -730,7 +730,8 @@ public final class Canvas2DView {
         Pt prevRight = null;
 
         for (int i = 0; i < panels.size(); i++) {
-            PanelCurves p = getEffectivePanelCurves(i);
+            // Always use original panels for layout computation
+            PanelCurves p = (panels != null && i < panels.size()) ? panels.get(i) : null;
             if (p == null) {
                 continue;
             }
@@ -775,7 +776,8 @@ public final class Canvas2DView {
         double curX = 0.0;
 
         for (int i = 0; i < panels.size(); i++) {
-            PanelCurves p = getEffectivePanelCurves(i);
+            // Always use original panels for layout computation
+            PanelCurves p = (panels != null && i < panels.size()) ? panels.get(i) : null;
             if (p == null) {
                 continue;
             }
@@ -864,19 +866,25 @@ public final class Canvas2DView {
         for (int i = 0; i < rendered.size(); i++) {
             RenderedPanel rp = rendered.get(i);
             PanelId panelId = rp.panel.getPanelId();
+            
+            // Get effective curves for rendering (resized if preview enabled, original otherwise)
+            PanelCurves effectivePanel = getEffectivePanelCurves(i);
+            if (effectivePanel == null) {
+                effectivePanel = rp.panel;
+            }
 
-            // Draw seams with highlighting if needed
-            drawSeamWithHighlight(g, rp, panelId, true, true, highlightMap);   // seamToPrevUp
-            drawSeamWithHighlight(g, rp, panelId, true, false, highlightMap);  // seamToPrevDown
-            drawSeamWithHighlight(g, rp, panelId, false, true, highlightMap);  // seamToNextUp
-            drawSeamWithHighlight(g, rp, panelId, false, false, highlightMap); // seamToNextDown
+            // Draw seams with highlighting if needed - use effective curves
+            drawSeamWithHighlight(g, rp, effectivePanel, panelId, true, true, highlightMap);   // seamToPrevUp
+            drawSeamWithHighlight(g, rp, effectivePanel, panelId, true, false, highlightMap);  // seamToPrevDown
+            drawSeamWithHighlight(g, rp, effectivePanel, panelId, false, true, highlightMap);  // seamToNextUp
+            drawSeamWithHighlight(g, rp, effectivePanel, panelId, false, false, highlightMap); // seamToNextDown
 
-            // top/bottom edges - unified black color
-            strokeCurve(g, rp, rp.panel.getTop(), panelColor, 2.0);
-            strokeCurve(g, rp, rp.panel.getBottom(), panelColor, 2.0);
+            // top/bottom edges - unified black color, use effective curves
+            strokeCurve(g, rp, effectivePanel.getTop(), panelColor, 2.0);
+            strokeCurve(g, rp, effectivePanel.getBottom(), panelColor, 2.0);
 
-            // waist - thicker black line to distinguish
-            strokeCurve(g, rp, rp.panel.getWaist(), Color.BLACK, 3.0);
+            // waist - thicker black line to distinguish, use effective curves
+            strokeCurve(g, rp, effectivePanel.getWaist(), Color.BLACK, 3.0);
         }
 
         // Draw allowances if enabled
@@ -1084,6 +1092,7 @@ public final class Canvas2DView {
     private void drawSeamWithHighlight(
             GraphicsContext g,
             RenderedPanel rp,
+            PanelCurves effectivePanel,
             PanelId panelId,
             boolean isPrev,
             boolean isUp,
@@ -1093,10 +1102,10 @@ public final class Canvas2DView {
         PanelId neighborId;
 
         if (isPrev) {
-            curve = isUp ? rp.panel.getSeamToPrevUp() : rp.panel.getSeamToPrevDown();
+            curve = isUp ? effectivePanel.getSeamToPrevUp() : effectivePanel.getSeamToPrevDown();
             neighborId = getPrevPanelId(panelId);
         } else {
-            curve = isUp ? rp.panel.getSeamToNextUp() : rp.panel.getSeamToNextDown();
+            curve = isUp ? effectivePanel.getSeamToNextUp() : effectivePanel.getSeamToNextDown();
             neighborId = getNextPanelId(panelId);
         }
 
