@@ -17,7 +17,6 @@ import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
-import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.stage.FileChooser;
 import org.slf4j.Logger;
@@ -197,6 +196,7 @@ public final class Canvas2DView {
     private final Canvas canvas;
     private final BorderPane root;
     private final HBox toolbar;
+    private final HBox toolbarBottom;
 
     // host pane for canvas so we bind to center area size (prevents huge textures)
     private final StackPane canvasHost;
@@ -242,7 +242,7 @@ public final class Canvas2DView {
     private Spinner<Integer> notchCountSpinner;
     private Spinner<Double> notchLengthSpinner;
     private CheckBox showNotchesCheckBox;
-    
+
     // Cached notches for preview
     private List<sk.arsi.corset.export.PanelNotches> cachedNotches;
     private int cachedNotchCount = -1;
@@ -252,6 +252,7 @@ public final class Canvas2DView {
         this.canvas = new Canvas(1200, 700);
         this.root = new BorderPane();
         this.toolbar = new HBox(8.0);
+        this.toolbarBottom = new HBox(8.0);
 
         this.canvasHost = new StackPane(canvas);
 
@@ -326,7 +327,7 @@ public final class Canvas2DView {
 
         // Recompute cached measurements when panels change
         this.cachedMeasurements = SeamMeasurementService.computeAllSeamMeasurements(this.panels);
-        
+
         // Invalidate notch cache when panels change
         this.cachedNotches = null;
         this.cachedNotchCount = -1;
@@ -427,7 +428,7 @@ public final class Canvas2DView {
         // Allowance label
         Label allowanceLabel = new Label("Allowance (mm):");
         allowanceLabel.setStyle("-fx-font-size: " + FONT_LABEL + "px;");
-        
+
         // Notch count spinner
         Label notchCountLabel = new Label("Notches:");
         notchCountSpinner = new Spinner<>(new SpinnerValueFactory.IntegerSpinnerValueFactory(1, 10, 3, 1));
@@ -438,7 +439,7 @@ public final class Canvas2DView {
                 redraw();
             }
         });
-        
+
         // Notch length spinner
         Label notchLengthLabel = new Label("Length (mm):");
         notchLengthSpinner = new Spinner<>(new SpinnerValueFactory.DoubleSpinnerValueFactory(3.0, 5.0, 4.0, 0.5));
@@ -449,10 +450,10 @@ public final class Canvas2DView {
                 redraw();
             }
         });
-        
+
         // Show notches checkbox
         showNotchesCheckBox = new CheckBox("Show notches");
-        showNotchesCheckBox.setSelected(false);
+        showNotchesCheckBox.setSelected(true);
         showNotchesCheckBox.setOnAction(e -> redraw());
 
         // Combined export button
@@ -462,17 +463,19 @@ public final class Canvas2DView {
         toolbar.getChildren().addAll(
                 btnTop, btnWaist, btnBottom,
                 new javafx.scene.control.Separator(javafx.geometry.Orientation.VERTICAL),
-                sliderLabel, circumferenceSlider, dySpinner, btnReset, dyLabel, circumferenceLabel,
-                new javafx.scene.control.Separator(javafx.geometry.Orientation.VERTICAL),
+                sliderLabel, circumferenceSlider, dySpinner, btnReset, dyLabel, circumferenceLabel
+        );
+        toolbarBottom.getChildren().addAll(
                 showAllowancesCheckBox, allowanceLabel, allowanceSpinner,
                 showNotchesCheckBox, notchCountLabel, notchCountSpinner,
                 notchLengthLabel, notchLengthSpinner,
                 btnExport
         );
         toolbar.setPadding(new Insets(8.0));
+        toolbarBottom.setPadding(new Insets(8.0));
 
         root.setTop(toolbar);
-
+        root.setBottom(toolbarBottom);
         // --- Center ---
         root.setCenter(canvasHost);
     }
@@ -876,8 +879,8 @@ public final class Canvas2DView {
         double notchLength = notchLengthSpinner != null ? notchLengthSpinner.getValue() : 4.0;
 
         // Use cached notches if parameters haven't changed
-        if (cachedNotches == null || cachedNotchCount != notchCount || 
-            Math.abs(cachedNotchLength - notchLength) > 0.01) {
+        if (cachedNotches == null || cachedNotchCount != notchCount
+                || Math.abs(cachedNotchLength - notchLength) > 0.01) {
             // Regenerate notches when parameters change
             cachedNotches = sk.arsi.corset.export.NotchGenerator.generateAllNotches(
                     panels, notchCount, notchLength);
@@ -1480,7 +1483,7 @@ public final class Canvas2DView {
         }
 
         if (svgDocument == null) {
-            showAlert(Alert.AlertType.WARNING, "No SVG document loaded", 
+            showAlert(Alert.AlertType.WARNING, "No SVG document loaded",
                     "Cannot export: SVG document not available. Please load an SVG file first.");
             return;
         }
@@ -1491,7 +1494,7 @@ public final class Canvas2DView {
                 new FileChooser.ExtensionFilter("SVG files (*.svg)", "*.svg")
         );
         fileChooser.setInitialFileName("panels_with_allowances_and_notches.svg");
-        
+
         // Set initial directory to the directory of the currently loaded SVG
         if (svgPath != null && svgPath.getParent() != null) {
             fileChooser.setInitialDirectory(svgPath.getParent().toFile());
@@ -1505,12 +1508,12 @@ public final class Canvas2DView {
         try {
             int notchCount = notchCountSpinner.getValue();
             double notchLength = notchLengthSpinner.getValue();
-            
+
             SvgExporter.exportWithAllowancesAndNotches(svgDocument, panels, file, notchCount, notchLength, allowanceDistance);
-            showAlert(Alert.AlertType.INFORMATION, "Export successful", 
+            showAlert(Alert.AlertType.INFORMATION, "Export successful",
                     "SVG exported to: " + file.getAbsolutePath());
         } catch (Exception e) {
-            showAlert(Alert.AlertType.ERROR, "Export failed", 
+            showAlert(Alert.AlertType.ERROR, "Export failed",
                     "Failed to export SVG: " + e.getMessage());
             e.printStackTrace();
         }
