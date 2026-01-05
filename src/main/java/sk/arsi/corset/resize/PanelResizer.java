@@ -21,9 +21,9 @@ public final class PanelResizer {
      * Resize a panel according to the specified mode and side shift.
      * 
      * @param panel original panel curves
-     * @param mode resize mode (DISABLED, GLOBAL, TOP, etc.)
+     * @param mode resize mode (DISABLED, GLOBAL, TOP, etc.). If null, returns original panel.
      * @param sideShiftMm side shift amount in mm
-     * @return new panel with resized curves, or original panel if mode is DISABLED
+     * @return new panel with resized curves, or original panel if mode is DISABLED or null, or if panel is null
      */
     public static PanelCurves resizePanel(PanelCurves panel, ResizeMode mode, double sideShiftMm) {
         if (panel == null || mode == null) {

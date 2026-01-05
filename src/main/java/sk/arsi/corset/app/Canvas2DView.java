@@ -725,11 +725,6 @@ public final class Canvas2DView {
     }
 
     /**
-     * TOP or BOTTOM mode: panels touch by endpoints of TOP (or BOTTOM) curve.
-     * No rotation; only translation so that next.leftEndpoint lands on
-     * prev.rightEndpoint.
-     */
-    /**
      * Update the resize export button state based on current mode.
      * Disabled when mode is DISABLED, otherwise follows "coming soon" behavior.
      */
@@ -739,6 +734,11 @@ public final class Canvas2DView {
         resizeExportButton.setDisable(true);
     }
 
+    /**
+     * TOP or BOTTOM mode: panels touch by endpoints of TOP (or BOTTOM) curve.
+     * No rotation; only translation so that next.leftEndpoint lands on
+     * prev.rightEndpoint.
+     */
     private void buildEndpointLayout(boolean top) {
         double curX = 0.0;
         double curY = 0.0;
@@ -1580,7 +1580,8 @@ public final class Canvas2DView {
             return;
         }
 
-        // If mode is DISABLED or delta is 0, use original panels
+        // If mode is DISABLED or delta is 0, use original panels directly
+        // Safe to share reference since PanelCurves are immutable and we control panelsOriginal
         if (resizeMode == ResizeMode.DISABLED || resizeDeltaMm == 0.0) {
             this.panels = panelsOriginal;
             return;
