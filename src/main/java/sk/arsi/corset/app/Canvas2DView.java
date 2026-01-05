@@ -513,7 +513,7 @@ public final class Canvas2DView {
                 cachedNotches = null;
                 // Only rebuild layout for GLOBAL mode; TOP/BOTTOM modes keep original panel transforms
                 ResizeMode mode = resizeModeComboBox.getValue();
-                if (mode == ResizeMode.GLOBAL) {
+                if (mode == null || mode == ResizeMode.GLOBAL) {
                     rebuildLayout();
                 }
                 redraw();
