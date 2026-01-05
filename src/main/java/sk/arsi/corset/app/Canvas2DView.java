@@ -7,10 +7,12 @@ import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.Slider;
 import javafx.scene.control.Spinner;
 import javafx.scene.control.SpinnerValueFactory;
+import javafx.scene.control.Tooltip;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.ScrollEvent;
@@ -29,6 +31,9 @@ import sk.arsi.corset.model.Curve2D;
 import sk.arsi.corset.model.PanelCurves;
 import sk.arsi.corset.model.PanelId;
 import sk.arsi.corset.model.Pt;
+import sk.arsi.corset.resize.PanelResizer;
+import sk.arsi.corset.resize.ResizeMode;
+import sk.arsi.corset.resize.ResizedPanel;
 import sk.arsi.corset.svg.SvgDocument;
 import sk.arsi.corset.util.SeamAllowanceComputer;
 
@@ -248,6 +253,17 @@ public final class Canvas2DView {
     private int cachedNotchCount = -1;
     private double cachedNotchLength = -1.0;
 
+    // Resize controls
+    private Spinner<Double> resizeDeltaSpinner;
+    private ComboBox<ResizeMode> resizeModeCombo;
+    private CheckBox resizePreviewCheckBox;
+    private Button resizeExportButton;
+
+    // Resize state
+    private double resizeDeltaMm;
+    private ResizeMode resizeMode;
+    private boolean resizePreviewEnabled;
+
     public Canvas2DView() {
         this.canvas = new Canvas(1200, 700);
         this.root = new BorderPane();
@@ -285,6 +301,11 @@ public final class Canvas2DView {
             }
         });
         this.allowanceDistance = 10.0; // default 10mm
+
+        // Initialize resize state
+        this.resizeDeltaMm = 0.0;
+        this.resizeMode = ResizeMode.GLOBAL;
+        this.resizePreviewEnabled = false;
 
         this.panels = new ArrayList<PanelCurves>();
         this.rendered = new ArrayList<RenderedPanel>();
@@ -460,6 +481,49 @@ public final class Canvas2DView {
         Button btnExport = new Button("Export SVG (Allowances + Notches)");
         btnExport.setOnAction(e -> exportSvgWithAllowancesAndNotches());
 
+        // Resize controls
+        Label resizeLabel = new Label("Resize (mm):");
+        resizeLabel.setStyle("-fx-font-size: " + FONT_LABEL + "px;");
+        
+        resizeDeltaSpinner = new Spinner<>(new SpinnerValueFactory.DoubleSpinnerValueFactory(-100.0, 100.0, 0.0, 1.0));
+        resizeDeltaSpinner.setEditable(true);
+        resizeDeltaSpinner.setPrefWidth(80.0);
+        resizeDeltaSpinner.valueProperty().addListener((obs, oldV, newV) -> {
+            if (newV != null) {
+                resizeDeltaMm = newV;
+                if (resizePreviewEnabled) {
+                    redraw();
+                }
+            }
+        });
+
+        Label resizeModeLabel = new Label("Mode:");
+        resizeModeLabel.setStyle("-fx-font-size: " + FONT_LABEL + "px;");
+        
+        resizeModeCombo = new ComboBox<>();
+        resizeModeCombo.getItems().addAll(ResizeMode.values());
+        resizeModeCombo.setValue(ResizeMode.GLOBAL);
+        resizeModeCombo.setPrefWidth(100.0);
+        resizeModeCombo.valueProperty().addListener((obs, oldV, newV) -> {
+            if (newV != null) {
+                resizeMode = newV;
+                if (resizePreviewEnabled) {
+                    redraw();
+                }
+            }
+        });
+
+        resizePreviewCheckBox = new CheckBox("Preview");
+        resizePreviewCheckBox.setSelected(false);
+        resizePreviewCheckBox.setOnAction(e -> {
+            resizePreviewEnabled = resizePreviewCheckBox.isSelected();
+            redraw();
+        });
+
+        resizeExportButton = new Button("Export SVG");
+        resizeExportButton.setDisable(true);
+        resizeExportButton.setTooltip(new Tooltip("Coming soon"));
+
         toolbar.getChildren().addAll(
                 btnTop, btnWaist, btnBottom,
                 new javafx.scene.control.Separator(javafx.geometry.Orientation.VERTICAL),
@@ -469,7 +533,12 @@ public final class Canvas2DView {
                 showAllowancesCheckBox, allowanceLabel, allowanceSpinner,
                 showNotchesCheckBox, notchCountLabel, notchCountSpinner,
                 notchLengthLabel, notchLengthSpinner,
-                btnExport
+                btnExport,
+                new javafx.scene.control.Separator(javafx.geometry.Orientation.VERTICAL),
+                resizeLabel, resizeDeltaSpinner,
+                resizeModeLabel, resizeModeCombo,
+                resizePreviewCheckBox,
+                resizeExportButton
         );
         toolbar.setPadding(new Insets(8.0));
         toolbarBottom.setPadding(new Insets(8.0));
@@ -641,7 +710,8 @@ public final class Canvas2DView {
         Pt prevRight = null;
 
         for (int i = 0; i < panels.size(); i++) {
-            PanelCurves p = panels.get(i);
+            PanelCurves originalPanel = panels.get(i);
+            PanelCurves p = getEffectivePanel(originalPanel);
             Curve2D edge = top ? p.getTop() : p.getBottom();
 
             Pt left = extremeByX(edge, true);
@@ -682,7 +752,8 @@ public final class Canvas2DView {
         double curX = 0.0;
 
         for (int i = 0; i < panels.size(); i++) {
-            PanelCurves p = panels.get(i);
+            PanelCurves originalPanel = panels.get(i);
+            PanelCurves p = getEffectivePanel(originalPanel);
 
             Curve2D waist = p.getWaist();
             Pt wLeft = extremeByX(waist, true);
@@ -1471,6 +1542,35 @@ public final class Canvas2DView {
         double fullCirc = MeasurementUtils.computeFullCircumference(panels, dyMm);
         double inchFullCirc = fullCirc * 0.0393700787d;
         circumferenceLabel.setText(String.format("Circumference: %.1f mm/%.1f inch  ", fullCirc, inchFullCirc));
+    }
+
+    /**
+     * Get the effective panel curves for rendering.
+     * If resize preview is enabled and mode is GLOBAL, returns resized curves.
+     * Otherwise returns original curves.
+     */
+    private PanelCurves getEffectivePanel(PanelCurves panel) {
+        if (!resizePreviewEnabled || resizeMode != ResizeMode.GLOBAL) {
+            return panel;
+        }
+        
+        double sideShift = PanelResizer.calculateSideShift(resizeDeltaMm, panels.size());
+        
+        // Use ResizedPanel as a wrapper that provides the resized curves
+        // We need to adapt ResizedPanel to match PanelCurves interface
+        // Since ResizedPanel already has the same methods, we can create an anonymous wrapper
+        final ResizedPanel resized = new ResizedPanel(panel, resizeMode, sideShift);
+        
+        return new PanelCurves(
+            panel.getPanelId(),
+            resized.getTop(),
+            resized.getBottom(),
+            resized.getWaist(),
+            resized.getSeamToPrevUp(),
+            resized.getSeamToPrevDown(),
+            resized.getSeamToNextUp(),
+            resized.getSeamToNextDown()
+        );
     }
 
     /**
