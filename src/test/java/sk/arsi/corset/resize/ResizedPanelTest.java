@@ -169,9 +169,9 @@ class ResizedPanelTest {
         Curve2D seamToPrevUp = resizedPanel.getSeamToPrevUp();
         List<Pt> seamToPrevUpPoints = seamToPrevUp.getPoints();
         
-        // First point is minY (y=10), should be shifted by -sideShift
-        assertEquals(0.0, seamToPrevUpPoints.get(0).getX(), 0.001, 
-            "Left seam top point should shift by -sideShift");
+        // First point is minY (y=10), original X=5.0, should be shifted by -sideShift (-5.0) to X=0.0
+        assertEquals(5.0 - sideShift, seamToPrevUpPoints.get(0).getX(), 0.001, 
+            "Left seam top point should shift from 5.0 to 0.0 (5.0 - 5.0)");
         assertEquals(10.0, seamToPrevUpPoints.get(0).getY(), 0.001);
         
         // Other points should be unchanged
@@ -182,9 +182,9 @@ class ResizedPanelTest {
         Curve2D seamToNextUp = resizedPanel.getSeamToNextUp();
         List<Pt> seamToNextUpPoints = seamToNextUp.getPoints();
         
-        // First point is minY (y=10), should be shifted by +sideShift
-        assertEquals(100.0, seamToNextUpPoints.get(0).getX(), 0.001,
-            "Right seam top point should shift by +sideShift");
+        // First point is minY (y=10), original X=95.0, should be shifted by +sideShift (+5.0) to X=100.0
+        assertEquals(95.0 + sideShift, seamToNextUpPoints.get(0).getX(), 0.001,
+            "Right seam top point should shift from 95.0 to 100.0 (95.0 + 5.0)");
         assertEquals(10.0, seamToNextUpPoints.get(0).getY(), 0.001);
         
         // Other points should be unchanged
