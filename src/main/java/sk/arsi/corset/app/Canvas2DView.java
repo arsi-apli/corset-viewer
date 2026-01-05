@@ -263,6 +263,11 @@ public final class Canvas2DView {
     private double resizeDeltaMm;
     private ResizeMode resizeMode;
     private boolean resizePreviewEnabled;
+    
+    // Cache for resized panels
+    private Map<PanelId, PanelCurves> resizedPanelsCache;
+    private double cachedResizeDelta = Double.NaN;
+    private ResizeMode cachedResizeMode = null;
 
     public Canvas2DView() {
         this.canvas = new Canvas(1200, 700);
@@ -306,6 +311,7 @@ public final class Canvas2DView {
         this.resizeDeltaMm = 0.0;
         this.resizeMode = ResizeMode.GLOBAL;
         this.resizePreviewEnabled = false;
+        this.resizedPanelsCache = new HashMap<>();
 
         this.panels = new ArrayList<PanelCurves>();
         this.rendered = new ArrayList<RenderedPanel>();
@@ -353,6 +359,9 @@ public final class Canvas2DView {
         this.cachedNotches = null;
         this.cachedNotchCount = -1;
         this.cachedNotchLength = -1.0;
+        
+        // Invalidate resize cache when panels change
+        this.resizedPanelsCache.clear();
 
         // Update slider range based on valid measurement range
         updateSliderRange();
@@ -1548,20 +1557,35 @@ public final class Canvas2DView {
      * Get the effective panel curves for rendering.
      * If resize preview is enabled and mode is GLOBAL, returns resized curves.
      * Otherwise returns original curves.
+     * Results are cached to avoid redundant calculations.
      */
     private PanelCurves getEffectivePanel(PanelCurves panel) {
         if (!resizePreviewEnabled || resizeMode != ResizeMode.GLOBAL) {
             return panel;
         }
         
+        // Invalidate cache if parameters changed
+        if (cachedResizeDelta != resizeDeltaMm || cachedResizeMode != resizeMode) {
+            resizedPanelsCache.clear();
+            cachedResizeDelta = resizeDeltaMm;
+            cachedResizeMode = resizeMode;
+        }
+        
+        // Check cache
+        PanelId panelId = panel.getPanelId();
+        PanelCurves cached = resizedPanelsCache.get(panelId);
+        if (cached != null) {
+            return cached;
+        }
+        
+        // Calculate sideShift once
         double sideShift = PanelResizer.calculateSideShift(resizeDeltaMm, panels.size());
         
         // Use ResizedPanel as a wrapper that provides the resized curves
-        // We need to adapt ResizedPanel to match PanelCurves interface
-        // Since ResizedPanel already has the same methods, we can create an anonymous wrapper
         final ResizedPanel resized = new ResizedPanel(panel, resizeMode, sideShift);
         
-        return new PanelCurves(
+        // Create PanelCurves wrapper with resized geometry
+        PanelCurves result = new PanelCurves(
             panel.getPanelId(),
             resized.getTop(),
             resized.getBottom(),
@@ -1571,6 +1595,10 @@ public final class Canvas2DView {
             resized.getSeamToNextUp(),
             resized.getSeamToNextDown()
         );
+        
+        // Cache the result
+        resizedPanelsCache.put(panelId, result);
+        return result;
     }
 
     /**

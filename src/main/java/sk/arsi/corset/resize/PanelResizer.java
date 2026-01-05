@@ -67,7 +67,7 @@ public final class PanelResizer {
             }
         }
 
-        if (!Double.isFinite(minX) || !Double.isFinite(maxX) || minX >= maxX) {
+        if (!Double.isFinite(minX) || !Double.isFinite(maxX) || minX == maxX) {
             return curve; // Cannot resize
         }
 
