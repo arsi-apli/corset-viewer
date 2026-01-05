@@ -615,4 +615,113 @@ public final class SvgExporter {
             element.removeChild(element.getFirstChild());
         }
     }
+    
+    /**
+     * Export resized SVG preserving original styles and only updating path coordinates.
+     * 
+     * @param svgDocument Original SVG document
+     * @param originalPanels Original panels (before resize)
+     * @param resizedPanels Resized panels
+     * @param mode Resize mode
+     * @param outputFile Output SVG file
+     * @throws Exception if export fails
+     */
+    public static void exportResizedSvg(
+            sk.arsi.corset.svg.SvgDocument svgDocument,
+            java.util.List<sk.arsi.corset.model.PanelCurves> originalPanels,
+            java.util.List<sk.arsi.corset.resize.ResizedPanel> resizedPanels,
+            sk.arsi.corset.resize.ResizeMode mode,
+            java.io.File outputFile) throws Exception {
+        
+        if (svgDocument == null) {
+            throw new IllegalArgumentException("SVG document is required");
+        }
+        if (originalPanels == null || originalPanels.isEmpty()) {
+            throw new IllegalArgumentException("No panels to export");
+        }
+        if (resizedPanels == null || resizedPanels.size() != originalPanels.size()) {
+            throw new IllegalArgumentException("Resized panels size mismatch");
+        }
+        
+        // Clone the original document to avoid modifying it
+        org.w3c.dom.Document doc = (org.w3c.dom.Document) svgDocument.getDocument().cloneNode(true);
+        
+        // For each panel, update the path 'd' attributes based on mode
+        for (int i = 0; i < resizedPanels.size(); i++) {
+            sk.arsi.corset.resize.ResizedPanel resized = resizedPanels.get(i);
+            sk.arsi.corset.model.PanelCurves original = originalPanels.get(i);
+            String panelName = original.getPanelId().name();
+            
+            // Update curves based on mode
+            switch (mode) {
+                case GLOBAL:
+                    // Update all curves
+                    updatePathInDocument(doc, panelName + "_TOP", resized.getTop());
+                    updatePathInDocument(doc, panelName + "_BOTTOM", resized.getBottom());
+                    updatePathInDocument(doc, panelName + "_WAIST", resized.getWaist());
+                    updatePathInDocument(doc, getSeamId(panelName, true, true), resized.getSeamToPrevUp());
+                    updatePathInDocument(doc, getSeamId(panelName, true, false), resized.getSeamToPrevDown());
+                    updatePathInDocument(doc, getSeamId(panelName, false, true), resized.getSeamToNextUp());
+                    updatePathInDocument(doc, getSeamId(panelName, false, false), resized.getSeamToNextDown());
+                    break;
+                    
+                case TOP:
+                    // Update only TOP curve and UP seams
+                    updatePathInDocument(doc, panelName + "_TOP", resized.getTop());
+                    updatePathInDocument(doc, getSeamId(panelName, true, true), resized.getSeamToPrevUp());
+                    updatePathInDocument(doc, getSeamId(panelName, false, true), resized.getSeamToNextUp());
+                    break;
+                    
+                case BOTTOM:
+                    // Update only BOTTOM curve and DOWN seams
+                    updatePathInDocument(doc, panelName + "_BOTTOM", resized.getBottom());
+                    updatePathInDocument(doc, getSeamId(panelName, true, false), resized.getSeamToPrevDown());
+                    updatePathInDocument(doc, getSeamId(panelName, false, false), resized.getSeamToNextDown());
+                    break;
+            }
+        }
+        
+        // Write to file
+        javax.xml.transform.TransformerFactory transformerFactory = javax.xml.transform.TransformerFactory.newInstance();
+        javax.xml.transform.Transformer transformer = transformerFactory.newTransformer();
+        transformer.setOutputProperty(javax.xml.transform.OutputKeys.INDENT, "yes");
+        transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
+        transformer.setOutputProperty(javax.xml.transform.OutputKeys.ENCODING, "UTF-8");
+        
+        javax.xml.transform.dom.DOMSource source = new javax.xml.transform.dom.DOMSource(doc);
+        javax.xml.transform.stream.StreamResult result = new javax.xml.transform.stream.StreamResult(outputFile);
+        transformer.transform(source, result);
+    }
+    
+    /**
+     * Get the seam ID for a panel based on naming convention.
+     * Seams are named like AA_UP, AB_DOWN, etc.
+     */
+    private static String getSeamId(String panelName, boolean isPrev, boolean isUp) {
+        // For seamToPrev, the seam ID is <panelName>A_<UP|DOWN>
+        // For seamToNext, the seam ID is <panelName>B_<UP|DOWN>
+        // This is a simplification; actual seam IDs may vary
+        String suffix = isPrev ? "A" : "B";
+        String direction = isUp ? "_UP" : "_DOWN";
+        return panelName + suffix + direction;
+    }
+    
+    /**
+     * Update a path element's 'd' attribute in the document.
+     */
+    private static void updatePathInDocument(org.w3c.dom.Document doc, String pathId, sk.arsi.corset.model.Curve2D curve) {
+        if (curve == null) {
+            return;
+        }
+        
+        org.w3c.dom.Element pathElement = findElementByIdInDocument(doc, pathId);
+        if (pathElement == null) {
+            // Path not found in document, skip
+            return;
+        }
+        
+        // Update the 'd' attribute with new path data
+        String newPathData = pointsToPathData(curve.getPoints());
+        pathElement.setAttribute("d", newPathData);
+    }
 }

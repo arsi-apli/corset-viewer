@@ -7,6 +7,7 @@ import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.Slider;
 import javafx.scene.control.Spinner;
@@ -29,6 +30,9 @@ import sk.arsi.corset.model.Curve2D;
 import sk.arsi.corset.model.PanelCurves;
 import sk.arsi.corset.model.PanelId;
 import sk.arsi.corset.model.Pt;
+import sk.arsi.corset.resize.PanelResizer;
+import sk.arsi.corset.resize.ResizeMode;
+import sk.arsi.corset.resize.ResizedPanel;
 import sk.arsi.corset.svg.SvgDocument;
 import sk.arsi.corset.util.SeamAllowanceComputer;
 
@@ -248,6 +252,13 @@ public final class Canvas2DView {
     private int cachedNotchCount = -1;
     private double cachedNotchLength = -1.0;
 
+    // Panel resizing controls and state
+    private Spinner<Double> resizeSpinner;
+    private ComboBox<ResizeMode> resizeModeComboBox;
+    private CheckBox previewResizeCheckBox;
+    private double currentResizeMm;
+    private List<ResizedPanel> resizedPanels;
+
     public Canvas2DView() {
         this.canvas = new Canvas(1200, 700);
         this.root = new BorderPane();
@@ -302,6 +313,9 @@ public final class Canvas2DView {
         this.waistGapMm = 30.0;
         this.dyMm = 0.0;
 
+        this.currentResizeMm = 0.0;
+        this.resizedPanels = new ArrayList<>();
+
         initUi();
         bindResize();
         bindInput();
@@ -332,6 +346,9 @@ public final class Canvas2DView {
         this.cachedNotches = null;
         this.cachedNotchCount = -1;
         this.cachedNotchLength = -1.0;
+
+        // Update resized panels
+        updateResizedPanels();
 
         // Update slider range based on valid measurement range
         updateSliderRange();
@@ -456,6 +473,62 @@ public final class Canvas2DView {
         showNotchesCheckBox.setSelected(true);
         showNotchesCheckBox.setOnAction(e -> redraw());
 
+        // Resize controls
+        Label resizeLabel = new Label("Resize (mm):");
+        resizeLabel.setStyle("-fx-font-size: " + FONT_LABEL + "px;");
+        
+        resizeSpinner = new Spinner<>(new SpinnerValueFactory.DoubleSpinnerValueFactory(-100.0, 100.0, 0.0, 1.0));
+        resizeSpinner.setEditable(true);
+        resizeSpinner.setPrefWidth(80.0);
+        resizeSpinner.valueProperty().addListener((obs, oldV, newV) -> {
+            if (newV != null) {
+                currentResizeMm = newV;
+                updateResizedPanels();
+                if (previewResizeCheckBox != null && previewResizeCheckBox.isSelected()) {
+                    cachedNotches = null;
+                    rebuildLayout();
+                    redraw();
+                }
+            }
+        });
+        
+        Label resizeModeLabel = new Label("Mode:");
+        resizeModeLabel.setStyle("-fx-font-size: " + FONT_LABEL + "px;");
+        
+        resizeModeComboBox = new ComboBox<>();
+        resizeModeComboBox.getItems().addAll(ResizeMode.GLOBAL, ResizeMode.TOP, ResizeMode.BOTTOM);
+        resizeModeComboBox.setValue(ResizeMode.GLOBAL);
+        resizeModeComboBox.setPrefWidth(90.0);
+        resizeModeComboBox.setOnAction(e -> {
+            updateResizedPanels();
+            if (previewResizeCheckBox != null && previewResizeCheckBox.isSelected()) {
+                cachedNotches = null;
+                rebuildLayout();
+                redraw();
+            }
+        });
+        
+        previewResizeCheckBox = new CheckBox("Preview resize");
+        previewResizeCheckBox.setSelected(false);
+        previewResizeCheckBox.setOnAction(e -> {
+            // Invalidate caches when preview state changes
+            cachedNotches = null;
+            rebuildLayout();
+            redraw();
+        });
+        
+        Button btnResetResize = new Button("Reset resize");
+        btnResetResize.setOnAction(e -> {
+            resizeSpinner.getValueFactory().setValue(0.0);
+            previewResizeCheckBox.setSelected(false);
+            currentResizeMm = 0.0;
+            updateResizedPanels();
+            redraw();
+        });
+        
+        Button btnExportResized = new Button("Export resized SVG");
+        btnExportResized.setOnAction(e -> exportResizedSvg());
+
         // Combined export button
         Button btnExport = new Button("Export SVG (Allowances + Notches)");
         btnExport.setOnAction(e -> exportSvgWithAllowancesAndNotches());
@@ -469,6 +542,10 @@ public final class Canvas2DView {
                 showAllowancesCheckBox, allowanceLabel, allowanceSpinner,
                 showNotchesCheckBox, notchCountLabel, notchCountSpinner,
                 notchLengthLabel, notchLengthSpinner,
+                new javafx.scene.control.Separator(javafx.geometry.Orientation.VERTICAL),
+                resizeLabel, resizeSpinner, resizeModeLabel, resizeModeComboBox,
+                previewResizeCheckBox, btnResetResize, btnExportResized,
+                new javafx.scene.control.Separator(javafx.geometry.Orientation.VERTICAL),
                 btnExport
         );
         toolbar.setPadding(new Insets(8.0));
@@ -641,7 +718,11 @@ public final class Canvas2DView {
         Pt prevRight = null;
 
         for (int i = 0; i < panels.size(); i++) {
-            PanelCurves p = panels.get(i);
+            PanelCurves p = getEffectivePanelCurves(i);
+            if (p == null) {
+                continue;
+            }
+            
             Curve2D edge = top ? p.getTop() : p.getBottom();
 
             Pt left = extremeByX(edge, true);
@@ -682,7 +763,10 @@ public final class Canvas2DView {
         double curX = 0.0;
 
         for (int i = 0; i < panels.size(); i++) {
-            PanelCurves p = panels.get(i);
+            PanelCurves p = getEffectivePanelCurves(i);
+            if (p == null) {
+                continue;
+            }
 
             Curve2D waist = p.getWaist();
             Pt wLeft = extremeByX(waist, true);
@@ -878,12 +962,22 @@ public final class Canvas2DView {
         int notchCount = notchCountSpinner != null ? notchCountSpinner.getValue() : 3;
         double notchLength = notchLengthSpinner != null ? notchLengthSpinner.getValue() : 4.0;
 
+        // Get effective panels for notch generation (resized if preview enabled)
+        List<PanelCurves> effectivePanels = new ArrayList<>();
+        for (int i = 0; i < panels.size(); i++) {
+            PanelCurves p = getEffectivePanelCurves(i);
+            if (p != null) {
+                effectivePanels.add(p);
+            }
+        }
+
         // Use cached notches if parameters haven't changed
+        // Note: We regenerate if preview state changes because effective panels change
         if (cachedNotches == null || cachedNotchCount != notchCount
                 || Math.abs(cachedNotchLength - notchLength) > 0.01) {
             // Regenerate notches when parameters change
             cachedNotches = sk.arsi.corset.export.NotchGenerator.generateAllNotches(
-                    panels, notchCount, notchLength);
+                    effectivePanels, notchCount, notchLength);
             cachedNotchCount = notchCount;
             cachedNotchLength = notchLength;
         }
@@ -1471,6 +1565,129 @@ public final class Canvas2DView {
         double fullCirc = MeasurementUtils.computeFullCircumference(panels, dyMm);
         double inchFullCirc = fullCirc * 0.0393700787d;
         circumferenceLabel.setText(String.format("Circumference: %.1f mm/%.1f inch  ", fullCirc, inchFullCirc));
+    }
+
+    /**
+     * Update the resized panels based on current resize settings.
+     */
+    private void updateResizedPanels() {
+        resizedPanels.clear();
+        
+        if (panels == null || panels.isEmpty()) {
+            return;
+        }
+        
+        ResizeMode mode = resizeModeComboBox != null ? resizeModeComboBox.getValue() : ResizeMode.GLOBAL;
+        if (mode == null) {
+            mode = ResizeMode.GLOBAL;
+        }
+        
+        int panelCount = panels.size();
+        
+        for (PanelCurves panel : panels) {
+            ResizedPanel resized = PanelResizer.resizePanel(panel, mode, currentResizeMm, panelCount);
+            if (resized != null) {
+                resizedPanels.add(resized);
+            }
+        }
+    }
+    
+    /**
+     * Get the appropriate panel curves based on preview state.
+     * If preview is enabled and resized panels are available, return resized curves.
+     * Otherwise, return original curves.
+     */
+    private PanelCurves getEffectivePanelCurves(int index) {
+        if (previewResizeCheckBox != null && previewResizeCheckBox.isSelected() 
+                && resizedPanels != null && index < resizedPanels.size()) {
+            ResizedPanel resized = resizedPanels.get(index);
+            if (resized != null) {
+                // Create a temporary PanelCurves with resized geometry
+                return new PanelCurves(
+                    resized.getOriginal().getPanelId(),
+                    resized.getTop(),
+                    resized.getBottom(),
+                    resized.getWaist(),
+                    resized.getSeamToPrevUp(),
+                    resized.getSeamToPrevDown(),
+                    resized.getSeamToNextUp(),
+                    resized.getSeamToNextDown()
+                );
+            }
+        }
+        
+        if (panels != null && index < panels.size()) {
+            return panels.get(index);
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Export resized SVG preserving original styles.
+     */
+    private void exportResizedSvg() {
+        if (panels == null || panels.isEmpty()) {
+            showAlert(Alert.AlertType.WARNING, "No panels loaded", "Cannot export: no panels loaded.");
+            return;
+        }
+        
+        if (svgDocument == null) {
+            showAlert(Alert.AlertType.WARNING, "No SVG document loaded",
+                    "Cannot export: SVG document not available. Please load an SVG file first.");
+            return;
+        }
+        
+        if (Math.abs(currentResizeMm) < 0.01) {
+            showAlert(Alert.AlertType.WARNING, "No resize applied",
+                    "Resize value is zero. Please adjust the resize value before exporting.");
+            return;
+        }
+        
+        // Determine output file name
+        String outputFileName = "pattern_resized.svg";
+        if (svgPath != null) {
+            String originalName = svgPath.getFileName().toString();
+            if (originalName.toLowerCase().endsWith(".svg")) {
+                String baseName = originalName.substring(0, originalName.length() - 4);
+                outputFileName = baseName + "_resized.svg";
+            }
+        }
+        
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Export Resized SVG");
+        fileChooser.getExtensionFilters().add(
+                new FileChooser.ExtensionFilter("SVG files (*.svg)", "*.svg")
+        );
+        fileChooser.setInitialFileName(outputFileName);
+        
+        // Set initial directory to the directory of the currently loaded SVG
+        if (svgPath != null && svgPath.getParent() != null) {
+            fileChooser.setInitialDirectory(svgPath.getParent().toFile());
+        }
+        
+        File file = fileChooser.showSaveDialog(root.getScene().getWindow());
+        if (file == null) {
+            return; // User cancelled
+        }
+        
+        try {
+            // Update resized panels to ensure they're current
+            updateResizedPanels();
+            
+            ResizeMode mode = resizeModeComboBox.getValue();
+            if (mode == null) {
+                mode = ResizeMode.GLOBAL;
+            }
+            
+            SvgExporter.exportResizedSvg(svgDocument, panels, resizedPanels, mode, file);
+            showAlert(Alert.AlertType.INFORMATION, "Export successful",
+                    "Resized SVG exported to: " + file.getAbsolutePath());
+        } catch (Exception e) {
+            showAlert(Alert.AlertType.ERROR, "Export failed",
+                    "Failed to export resized SVG: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     /**
