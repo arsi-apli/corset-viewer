@@ -731,7 +731,7 @@ public final class Canvas2DView {
 
         for (int i = 0; i < panels.size(); i++) {
             // Always use original panels for layout computation
-            PanelCurves p = (panels != null && i < panels.size()) ? panels.get(i) : null;
+            PanelCurves p = panels.get(i);
             if (p == null) {
                 continue;
             }
@@ -777,7 +777,7 @@ public final class Canvas2DView {
 
         for (int i = 0; i < panels.size(); i++) {
             // Always use original panels for layout computation
-            PanelCurves p = (panels != null && i < panels.size()) ? panels.get(i) : null;
+            PanelCurves p = panels.get(i);
             if (p == null) {
                 continue;
             }
