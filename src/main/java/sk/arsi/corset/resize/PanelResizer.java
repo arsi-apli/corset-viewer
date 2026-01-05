@@ -137,6 +137,94 @@ public final class PanelResizer {
     }
     
     /**
+     * Resize a panel-edge curve (TOP, BOTTOM, or WAIST) using point-level interpolation.
+     * 
+     * For curves that span the entire panel width, each point is shifted based on its
+     * X position relative to the curve's extent. Leftmost points shift by leftShift,
+     * rightmost points shift by rightShift, and points in-between are interpolated.
+     * 
+     * @param curve Original curve (e.g., TOP, BOTTOM, WAIST)
+     * @param leftShift Shift amount for leftmost points (negative for grow, positive for shrink)
+     * @param rightShift Shift amount for rightmost points (positive for grow, negative for shrink)
+     * @return New curve with interpolated point shifts, or original if shifts are negligible
+     */
+    public static Curve2D resizePanelEdgeCurve(Curve2D curve, double leftShift, double rightShift) {
+        if (curve == null || curve.getPoints() == null || curve.getPoints().isEmpty()) {
+            return curve;
+        }
+        
+        // Check if shifts are negligible
+        if (Math.abs(leftShift) < NEGLIGIBLE_SHIFT_THRESHOLD && 
+            Math.abs(rightShift) < NEGLIGIBLE_SHIFT_THRESHOLD) {
+            return curve;
+        }
+        
+        // Find min and max X coordinates in the curve
+        double minX = Double.POSITIVE_INFINITY;
+        double maxX = Double.NEGATIVE_INFINITY;
+        
+        for (Pt p : curve.getPoints()) {
+            if (p != null && Double.isFinite(p.getX())) {
+                minX = Math.min(minX, p.getX());
+                maxX = Math.max(maxX, p.getX());
+            }
+        }
+        
+        // If no valid points or all points have same X, fall back to uniform shift
+        if (!Double.isFinite(minX) || !Double.isFinite(maxX) || maxX - minX < NEGLIGIBLE_SHIFT_THRESHOLD) {
+            // All points at same X - use average of left and right shifts
+            double avgShift = (leftShift + rightShift) / 2.0;
+            return resizeCurve(curve, avgShift);
+        }
+        
+        // Apply interpolated shift to each point
+        List<Pt> resizedPoints = new ArrayList<>(curve.getPoints().size());
+        double xRange = maxX - minX;
+        
+        for (Pt p : curve.getPoints()) {
+            if (p == null) {
+                resizedPoints.add(null);
+            } else if (!Double.isFinite(p.getX())) {
+                resizedPoints.add(p);
+            } else {
+                // Compute interpolation factor t (0 at minX, 1 at maxX)
+                double t = (p.getX() - minX) / xRange;
+                // Clamp to [0, 1] for safety
+                t = Math.max(0.0, Math.min(1.0, t));
+                
+                // Interpolate shift: leftShift at t=0, rightShift at t=1
+                double shift = leftShift + t * (rightShift - leftShift);
+                
+                // Apply shift (Y unchanged)
+                resizedPoints.add(new Pt(p.getX() + shift, p.getY()));
+            }
+        }
+        
+        return new Curve2D(curve.getId(), resizedPoints);
+    }
+    
+    /**
+     * Resize a seam curve by uniformly shifting all points.
+     * 
+     * Seam curves lie on one side of the panel and should be shifted uniformly.
+     * 
+     * @param curve Original seam curve
+     * @param shift Shift amount in X direction
+     * @return New curve with shifted points, or original if shift is negligible
+     */
+    public static Curve2D resizeSeamCurve(Curve2D curve, double shift) {
+        if (curve == null) {
+            return null;
+        }
+        
+        if (Math.abs(shift) < NEGLIGIBLE_SHIFT_THRESHOLD) {
+            return curve;
+        }
+        
+        return resizeCurve(curve, shift);
+    }
+    
+    /**
      * Create a resized panel with specified mode and shift amount.
      * 
      * @param panel Original panel
