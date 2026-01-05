@@ -490,7 +490,11 @@ public final class Canvas2DView {
                 updateResizedPanels();
                 if (previewResizeCheckBox != null && previewResizeCheckBox.isSelected()) {
                     cachedNotches = null;
-                    rebuildLayout();
+                    // Only rebuild layout for GLOBAL mode; TOP/BOTTOM modes keep original panel transforms
+                    ResizeMode mode = resizeModeComboBox != null ? resizeModeComboBox.getValue() : null;
+                    if (mode == null || mode == ResizeMode.GLOBAL) {
+                        rebuildLayout();
+                    }
                     redraw();
                 }
             }
@@ -507,7 +511,11 @@ public final class Canvas2DView {
             updateResizedPanels();
             if (previewResizeCheckBox != null && previewResizeCheckBox.isSelected()) {
                 cachedNotches = null;
-                rebuildLayout();
+                // Only rebuild layout for GLOBAL mode; TOP/BOTTOM modes keep original panel transforms
+                ResizeMode mode = resizeModeComboBox != null ? resizeModeComboBox.getValue() : null;
+                if (mode == null || mode == ResizeMode.GLOBAL) {
+                    rebuildLayout();
+                }
                 redraw();
             }
         });
