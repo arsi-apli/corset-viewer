@@ -19,13 +19,15 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 public class SvgExporterTest {
 
+    private static final String TEST_SVG_PATH = "patterns/Libra/v2/P2All-Final-V2-conic-no-image-26.64-clean.svg";
+
     @TempDir
     Path tempDir;
 
     @Test
     public void testExportWithAllowances() throws Exception {
         // Load sample panels from test SVG
-        Path testSvg = Path.of("patterns/Libra/v2/P2All-Final-V2-conic-no-image-26.64-clean.svg");
+        Path testSvg = Path.of(TEST_SVG_PATH);
         if (!Files.exists(testSvg)) {
             // Skip test if sample file not available
             return;
@@ -82,7 +84,7 @@ public class SvgExporterTest {
     @Test
     public void testExportWithAllowancesAndNotches() throws Exception {
         // Load sample panels from test SVG
-        Path testSvg = Path.of("patterns/Libra/v2/P2All-Final-V2-conic-no-image-26.64-clean.svg");
+        Path testSvg = Path.of(TEST_SVG_PATH);
         if (!Files.exists(testSvg)) {
             // Skip test if sample file not available
             return;
@@ -155,7 +157,7 @@ public class SvgExporterTest {
     @Test
     public void testExportWithAllowancesAndNotches_EmptyPanels() throws Exception {
         // Load SVG document
-        Path testSvg = Path.of("patterns/Libra/v2/P2All-Final-V2-conic-no-image-26.64-clean.svg");
+        Path testSvg = Path.of(TEST_SVG_PATH);
         if (!Files.exists(testSvg)) {
             // Skip test if sample file not available
             return;
@@ -226,7 +228,7 @@ public class SvgExporterTest {
 
     @Test
     public void testExportCurvesOnly_NullSvgPath() throws Exception {
-        Path testSvg = Path.of("patterns/Libra/v2/P2All-Final-V2-conic-no-image-26.64-clean.svg");
+        Path testSvg = Path.of(TEST_SVG_PATH);
         if (!Files.exists(testSvg)) {
             return;
         }
@@ -248,7 +250,7 @@ public class SvgExporterTest {
 
     @Test
     public void testExportCurvesOnly_NullDocument() throws Exception {
-        Path testSvg = Path.of("patterns/Libra/v2/P2All-Final-V2-conic-no-image-26.64-clean.svg");
+        Path testSvg = Path.of(TEST_SVG_PATH);
         if (!Files.exists(testSvg)) {
             return;
         }
