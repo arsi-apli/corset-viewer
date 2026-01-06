@@ -197,6 +197,11 @@ public final class Canvas2DView {
     private static final int FONT_LABEL = 15;
     private static final int FONT_VALUE = 18;
 
+    // --- Sampling parameters for resize ---
+    // These should match the parameters used in PatternExtractor
+    private static final double RESIZE_FLATNESS_MM = 0.5;
+    private static final double RESIZE_RESAMPLE_STEP_MM = 0.0;
+
     private final Canvas canvas;
     private final BorderPane root;
     private final HBox toolbar;
@@ -1548,13 +1553,8 @@ public final class Canvas2DView {
             return new ArrayList<>();
         }
 
-        // For resizing, we need sampling parameters
-        // Use reasonable defaults - these should match what's used in loading
-        double flatnessMm = 0.5;
-        double resampleStepMm = 0.0;
-        
         PathSampler sampler = new PathSampler();
-        PanelResizer resizer = new PanelResizer(sampler, flatnessMm, resampleStepMm);
+        PanelResizer resizer = new PanelResizer(sampler, RESIZE_FLATNESS_MM, RESIZE_RESAMPLE_STEP_MM);
         
         return resizer.resize(panelsOriginal, resizeMode, resizeDeltaMm);
     }

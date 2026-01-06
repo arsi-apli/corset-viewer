@@ -204,8 +204,8 @@ public final class PanelResizer {
     }
 
     /**
-     * Resize vertical seam: shift minY (for UP) or maxY (for DOWN) endpoint.
-     * For simplicity in GLOBAL mode, we'll shift the topmost endpoint.
+     * Resize vertical seam: shift both top and bottom endpoints horizontally.
+     * This provides a simple, predictable widening/narrowing of the seam.
      */
     private Curve2D resizeVerticalSeam(Curve2D curve, double shiftX) {
         String d = curve.getD();
@@ -213,30 +213,22 @@ public final class PanelResizer {
             return curve;
         }
 
-        // For UP seams: shift minY endpoint
-        // For DOWN seams: shift maxY endpoint
-        // But we can't distinguish here, so let's shift both endpoints for GLOBAL mode
-        
-        // Simple approach: shift all endpoint nodes by shiftX
-        // This is the "shift endpoints" interpretation for vertical seams
-        int[] leftRight = SvgPathEditor.findLeftRightEndpoints(d);
-        int leftIndex = leftRight[0];
-        int rightIndex = leftRight[1];
-        
-        if (leftIndex < 0 || rightIndex < 0) {
-            return curve;
-        }
-        
-        // For vertical seams, we actually want to shift ALL endpoints by shiftX
-        // But that's complex. For now, let's just shift the endpoints at top and bottom
+        // For vertical seams in GLOBAL mode, shift both the topmost (minY) 
+        // and bottommost (maxY) endpoints by shiftX to widen/narrow the panel
         int minYIndex = SvgPathEditor.findMinYEndpoint(d);
         int maxYIndex = SvgPathEditor.findMaxYEndpoint(d);
         
-        String modified = d;
-        if (minYIndex >= 0) {
-            modified = SvgPathEditor.modifyEndpoint(modified, minYIndex, shiftX, 0.0);
+        if (minYIndex < 0 || maxYIndex < 0) {
+            return curve;
         }
-        if (maxYIndex >= 0 && maxYIndex != minYIndex) {
+        
+        String modified = d;
+        
+        // Shift top endpoint
+        modified = SvgPathEditor.modifyEndpoint(modified, minYIndex, shiftX, 0.0);
+        
+        // Shift bottom endpoint (if different from top)
+        if (maxYIndex != minYIndex) {
             modified = SvgPathEditor.modifyEndpoint(modified, maxYIndex, shiftX, 0.0);
         }
         

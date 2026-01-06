@@ -38,8 +38,9 @@ public final class SvgPathEditor {
         List<PathCommand> commands = new ArrayList<>();
         
         // Pattern to match path commands: letter followed by numbers
+        // Only include commands we support: M, L, C, Z (and lowercase variants)
         // Handles negative numbers, decimals, scientific notation
-        Pattern pattern = Pattern.compile("([MmLlCcZzHhVvSsQqTtAa])([^MmLlCcZzHhVvSsQqTtAa]*)");
+        Pattern pattern = Pattern.compile("([MmLlCcZz])([^MmLlCcZz]*)");
         Matcher matcher = pattern.matcher(d);
 
         while (matcher.find()) {
