@@ -41,12 +41,8 @@ public final class ResizedPanel {
     }
 
     public Curve2D getTop() {
-        if (resizedTop == null) {
-            if (mode == ResizeMode.GLOBAL) {
-                resizedTop = PanelResizer.resizeEdgeCurve(originalPanel.getTop(), sideShiftMm);
-            } else if (mode == ResizeMode.TOP) {
-                resizedTop = PanelResizer.resizeTopEdgeCurveEndpointsOnly(originalPanel.getTop(), sideShiftMm);
-            }
+        if (resizedTop == null && mode == ResizeMode.GLOBAL) {
+            resizedTop = PanelResizer.resizeEdgeCurve(originalPanel.getTop(), sideShiftMm);
         }
         return resizedTop != null ? resizedTop : originalPanel.getTop();
     }
@@ -66,12 +62,8 @@ public final class ResizedPanel {
     }
 
     public Curve2D getSeamToPrevUp() {
-        if (resizedSeamToPrevUp == null) {
-            if (mode == ResizeMode.GLOBAL) {
-                resizedSeamToPrevUp = PanelResizer.resizeSeamCurve(originalPanel.getSeamToPrevUp(), -sideShiftMm);
-            } else if (mode == ResizeMode.TOP) {
-                resizedSeamToPrevUp = PanelResizer.resizeSeamCurveTopOnly(originalPanel.getSeamToPrevUp(), -sideShiftMm, true);
-            }
+        if (resizedSeamToPrevUp == null && mode == ResizeMode.GLOBAL) {
+            resizedSeamToPrevUp = PanelResizer.resizeSeamCurve(originalPanel.getSeamToPrevUp(), -sideShiftMm);
         }
         return resizedSeamToPrevUp != null ? resizedSeamToPrevUp : originalPanel.getSeamToPrevUp();
     }
@@ -84,12 +76,8 @@ public final class ResizedPanel {
     }
 
     public Curve2D getSeamToNextUp() {
-        if (resizedSeamToNextUp == null) {
-            if (mode == ResizeMode.GLOBAL) {
-                resizedSeamToNextUp = PanelResizer.resizeSeamCurve(originalPanel.getSeamToNextUp(), sideShiftMm);
-            } else if (mode == ResizeMode.TOP) {
-                resizedSeamToNextUp = PanelResizer.resizeSeamCurveTopOnly(originalPanel.getSeamToNextUp(), sideShiftMm, false);
-            }
+        if (resizedSeamToNextUp == null && mode == ResizeMode.GLOBAL) {
+            resizedSeamToNextUp = PanelResizer.resizeSeamCurve(originalPanel.getSeamToNextUp(), sideShiftMm);
         }
         return resizedSeamToNextUp != null ? resizedSeamToNextUp : originalPanel.getSeamToNextUp();
     }
