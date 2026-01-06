@@ -212,6 +212,7 @@ public final class PanelResizer {
         }
 
         // Find the point with minimum Y (topmost point)
+        // Note: Uses strict < to pick first occurrence in case of ties
         int minYIndex = -1;
         double minY = Double.POSITIVE_INFINITY;
         
@@ -268,6 +269,8 @@ public final class PanelResizer {
         }
 
         // Find indices of leftmost and rightmost points
+        // Note: Uses strict < for minX (picks first occurrence in case of ties)
+        // and strict > for maxX (picks last occurrence in case of ties)
         int minXIndex = -1;
         int maxXIndex = -1;
         double minX = Double.POSITIVE_INFINITY;
