@@ -7,10 +7,12 @@ import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.Slider;
 import javafx.scene.control.Spinner;
 import javafx.scene.control.SpinnerValueFactory;
+import javafx.scene.control.Tooltip;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.ScrollEvent;
@@ -29,6 +31,8 @@ import sk.arsi.corset.model.Curve2D;
 import sk.arsi.corset.model.PanelCurves;
 import sk.arsi.corset.model.PanelId;
 import sk.arsi.corset.model.Pt;
+import sk.arsi.corset.resize.PanelResizer;
+import sk.arsi.corset.resize.ResizeMode;
 import sk.arsi.corset.svg.SvgDocument;
 import sk.arsi.corset.util.SeamAllowanceComputer;
 
@@ -214,6 +218,7 @@ public final class Canvas2DView {
     private double allowanceDistance; // in mm
 
     private List<PanelCurves> panels;
+    private List<PanelCurves> panelsOriginal; // Store original loaded panels
     private List<RenderedPanel> rendered;
     private MeasurementsView measurementsView;
     private List<SeamMeasurementData> cachedMeasurements;
@@ -247,6 +252,15 @@ public final class Canvas2DView {
     private List<sk.arsi.corset.export.PanelNotches> cachedNotches;
     private int cachedNotchCount = -1;
     private double cachedNotchLength = -1.0;
+
+    // Resize controls
+    private Spinner<Double> resizeDeltaSpinner;
+    private ComboBox<ResizeMode> resizeModeCombo;
+    private Button resizeExportButton;
+
+    // Resize state
+    private double resizeDeltaMm;
+    private ResizeMode resizeMode;
 
     public Canvas2DView() {
         this.canvas = new Canvas(1200, 700);
@@ -286,7 +300,12 @@ public final class Canvas2DView {
         });
         this.allowanceDistance = 10.0; // default 10mm
 
+        // Initialize resize state
+        this.resizeDeltaMm = 0.0;
+        this.resizeMode = ResizeMode.DISABLED;
+
         this.panels = new ArrayList<PanelCurves>();
+        this.panelsOriginal = new ArrayList<PanelCurves>();
         this.rendered = new ArrayList<RenderedPanel>();
         this.cachedMeasurements = new ArrayList<>();
 
@@ -316,10 +335,13 @@ public final class Canvas2DView {
 
     public void setPanels(List<PanelCurves> panels) {
         if (panels == null) {
-            this.panels = new ArrayList<PanelCurves>();
+            this.panelsOriginal = new ArrayList<PanelCurves>();
         } else {
-            this.panels = panels;
+            this.panelsOriginal = panels;
         }
+
+        // Compute effective panels based on current resize settings
+        recomputeEffectivePanels();
 
         this.didInitialFit = false;
         rebuildLayout();
@@ -460,6 +482,75 @@ public final class Canvas2DView {
         Button btnExport = new Button("Export SVG (Allowances + Notches)");
         btnExport.setOnAction(e -> exportSvgWithAllowancesAndNotches());
 
+        // Resize controls
+        Label resizeLabel = new Label("Resize (mm):");
+        resizeLabel.setStyle("-fx-font-size: " + FONT_LABEL + "px;");
+
+        resizeDeltaSpinner = new Spinner<>(new SpinnerValueFactory.DoubleSpinnerValueFactory(-100.0, 100.0, 0.0, 1.0));
+        resizeDeltaSpinner.setEditable(true);
+        resizeDeltaSpinner.setPrefWidth(80.0);
+        resizeDeltaSpinner.valueProperty().addListener((obs, oldV, newV) -> {
+            if (newV != null) {
+                resizeDeltaMm = newV;
+                
+                // Recompute effective panels based on new delta
+                recomputeEffectivePanels();
+                
+                // Recompute measurements with new effective panels
+                cachedMeasurements = SeamMeasurementService.computeAllSeamMeasurements(panels);
+                
+                // Invalidate notch cache
+                cachedNotches = null;
+                cachedNotchCount = -1;
+                cachedNotchLength = -1.0;
+                
+                // Rebuild layout and redraw
+                rebuildLayout();
+                redraw();
+            }
+        });
+        resizeDeltaSpinner.getEditor().setOnAction(e -> resizeDeltaSpinner.increment(0));
+        resizeDeltaSpinner.getEditor().focusedProperty().addListener((obs, wasFocused, isFocused) -> {
+            if (!isFocused) {
+                resizeDeltaSpinner.increment(0);
+            }
+        });
+
+        Label resizeModeLabel = new Label("Mode:");
+        resizeModeLabel.setStyle("-fx-font-size: " + FONT_LABEL + "px;");
+
+        resizeModeCombo = new ComboBox<>();
+        resizeModeCombo.getItems().addAll(ResizeMode.values());
+        resizeModeCombo.setValue(ResizeMode.DISABLED);
+        resizeModeCombo.setPrefWidth(100.0);
+        resizeModeCombo.valueProperty().addListener((obs, oldV, newV) -> {
+            if (newV != null) {
+                resizeMode = newV;
+                
+                // Update export button state
+                updateResizeExportButtonState();
+                
+                // Recompute effective panels based on new mode
+                recomputeEffectivePanels();
+                
+                // Recompute measurements with new effective panels
+                cachedMeasurements = SeamMeasurementService.computeAllSeamMeasurements(panels);
+                
+                // Invalidate notch cache
+                cachedNotches = null;
+                cachedNotchCount = -1;
+                cachedNotchLength = -1.0;
+                
+                // Rebuild layout and redraw
+                rebuildLayout();
+                redraw();
+            }
+        });
+
+        resizeExportButton = new Button("Export SVG");
+        resizeExportButton.setDisable(true);
+        resizeExportButton.setTooltip(new Tooltip("Coming soon"));
+
         toolbar.getChildren().addAll(
                 btnTop, btnWaist, btnBottom,
                 new javafx.scene.control.Separator(javafx.geometry.Orientation.VERTICAL),
@@ -469,7 +560,11 @@ public final class Canvas2DView {
                 showAllowancesCheckBox, allowanceLabel, allowanceSpinner,
                 showNotchesCheckBox, notchCountLabel, notchCountSpinner,
                 notchLengthLabel, notchLengthSpinner,
-                btnExport
+                btnExport,
+                new javafx.scene.control.Separator(javafx.geometry.Orientation.VERTICAL),
+                resizeLabel, resizeDeltaSpinner,
+                resizeModeLabel, resizeModeCombo,
+                resizeExportButton
         );
         toolbar.setPadding(new Insets(8.0));
         toolbarBottom.setPadding(new Insets(8.0));
@@ -627,6 +722,16 @@ public final class Canvas2DView {
         } else {
             buildEndpointLayout(false);
         }
+    }
+
+    /**
+     * Update the resize export button state based on current mode.
+     * Disabled when mode is DISABLED, otherwise follows "coming soon" behavior.
+     */
+    private void updateResizeExportButtonState() {
+        // Always disabled for now (coming soon feature)
+        // But ensure it's explicitly disabled when mode is DISABLED
+        resizeExportButton.setDisable(true);
     }
 
     /**
@@ -1463,6 +1568,36 @@ public final class Canvas2DView {
         g.setLineWidth(1.0);
         drawLineWorld(g, -MEASUREMENT_LINE_EXTENT, 0, MEASUREMENT_LINE_EXTENT, 0);
         drawLineWorld(g, 0, -MEASUREMENT_LINE_EXTENT, 0, MEASUREMENT_LINE_EXTENT);
+    }
+
+    /**
+     * Recompute effective panels from original panels based on current resize settings.
+     * This method creates new PanelCurves instances with resized geometry.
+     */
+    private void recomputeEffectivePanels() {
+        if (panelsOriginal == null || panelsOriginal.isEmpty()) {
+            this.panels = new ArrayList<PanelCurves>();
+            return;
+        }
+
+        // If mode is DISABLED or delta is 0, use original panels directly
+        // Safe to share reference since PanelCurves are immutable and we control panelsOriginal
+        if (resizeMode == ResizeMode.DISABLED || resizeDeltaMm == 0.0) {
+            this.panels = panelsOriginal;
+            return;
+        }
+
+        // Calculate side shift for GLOBAL mode
+        double sideShift = PanelResizer.calculateSideShift(resizeDeltaMm, panelsOriginal.size());
+
+        // Apply resize to each panel
+        List<PanelCurves> effectivePanels = new ArrayList<>(panelsOriginal.size());
+        for (PanelCurves original : panelsOriginal) {
+            PanelCurves resized = PanelResizer.resizePanel(original, resizeMode, sideShift);
+            effectivePanels.add(resized);
+        }
+
+        this.panels = effectivePanels;
     }
 
     private void updateCircumferenceMeasurement() {
