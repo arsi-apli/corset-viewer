@@ -30,10 +30,10 @@ public final class SvgTextDReplacer {
 
         // Pattern to match the entire <path> start tag containing the given id
         // Uses DOTALL to match across newlines
-        // Matches: <path ...attributes... > where one attribute is id="ID"
+        // Matches: <path ...any attributes... > where one attribute is id="ID"
         String idPattern = Pattern.quote(id);
         Pattern pathPattern = Pattern.compile(
-            "<path\\s+([^>]*?\\s+)?id\\s*=\\s*\"" + idPattern + "\"([^>]*?)>",
+            "<path\\s+[^>]*?id\\s*=\\s*\"" + idPattern + "\"[^>]*?>",
             Pattern.DOTALL
         );
 
