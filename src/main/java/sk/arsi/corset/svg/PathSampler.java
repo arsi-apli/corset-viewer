@@ -54,10 +54,10 @@ public final class PathSampler {
 
         if (resampleStepMm > 0.0) {
             List<Pt> resampled = resampleByStep(pts, resampleStepMm);
-            return new Curve2D(id, resampled);
+            return new Curve2D(id, d, resampled);
         }
 
-        return new Curve2D(id, pts);
+        return new Curve2D(id, d, pts);
     }
 
     // Backward-compatible overload
