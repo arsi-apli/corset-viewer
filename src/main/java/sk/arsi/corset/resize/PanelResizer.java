@@ -6,6 +6,7 @@ import sk.arsi.corset.svg.PathSampler;
 
 import java.util.ArrayList;
 import java.util.List;
+import sk.arsi.corset.model.PanelId;
 
 /**
  * Resizes panels by editing original SVG path data and re-sampling.
@@ -56,6 +57,9 @@ public final class PanelResizer {
                         break;
                     case GLOBAL:
                         resizedPanel = resizeGlobalMode(panel, sideShiftMm);
+                        break;
+                    case HIP:
+                        resizedPanel = resizeHipMode(panel, sideShiftMm);
                         break;
                     default:
                         resizedPanel = panel; // Should not happen
@@ -230,6 +234,66 @@ public final class PanelResizer {
         return resampleCurve(curve.getId(), modified);
     }
 
+    private Curve2D resizeHorizontalEdgeMin(Curve2D curve, double shift) {
+        String d = curve.getD();
+        if (d == null || d.trim().isEmpty()) {
+            return curve;
+        }
+
+        int[] indices = SvgPathEditor.findLeftRightEndpoints(d);
+        int leftIndex = indices[0];
+        int rightIndex = indices[1];
+
+        if (leftIndex < 0 || rightIndex < 0) {
+            return curve;
+        }
+
+        String modified = d;
+
+        if (leftIndex == rightIndex) {
+            // Only one endpoint
+            return curve;
+        }
+
+        if (leftIndex < rightIndex) {
+            modified = SvgPathEditor.modifyEndpoint(modified, leftIndex, -shift, 0.0);
+        } else {
+            modified = SvgPathEditor.modifyEndpoint(modified, leftIndex, -shift, 0.0);
+        }
+
+        return resampleCurve(curve.getId(), modified);
+    }
+
+    private Curve2D resizeHorizontalEdgeMax(Curve2D curve, double shift) {
+        String d = curve.getD();
+        if (d == null || d.trim().isEmpty()) {
+            return curve;
+        }
+
+        int[] indices = SvgPathEditor.findLeftRightEndpoints(d);
+        int leftIndex = indices[0];
+        int rightIndex = indices[1];
+
+        if (leftIndex < 0 || rightIndex < 0) {
+            return curve;
+        }
+
+        String modified = d;
+
+        if (leftIndex == rightIndex) {
+            // Only one endpoint
+            return curve;
+        }
+
+        if (leftIndex < rightIndex) {
+            modified = SvgPathEditor.modifyEndpoint(modified, rightIndex, shift, 0.0);
+        } else {
+            modified = SvgPathEditor.modifyEndpoint(modified, rightIndex, shift, 0.0);
+        }
+
+        return resampleCurve(curve.getId(), modified);
+    }
+
     /**
      * Resize vertical seam: shift both top and bottom endpoints horizontally.
      * This provides a simple, predictable widening/narrowing of the seam.
@@ -287,5 +351,40 @@ public final class PanelResizer {
                 panel.getSeamToNextUp(),
                 seamToNextUDown
         );
+    }
+
+    private PanelCurves resizeHipMode(PanelCurves panel, double sideShiftMm) {
+        if (panel.getPanelId() != PanelId.C && panel.getPanelId() != PanelId.D) {
+            return panel;
+        }
+        if (panel.getPanelId() == PanelId.C) {
+            Curve2D bottom = resizeHorizontalEdgeMax(panel.getBottom(), sideShiftMm);
+            Curve2D seamToNextUDown = resizeSeamDown(panel.getSeamToNextDown(), sideShiftMm);
+            return new PanelCurves(
+                    panel.getPanelId(),
+                    panel.getTop(),
+                    bottom,
+                    panel.getWaist(),
+                    panel.getSeamToPrevUp(),
+                    panel.getSeamToPrevDown(),
+                    panel.getSeamToNextUp(),
+                    seamToNextUDown
+            );
+        } else {
+            //panel D
+            Curve2D bottom = resizeHorizontalEdgeMin(panel.getBottom(), sideShiftMm);
+            Curve2D seamToPrevDown = resizeSeamDown(panel.getSeamToPrevDown(), -sideShiftMm);
+            return new PanelCurves(
+                    panel.getPanelId(),
+                    panel.getTop(),
+                    bottom,
+                    panel.getWaist(),
+                    panel.getSeamToPrevUp(),
+                    seamToPrevDown,
+                    panel.getSeamToNextUp(),
+                    panel.getSeamToNextDown()
+            );
+        }
+
     }
 }

@@ -4,5 +4,6 @@ public enum ResizeMode {
     DISABLED,
     GLOBAL,
     TOP,
-    BOTTOM
+    BOTTOM,
+    HIP
 }
