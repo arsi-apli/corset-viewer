@@ -269,4 +269,252 @@ class PanelResizerTest {
         Curve2D resized = PanelResizer.resizeSeamCurve(null, 10.0);
         assertNull(resized);
     }
+
+    // ================= TOP MODE TESTS =================
+
+    @Test
+    void testResizePanel_topMode_waistUnchanged() {
+        // Create a panel with a waist curve
+        List<Pt> waistPoints = Arrays.asList(
+            new Pt(0.0, 50.0),
+            new Pt(50.0, 52.0),
+            new Pt(100.0, 50.0)
+        );
+        Curve2D waist = new Curve2D("waist", waistPoints);
+        
+        PanelCurves panel = new PanelCurves(
+            PanelId.B, null, null, waist, null, null, null, null
+        );
+
+        double sideShift = 10.0;
+        PanelCurves resized = PanelResizer.resizePanel(panel, ResizeMode.TOP, sideShift);
+        
+        assertNotNull(resized);
+        assertSame(waist, resized.getWaist(), "TOP mode should not change waist curve");
+        
+        // Verify points are identical
+        List<Pt> resizedWaistPoints = resized.getWaist().getPoints();
+        for (int i = 0; i < waistPoints.size(); i++) {
+            assertSame(waistPoints.get(i), resizedWaistPoints.get(i),
+                "Waist points should be unchanged");
+        }
+    }
+
+    @Test
+    void testResizePanel_topMode_bottomUnchanged() {
+        // Create a panel with a bottom curve
+        List<Pt> bottomPoints = Arrays.asList(
+            new Pt(10.0, 100.0),
+            new Pt(50.0, 105.0),
+            new Pt(90.0, 100.0)
+        );
+        Curve2D bottom = new Curve2D("bottom", bottomPoints);
+        
+        PanelCurves panel = new PanelCurves(
+            PanelId.C, null, bottom, null, null, null, null, null
+        );
+
+        double sideShift = 10.0;
+        PanelCurves resized = PanelResizer.resizePanel(panel, ResizeMode.TOP, sideShift);
+        
+        assertNotNull(resized);
+        assertSame(bottom, resized.getBottom(), "TOP mode should not change bottom curve");
+    }
+
+    @Test
+    void testResizePanel_topMode_downSeamsUnchanged() {
+        // Create DOWN seam curves (below waist)
+        List<Pt> seamDownPoints = Arrays.asList(
+            new Pt(10.0, 60.0),
+            new Pt(10.0, 80.0),
+            new Pt(10.0, 100.0)
+        );
+        Curve2D seamPrevDown = new Curve2D("seamPrevDown", seamDownPoints);
+        Curve2D seamNextDown = new Curve2D("seamNextDown", seamDownPoints);
+        
+        PanelCurves panel = new PanelCurves(
+            PanelId.D, null, null, null, null, seamPrevDown, null, seamNextDown
+        );
+
+        double sideShift = 10.0;
+        PanelCurves resized = PanelResizer.resizePanel(panel, ResizeMode.TOP, sideShift);
+        
+        assertNotNull(resized);
+        assertSame(seamPrevDown, resized.getSeamToPrevDown(),
+            "TOP mode should not change seamToPrevDown");
+        assertSame(seamNextDown, resized.getSeamToNextDown(),
+            "TOP mode should not change seamToNextDown");
+    }
+
+    @Test
+    void testResizePanel_topMode_onlyMinYPointShiftedInUpSeams() {
+        // Create UP seam curves (above waist) with minY at index 0
+        List<Pt> seamUpPoints = Arrays.asList(
+            new Pt(20.0, 10.0),  // minY point (top of seam)
+            new Pt(20.0, 30.0),
+            new Pt(20.0, 50.0)   // at waist level
+        );
+        Curve2D seamPrevUp = new Curve2D("seamPrevUp", seamUpPoints);
+        Curve2D seamNextUp = new Curve2D("seamNextUp", seamUpPoints);
+        
+        PanelCurves panel = new PanelCurves(
+            PanelId.B, null, null, null, seamPrevUp, null, seamNextUp, null
+        );
+
+        double sideShift = 10.0;
+        PanelCurves resized = PanelResizer.resizePanel(panel, ResizeMode.TOP, sideShift);
+        
+        assertNotNull(resized);
+        
+        // Check seamToPrevUp: should shift left by -sideShiftMm
+        List<Pt> resizedPrevUp = resized.getSeamToPrevUp().getPoints();
+        assertEquals(3, resizedPrevUp.size());
+        assertEquals(10.0, resizedPrevUp.get(0).getX(), 0.001, "minY point should shift left");
+        assertEquals(10.0, resizedPrevUp.get(0).getY(), 0.001, "Y unchanged");
+        assertEquals(20.0, resizedPrevUp.get(1).getX(), 0.001, "Middle point unchanged");
+        assertEquals(20.0, resizedPrevUp.get(2).getX(), 0.001, "Bottom point unchanged");
+        
+        // Check seamToNextUp: should shift right by +sideShiftMm
+        List<Pt> resizedNextUp = resized.getSeamToNextUp().getPoints();
+        assertEquals(3, resizedNextUp.size());
+        assertEquals(30.0, resizedNextUp.get(0).getX(), 0.001, "minY point should shift right");
+        assertEquals(10.0, resizedNextUp.get(0).getY(), 0.001, "Y unchanged");
+        assertEquals(20.0, resizedNextUp.get(1).getX(), 0.001, "Middle point unchanged");
+        assertEquals(20.0, resizedNextUp.get(2).getX(), 0.001, "Bottom point unchanged");
+    }
+
+    @Test
+    void testResizePanel_topMode_onlyEndpointsShiftedInTopEdge() {
+        // Create TOP edge curve with leftmost at index 0, rightmost at index 4
+        List<Pt> topPoints = Arrays.asList(
+            new Pt(0.0, 5.0),    // leftmost
+            new Pt(25.0, 8.0),   // interior
+            new Pt(50.0, 10.0),  // interior
+            new Pt(75.0, 8.0),   // interior
+            new Pt(100.0, 5.0)   // rightmost
+        );
+        Curve2D top = new Curve2D("top", topPoints);
+        
+        PanelCurves panel = new PanelCurves(
+            PanelId.C, top, null, null, null, null, null, null
+        );
+
+        double sideShift = 10.0;
+        PanelCurves resized = PanelResizer.resizePanel(panel, ResizeMode.TOP, sideShift);
+        
+        assertNotNull(resized);
+        
+        List<Pt> resizedTop = resized.getTop().getPoints();
+        assertEquals(5, resizedTop.size());
+        
+        // Leftmost endpoint: shift left by -sideShiftMm
+        assertEquals(-10.0, resizedTop.get(0).getX(), 0.001, "Leftmost should shift left");
+        assertEquals(5.0, resizedTop.get(0).getY(), 0.001, "Y unchanged");
+        
+        // Rightmost endpoint: shift right by +sideShiftMm
+        assertEquals(110.0, resizedTop.get(4).getX(), 0.001, "Rightmost should shift right");
+        assertEquals(5.0, resizedTop.get(4).getY(), 0.001, "Y unchanged");
+        
+        // Interior points: unchanged
+        assertEquals(25.0, resizedTop.get(1).getX(), 0.001, "Interior point 1 unchanged");
+        assertEquals(50.0, resizedTop.get(2).getX(), 0.001, "Interior point 2 unchanged");
+        assertEquals(75.0, resizedTop.get(3).getX(), 0.001, "Interior point 3 unchanged");
+    }
+
+    @Test
+    void testResizeSeamCurveTopOnly_shiftsOnlyMinYPoint() {
+        // Vertical seam with minY at index 0
+        List<Pt> points = Arrays.asList(
+            new Pt(10.0, 5.0),   // minY
+            new Pt(10.0, 25.0),
+            new Pt(10.0, 50.0)
+        );
+        Curve2D curve = new Curve2D("seam", points);
+
+        double shift = 7.5;
+        Curve2D resized = PanelResizer.resizeSeamCurveTopOnly(curve, shift);
+
+        assertNotNull(resized);
+        List<Pt> resizedPoints = resized.getPoints();
+        assertEquals(3, resizedPoints.size());
+        
+        // MinY point shifted
+        assertEquals(17.5, resizedPoints.get(0).getX(), 0.001);
+        assertEquals(5.0, resizedPoints.get(0).getY(), 0.001);
+        
+        // Other points unchanged
+        assertEquals(10.0, resizedPoints.get(1).getX(), 0.001);
+        assertEquals(25.0, resizedPoints.get(1).getY(), 0.001);
+        assertEquals(10.0, resizedPoints.get(2).getX(), 0.001);
+        assertEquals(50.0, resizedPoints.get(2).getY(), 0.001);
+    }
+
+    @Test
+    void testResizeSeamCurveTopOnly_minYInMiddle() {
+        // Seam with minY point in the middle
+        List<Pt> points = Arrays.asList(
+            new Pt(10.0, 30.0),
+            new Pt(10.0, 10.0),  // minY
+            new Pt(10.0, 50.0)
+        );
+        Curve2D curve = new Curve2D("seam", points);
+
+        double shift = -5.0;
+        Curve2D resized = PanelResizer.resizeSeamCurveTopOnly(curve, shift);
+
+        List<Pt> resizedPoints = resized.getPoints();
+        
+        // First point unchanged
+        assertEquals(10.0, resizedPoints.get(0).getX(), 0.001);
+        
+        // MinY point shifted
+        assertEquals(5.0, resizedPoints.get(1).getX(), 0.001);
+        assertEquals(10.0, resizedPoints.get(1).getY(), 0.001);
+        
+        // Last point unchanged
+        assertEquals(10.0, resizedPoints.get(2).getX(), 0.001);
+    }
+
+    @Test
+    void testResizeTopEdgeCurveEndpointsOnly_shiftsOnlyEndpoints() {
+        // Edge curve with clear left and right endpoints
+        List<Pt> points = Arrays.asList(
+            new Pt(0.0, 10.0),   // leftmost
+            new Pt(30.0, 12.0),
+            new Pt(60.0, 15.0),
+            new Pt(100.0, 10.0)  // rightmost
+        );
+        Curve2D curve = new Curve2D("top", points);
+
+        double sideShift = 8.0;
+        Curve2D resized = PanelResizer.resizeTopEdgeCurveEndpointsOnly(curve, sideShift);
+
+        assertNotNull(resized);
+        List<Pt> resizedPoints = resized.getPoints();
+        assertEquals(4, resizedPoints.size());
+        
+        // Leftmost: shift left by -sideShift
+        assertEquals(-8.0, resizedPoints.get(0).getX(), 0.001);
+        assertEquals(10.0, resizedPoints.get(0).getY(), 0.001);
+        
+        // Rightmost: shift right by +sideShift
+        assertEquals(108.0, resizedPoints.get(3).getX(), 0.001);
+        assertEquals(10.0, resizedPoints.get(3).getY(), 0.001);
+        
+        // Interior points unchanged
+        assertEquals(30.0, resizedPoints.get(1).getX(), 0.001);
+        assertEquals(60.0, resizedPoints.get(2).getX(), 0.001);
+    }
+
+    @Test
+    void testResizeSeamCurveTopOnly_nullCurve() {
+        Curve2D resized = PanelResizer.resizeSeamCurveTopOnly(null, 10.0);
+        assertNull(resized);
+    }
+
+    @Test
+    void testResizeTopEdgeCurveEndpointsOnly_nullCurve() {
+        Curve2D resized = PanelResizer.resizeTopEdgeCurveEndpointsOnly(null, 10.0);
+        assertNull(resized);
+    }
 }

@@ -50,10 +50,17 @@ public final class PanelResizer {
         }
 
         // TOP mode: shift only top endpoints and minY of up seams
-        // (Placeholder for future implementation - for now return original)
         if (mode == ResizeMode.TOP) {
-            // TODO: Implement TOP mode behavior
-            return panel;
+            return new PanelCurves(
+                panel.getPanelId(),
+                resizeTopEdgeCurveEndpointsOnly(panel.getTop(), sideShiftMm),
+                panel.getBottom(), // unchanged
+                panel.getWaist(),  // unchanged
+                resizeSeamCurveTopOnly(panel.getSeamToPrevUp(), -sideShiftMm),
+                panel.getSeamToPrevDown(), // unchanged
+                resizeSeamCurveTopOnly(panel.getSeamToNextUp(), sideShiftMm),
+                panel.getSeamToNextDown()  // unchanged
+            );
         }
 
         // Other modes not yet implemented
@@ -180,6 +187,139 @@ public final class PanelResizer {
             }
 
             resizedPoints.add(new Pt(x + shift, y));
+        }
+
+        return new Curve2D(curve.getId(), resizedPoints);
+    }
+
+    /**
+     * Resize a seam curve for TOP mode.
+     * Only shifts the minY point (top endpoint of the seam) horizontally.
+     * This is used for UP seams to adjust only their top attachment point.
+     * 
+     * @param curve original seam curve (vertical)
+     * @param shift horizontal shift in mm (negative for left, positive for right)
+     * @return new curve with only the minY point shifted in X, rest unchanged
+     */
+    public static Curve2D resizeSeamCurveTopOnly(Curve2D curve, double shift) {
+        if (curve == null) {
+            return null;
+        }
+
+        List<Pt> originalPoints = curve.getPoints();
+        if (originalPoints == null || originalPoints.isEmpty()) {
+            return curve;
+        }
+
+        // Find the point with minimum Y (topmost point)
+        int minYIndex = -1;
+        double minY = Double.POSITIVE_INFINITY;
+        
+        for (int i = 0; i < originalPoints.size(); i++) {
+            Pt p = originalPoints.get(i);
+            if (p != null && Double.isFinite(p.getY()) && p.getY() < minY) {
+                minY = p.getY();
+                minYIndex = i;
+            }
+        }
+
+        // If no valid minY point found, return original curve
+        if (minYIndex < 0) {
+            return curve;
+        }
+
+        // Create new points list with only the minY point shifted
+        List<Pt> resizedPoints = new ArrayList<>(originalPoints.size());
+        for (int i = 0; i < originalPoints.size(); i++) {
+            Pt p = originalPoints.get(i);
+            if (i == minYIndex && p != null) {
+                double x = p.getX();
+                double y = p.getY();
+                if (Double.isFinite(x) && Double.isFinite(y)) {
+                    resizedPoints.add(new Pt(x + shift, y));
+                } else {
+                    resizedPoints.add(p);
+                }
+            } else {
+                resizedPoints.add(p);
+            }
+        }
+
+        return new Curve2D(curve.getId(), resizedPoints);
+    }
+
+    /**
+     * Resize the TOP edge curve for TOP mode.
+     * Only shifts the leftmost and rightmost endpoints horizontally.
+     * Interior points remain unchanged.
+     * 
+     * @param curve original TOP edge curve
+     * @param sideShiftMm side shift amount in mm
+     * @return new curve with only endpoints shifted: left by -sideShiftMm, right by +sideShiftMm
+     */
+    public static Curve2D resizeTopEdgeCurveEndpointsOnly(Curve2D curve, double sideShiftMm) {
+        if (curve == null) {
+            return null;
+        }
+
+        List<Pt> originalPoints = curve.getPoints();
+        if (originalPoints == null || originalPoints.isEmpty()) {
+            return curve;
+        }
+
+        // Find indices of leftmost and rightmost points
+        int minXIndex = -1;
+        int maxXIndex = -1;
+        double minX = Double.POSITIVE_INFINITY;
+        double maxX = Double.NEGATIVE_INFINITY;
+        
+        for (int i = 0; i < originalPoints.size(); i++) {
+            Pt p = originalPoints.get(i);
+            if (p != null && Double.isFinite(p.getX())) {
+                double x = p.getX();
+                if (x < minX) {
+                    minX = x;
+                    minXIndex = i;
+                }
+                if (x > maxX) {
+                    maxX = x;
+                    maxXIndex = i;
+                }
+            }
+        }
+
+        // If no valid endpoints found, return original curve
+        if (minXIndex < 0 || maxXIndex < 0) {
+            return curve;
+        }
+
+        // Create new points list with only endpoints shifted
+        List<Pt> resizedPoints = new ArrayList<>(originalPoints.size());
+        for (int i = 0; i < originalPoints.size(); i++) {
+            Pt p = originalPoints.get(i);
+            if (p == null) {
+                resizedPoints.add(null);
+                continue;
+            }
+
+            double x = p.getX();
+            double y = p.getY();
+
+            if (!Double.isFinite(x) || !Double.isFinite(y)) {
+                resizedPoints.add(p);
+                continue;
+            }
+
+            if (i == minXIndex) {
+                // Leftmost point: shift left by -sideShiftMm
+                resizedPoints.add(new Pt(x - sideShiftMm, y));
+            } else if (i == maxXIndex) {
+                // Rightmost point: shift right by +sideShiftMm
+                resizedPoints.add(new Pt(x + sideShiftMm, y));
+            } else {
+                // Interior points: no change
+                resizedPoints.add(p);
+            }
         }
 
         return new Curve2D(curve.getId(), resizedPoints);
