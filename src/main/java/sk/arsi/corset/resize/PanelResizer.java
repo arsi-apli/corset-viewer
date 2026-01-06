@@ -24,7 +24,7 @@ public final class PanelResizer {
 
     /**
      * Apply resize to panels based on mode and delta.
-     * 
+     *
      * @param originalPanels the original panels (unmodified)
      * @param mode resize mode
      * @param deltaMm resize delta in mm
@@ -43,7 +43,7 @@ public final class PanelResizer {
 
         for (PanelCurves panel : originalPanels) {
             PanelCurves resizedPanel;
-            
+
             if (mode == ResizeMode.TOP) {
                 resizedPanel = resizeTopMode(panel, sideShiftMm);
             } else if (mode == ResizeMode.GLOBAL) {
@@ -51,7 +51,7 @@ public final class PanelResizer {
             } else {
                 resizedPanel = panel; // Should not happen
             }
-            
+
             resized.add(resizedPanel);
         }
 
@@ -59,27 +59,27 @@ public final class PanelResizer {
     }
 
     /**
-     * TOP mode: only resize top edge and UP seams.
-     * Leave waist, bottom, and DOWN seams unchanged.
+     * TOP mode: only resize top edge and UP seams. Leave waist, bottom, and
+     * DOWN seams unchanged.
      */
     private PanelCurves resizeTopMode(PanelCurves panel, double sideShiftMm) {
         // Resize top edge: shift left endpoint by -sideShiftMm, right endpoint by +sideShiftMm
-        Curve2D top = resizeTopEdge(panel.getTop(), sideShiftMm);
-        
+        Curve2D top = resizeHorizontalEdge(panel.getTop(), sideShiftMm);
+
         // Resize UP seams: shift minY endpoint
         Curve2D seamToPrevUp = resizeSeamUp(panel.getSeamToPrevUp(), -sideShiftMm);
         Curve2D seamToNextUp = resizeSeamUp(panel.getSeamToNextUp(), sideShiftMm);
-        
+
         // Keep waist, bottom, and DOWN seams unchanged
         return new PanelCurves(
-            panel.getPanelId(),
-            top,
-            panel.getBottom(),
-            panel.getWaist(),
-            seamToPrevUp,
-            panel.getSeamToPrevDown(),
-            seamToNextUp,
-            panel.getSeamToNextDown()
+                panel.getPanelId(),
+                top,
+                panel.getBottom(),
+                panel.getWaist(),
+                seamToPrevUp,
+                panel.getSeamToPrevDown(),
+                seamToNextUp,
+                panel.getSeamToNextDown()
         );
     }
 
@@ -91,28 +91,28 @@ public final class PanelResizer {
         Curve2D top = resizeHorizontalEdge(panel.getTop(), sideShiftMm);
         Curve2D bottom = resizeHorizontalEdge(panel.getBottom(), sideShiftMm);
         Curve2D waist = resizeHorizontalEdge(panel.getWaist(), sideShiftMm);
-        
+
         // Resize vertical seams: shift all endpoints
         Curve2D seamToPrevUp = resizeVerticalSeam(panel.getSeamToPrevUp(), -sideShiftMm);
         Curve2D seamToPrevDown = resizeVerticalSeam(panel.getSeamToPrevDown(), -sideShiftMm);
         Curve2D seamToNextUp = resizeVerticalSeam(panel.getSeamToNextUp(), sideShiftMm);
         Curve2D seamToNextDown = resizeVerticalSeam(panel.getSeamToNextDown(), sideShiftMm);
-        
+
         return new PanelCurves(
-            panel.getPanelId(),
-            top,
-            bottom,
-            waist,
-            seamToPrevUp,
-            seamToPrevDown,
-            seamToNextUp,
-            seamToNextDown
+                panel.getPanelId(),
+                top,
+                bottom,
+                waist,
+                seamToPrevUp,
+                seamToPrevDown,
+                seamToNextUp,
+                seamToNextDown
         );
     }
 
     /**
-     * Resize top edge curve: find two endpoints with minY (or leftmost/rightmost among minY),
-     * shift left by -shift and right by +shift.
+     * Resize top edge curve: find two endpoints with minY (or
+     * leftmost/rightmost among minY), shift left by -shift and right by +shift.
      */
     private Curve2D resizeTopEdge(Curve2D curve, double shift) {
         String d = curve.getD();
@@ -130,13 +130,13 @@ public final class PanelResizer {
 
         // Apply shifts
         String modified = d;
-        
+
         // If same index, only shift once
         if (leftIndex == rightIndex) {
             // Edge case: only one top endpoint, don't shift
             return curve;
         }
-        
+
         // Shift left endpoint first (if leftIndex < rightIndex)
         // Need to be careful about index changes when modifying
         if (leftIndex < rightIndex) {
@@ -169,7 +169,8 @@ public final class PanelResizer {
     }
 
     /**
-     * Resize horizontal edge (top, bottom, waist): shift leftmost and rightmost endpoints.
+     * Resize horizontal edge (top, bottom, waist): shift leftmost and rightmost
+     * endpoints.
      */
     private Curve2D resizeHorizontalEdge(Curve2D curve, double shift) {
         String d = curve.getD();
@@ -186,12 +187,12 @@ public final class PanelResizer {
         }
 
         String modified = d;
-        
+
         if (leftIndex == rightIndex) {
             // Only one endpoint
             return curve;
         }
-        
+
         if (leftIndex < rightIndex) {
             modified = SvgPathEditor.modifyEndpoint(modified, leftIndex, -shift, 0.0);
             modified = SvgPathEditor.modifyEndpoint(modified, rightIndex, shift, 0.0);
@@ -217,21 +218,21 @@ public final class PanelResizer {
         // and bottommost (maxY) endpoints by shiftX to widen/narrow the panel
         int minYIndex = SvgPathEditor.findMinYEndpoint(d);
         int maxYIndex = SvgPathEditor.findMaxYEndpoint(d);
-        
+
         if (minYIndex < 0 || maxYIndex < 0) {
             return curve;
         }
-        
+
         String modified = d;
-        
+
         // Shift top endpoint
         modified = SvgPathEditor.modifyEndpoint(modified, minYIndex, shiftX, 0.0);
-        
+
         // Shift bottom endpoint (if different from top)
         if (maxYIndex != minYIndex) {
             modified = SvgPathEditor.modifyEndpoint(modified, maxYIndex, shiftX, 0.0);
         }
-        
+
         return resampleCurve(curve.getId(), modified);
     }
 
