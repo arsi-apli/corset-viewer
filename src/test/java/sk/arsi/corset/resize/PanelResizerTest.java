@@ -166,6 +166,47 @@ class PanelResizerTest {
         assertEquals(0.0, nextUpTop.getY(), 0.1, "NextUp top endpoint Y should remain at 0");
     }
 
+    @Test
+    void testTopMode_WithCurvedPath() {
+        // Test with a curved path (cubic bezier) to ensure endpoint modification works
+        String curvedTopD = "M 0 0 C 30 -10 70 -10 100 0";
+        String seamUpD = "M 0 0 L 0 50";
+        
+        Curve2D top = sampler.samplePath("top", curvedTopD, 0.5);
+        Curve2D bottom = sampler.samplePath("bottom", "M 0 100 L 100 100", 0.5);
+        Curve2D waist = sampler.samplePath("waist", "M 0 50 L 100 50", 0.5);
+        Curve2D seamToPrevUp = sampler.samplePath("seamPrevUp", seamUpD, 0.5);
+        Curve2D seamToPrevDown = sampler.samplePath("seamPrevDown", "M 0 50 L 0 100", 0.5);
+        Curve2D seamToNextUp = sampler.samplePath("seamNextUp", seamUpD, 0.5);
+        Curve2D seamToNextDown = sampler.samplePath("seamNextDown", "M 0 50 L 0 100", 0.5);
+        
+        PanelCurves panel = new PanelCurves(
+            PanelId.A,
+            top, bottom, waist,
+            seamToPrevUp, seamToPrevDown,
+            seamToNextUp, seamToNextDown
+        );
+        
+        List<PanelCurves> panels = new ArrayList<>();
+        panels.add(panel);
+        
+        // Get original X range
+        double originalMinX = top.getPoints().stream().mapToDouble(Pt::getX).min().orElse(0);
+        double originalMaxX = top.getPoints().stream().mapToDouble(Pt::getX).max().orElse(0);
+        
+        // For 1 panel, deltaMm=10, sideShiftMm = 10/(4*1) = 2.5
+        List<PanelCurves> resized = resizer.resize(panels, ResizeMode.TOP, 10.0);
+        PanelCurves resizedPanel = resized.get(0);
+        
+        // Check that the top edge endpoints have shifted
+        double resizedMinX = resizedPanel.getTop().getPoints().stream().mapToDouble(Pt::getX).min().orElse(0);
+        double resizedMaxX = resizedPanel.getTop().getPoints().stream().mapToDouble(Pt::getX).max().orElse(0);
+        
+        // Left endpoint should shift by -2.5, right by +2.5
+        assertEquals(originalMinX - 2.5, resizedMinX, 0.5, "Left endpoint should shift by -2.5mm");
+        assertEquals(originalMaxX + 2.5, resizedMaxX, 0.5, "Right endpoint should shift by +2.5mm");
+    }
+
     private List<PanelCurves> createTestPanels() {
         // Create simple test panel with SVG path data
         String topD = "M 0 0 L 100 0";
