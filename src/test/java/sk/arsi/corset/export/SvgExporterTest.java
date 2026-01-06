@@ -178,7 +178,7 @@ public class SvgExporterTest {
     @Test
     public void testExportCurvesOnly() throws Exception {
         // Load sample panels from test SVG
-        Path testSvg = Path.of("patterns/Libra/v2/P2All-Final-V2-conic-no-image-26.64-clean.svg");
+        Path testSvg = Path.of(TEST_SVG_PATH);
         if (!Files.exists(testSvg)) {
             // Skip test if sample file not available
             return;
