@@ -505,6 +505,10 @@ public final class Canvas2DView {
         Button btnExport = new Button("Export SVG (Allowances + Notches)");
         btnExport.setOnAction(e -> exportSvgWithAllowancesAndNotches());
 
+        // Curves-only export button
+        Button btnExportCurvesOnly = new Button("Export SVG (curves only)");
+        btnExportCurvesOnly.setOnAction(e -> exportSvgCurvesOnly());
+
         toolbar.getChildren().addAll(
                 btnTop, btnWaist, btnBottom,
                 new javafx.scene.control.Separator(javafx.geometry.Orientation.VERTICAL),
@@ -517,7 +521,7 @@ public final class Canvas2DView {
                 new javafx.scene.control.Separator(javafx.geometry.Orientation.VERTICAL),
                 new Label("Resize:"), resizeModeCombo,
                 new Label("Delta (mm):"), resizeDeltaSpinner,
-                btnExport
+                btnExport, btnExportCurvesOnly
         );
         toolbar.setPadding(new Insets(8.0));
         toolbarBottom.setPadding(new Insets(8.0));
@@ -1596,6 +1600,55 @@ public final class Canvas2DView {
             double notchLength = notchLengthSpinner.getValue();
 
             SvgExporter.exportWithAllowancesAndNotches(svgDocument, panels, file, notchCount, notchLength, allowanceDistance);
+            showAlert(Alert.AlertType.INFORMATION, "Export successful",
+                    "SVG exported to: " + file.getAbsolutePath());
+        } catch (Exception e) {
+            showAlert(Alert.AlertType.ERROR, "Export failed",
+                    "Failed to export SVG: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Export SVG with curves only (preserves original SVG, updates only modified d attributes).
+     */
+    private void exportSvgCurvesOnly() {
+        if (panels == null || panels.isEmpty()) {
+            showAlert(Alert.AlertType.WARNING, "No panels loaded", "Cannot export: no panels loaded.");
+            return;
+        }
+
+        if (svgPath == null) {
+            showAlert(Alert.AlertType.WARNING, "No SVG file loaded",
+                    "Cannot export: SVG file path not available. Please load an SVG file first.");
+            return;
+        }
+
+        if (svgDocument == null) {
+            showAlert(Alert.AlertType.WARNING, "No SVG document loaded",
+                    "Cannot export: SVG document not available. Please load an SVG file first.");
+            return;
+        }
+
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Export SVG (curves only)");
+        fileChooser.getExtensionFilters().add(
+                new FileChooser.ExtensionFilter("SVG files (*.svg)", "*.svg")
+        );
+        fileChooser.setInitialFileName("panels_curves_only.svg");
+
+        // Set initial directory to the directory of the currently loaded SVG
+        if (svgPath.getParent() != null) {
+            fileChooser.setInitialDirectory(svgPath.getParent().toFile());
+        }
+
+        File file = fileChooser.showSaveDialog(root.getScene().getWindow());
+        if (file == null) {
+            return; // User cancelled
+        }
+
+        try {
+            SvgExporter.exportCurvesOnly(svgPath, svgDocument, panels, file);
             showAlert(Alert.AlertType.INFORMATION, "Export successful",
                     "SVG exported to: " + file.getAbsolutePath());
         } catch (Exception e) {

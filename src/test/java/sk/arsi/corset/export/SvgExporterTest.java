@@ -172,4 +172,96 @@ public class SvgExporterTest {
         
         assertTrue(exception.getMessage().contains("No panels"));
     }
+
+    @Test
+    public void testExportCurvesOnly() throws Exception {
+        // Load sample panels from test SVG
+        Path testSvg = Path.of("patterns/Libra/v2/P2All-Final-V2-conic-no-image-26.64-clean.svg");
+        if (!Files.exists(testSvg)) {
+            // Skip test if sample file not available
+            return;
+        }
+
+        // Load SVG document
+        SvgLoader svgLoader = new SvgLoader();
+        SvgDocument svgDocument = svgLoader.load(testSvg);
+
+        // Load panels
+        SvgPanelLoader loader = new SvgPanelLoader(0.2, 0.5);
+        List<PanelCurves> panels = loader.loadPanelsWithRetry(testSvg, 3, 250);
+
+        assertNotNull(panels);
+        assertFalse(panels.isEmpty());
+
+        // Export curves only (without resize, all curves should remain unchanged)
+        File outputFile = tempDir.resolve("test_export_curves_only.svg").toFile();
+        SvgExporter.exportCurvesOnly(testSvg, svgDocument, panels, outputFile);
+
+        // Verify file was created
+        assertTrue(outputFile.exists());
+        assertTrue(outputFile.length() > 0);
+
+        // Read both original and output files
+        String originalContent = Files.readString(testSvg);
+        String outputContent = Files.readString(outputFile.toPath());
+        
+        // Since no curves were modified, output should be identical to original
+        // (or very similar - may differ in whitespace normalization)
+        assertTrue(outputContent.contains("<svg"));
+        assertTrue(outputContent.contains("xmlns=\"http://www.w3.org/2000/svg\""));
+        
+        // Check that original metadata is preserved
+        assertTrue(outputContent.contains("inkscape:"), "Should preserve Inkscape metadata");
+        
+        // Verify specific path IDs exist
+        assertTrue(outputContent.contains("id=\"A_WAIST\""));
+        assertTrue(outputContent.contains("id=\"B_WAIST\""));
+        assertTrue(outputContent.contains("id=\"C_WAIST\""));
+        
+        // Verify no allowances or notches added
+        assertFalse(outputContent.contains("_ALLOW"), "Should not contain allowance paths");
+        assertFalse(outputContent.contains("_NOTCHES"), "Should not contain notches groups");
+        assertFalse(outputContent.contains("_NOTCH"), "Should not contain notch paths");
+    }
+
+    @Test
+    public void testExportCurvesOnly_NullSvgPath() throws Exception {
+        Path testSvg = Path.of("patterns/Libra/v2/P2All-Final-V2-conic-no-image-26.64-clean.svg");
+        if (!Files.exists(testSvg)) {
+            return;
+        }
+
+        SvgLoader svgLoader = new SvgLoader();
+        SvgDocument svgDocument = svgLoader.load(testSvg);
+
+        SvgPanelLoader loader = new SvgPanelLoader(0.2, 0.5);
+        List<PanelCurves> panels = loader.loadPanelsWithRetry(testSvg, 3, 250);
+
+        File outputFile = tempDir.resolve("test_null_path.svg").toFile();
+        
+        Exception exception = assertThrows(IllegalArgumentException.class, () -> {
+            SvgExporter.exportCurvesOnly(null, svgDocument, panels, outputFile);
+        });
+        
+        assertTrue(exception.getMessage().contains("svgPath"));
+    }
+
+    @Test
+    public void testExportCurvesOnly_NullDocument() throws Exception {
+        Path testSvg = Path.of("patterns/Libra/v2/P2All-Final-V2-conic-no-image-26.64-clean.svg");
+        if (!Files.exists(testSvg)) {
+            return;
+        }
+
+        SvgPanelLoader loader = new SvgPanelLoader(0.2, 0.5);
+        List<PanelCurves> panels = loader.loadPanelsWithRetry(testSvg, 3, 250);
+
+        File outputFile = tempDir.resolve("test_null_doc.svg").toFile();
+        
+        Exception exception = assertThrows(IllegalArgumentException.class, () -> {
+            SvgExporter.exportCurvesOnly(testSvg, null, panels, outputFile);
+        });
+        
+        assertTrue(exception.getMessage().contains("svgDocument"));
+    }
 }
