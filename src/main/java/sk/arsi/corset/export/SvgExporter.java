@@ -18,7 +18,12 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Exports panel curves with seam allowances to SVG.
@@ -628,7 +633,7 @@ public final class SvgExporter {
      * @throws Exception if export fails
      */
     public static void exportCurvesOnly(
-            java.nio.file.Path svgPath,
+            Path svgPath,
             SvgDocument svgDocument,
             List<PanelCurves> effectivePanels,
             File outputFile) throws Exception {
@@ -644,47 +649,58 @@ public final class SvgExporter {
         }
 
         // Read original SVG file as UTF-8 text
-        String originalSvgText = java.nio.file.Files.readString(svgPath, java.nio.charset.StandardCharsets.UTF_8);
+        String originalSvgText = Files.readString(svgPath, StandardCharsets.UTF_8);
 
         // Build map of changed paths
-        java.util.Map<String, String> changedPaths = new java.util.HashMap<>();
+        Map<String, String> changedPaths = new HashMap<>();
         
         for (PanelCurves panel : effectivePanels) {
             // Check all curves in the panel
-            for (Curve2D curve : new Curve2D[]{
-                panel.getTop(), panel.getBottom(), panel.getWaist(),
-                panel.getSeamToPrevUp(), panel.getSeamToPrevDown(),
-                panel.getSeamToNextUp(), panel.getSeamToNextDown()
-            }) {
-                if (curve == null) {
-                    continue;
-                }
-                
-                String id = curve.getId();
-                String effectiveD = curve.getD();
-                
-                // Get original d from DOM
-                Element originalElement = svgDocument.getElementsById().get(id);
-                if (originalElement == null) {
-                    throw new IllegalStateException("Path element with id=\"" + id + "\" not found in original SVG document");
-                }
-                
-                String originalD = originalElement.getAttribute("d");
-                if (originalD == null || originalD.isEmpty()) {
-                    throw new IllegalStateException("Path element with id=\"" + id + "\" has no d attribute in original SVG");
-                }
-                
-                // Only include if different
-                if (effectiveD != null && !effectiveD.equals(originalD)) {
-                    changedPaths.put(id, effectiveD);
-                }
-            }
+            checkAndAddChangedCurve(changedPaths, svgDocument, panel.getTop());
+            checkAndAddChangedCurve(changedPaths, svgDocument, panel.getBottom());
+            checkAndAddChangedCurve(changedPaths, svgDocument, panel.getWaist());
+            checkAndAddChangedCurve(changedPaths, svgDocument, panel.getSeamToPrevUp());
+            checkAndAddChangedCurve(changedPaths, svgDocument, panel.getSeamToPrevDown());
+            checkAndAddChangedCurve(changedPaths, svgDocument, panel.getSeamToNextUp());
+            checkAndAddChangedCurve(changedPaths, svgDocument, panel.getSeamToNextDown());
         }
 
         // Apply replacements to original text
         String modifiedSvgText = SvgTextDReplacer.replaceMany(originalSvgText, changedPaths);
 
         // Write to output file
-        java.nio.file.Files.writeString(outputFile.toPath(), modifiedSvgText, java.nio.charset.StandardCharsets.UTF_8);
+        Files.writeString(outputFile.toPath(), modifiedSvgText, StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Check if a curve has been modified compared to the original and add to map if so.
+     */
+    private static void checkAndAddChangedCurve(
+            Map<String, String> changedPaths,
+            SvgDocument svgDocument,
+            Curve2D curve) {
+        
+        if (curve == null) {
+            return;
+        }
+        
+        String id = curve.getId();
+        String effectiveD = curve.getD();
+        
+        // Get original d from DOM
+        Element originalElement = svgDocument.getElementsById().get(id);
+        if (originalElement == null) {
+            throw new IllegalStateException("Path element with id=\"" + id + "\" not found in original SVG document");
+        }
+        
+        String originalD = originalElement.getAttribute("d");
+        if (originalD == null || originalD.isEmpty()) {
+            throw new IllegalStateException("Path element with id=\"" + id + "\" has no d attribute in original SVG");
+        }
+        
+        // Only include if different
+        if (effectiveD != null && !effectiveD.equals(originalD)) {
+            changedPaths.put(id, effectiveD);
+        }
     }
 }
