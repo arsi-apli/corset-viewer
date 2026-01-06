@@ -145,8 +145,8 @@ class PanelResizerTest {
         List<PanelCurves> resized = resizer.resize(originalPanels, ResizeMode.TOP, 10.0);
         PanelCurves resizedPanel = resized.get(0);
         
-        // seamToPrevUp is a vertical line "M 0 0 L 0 50" from (0,0) to (0,50)
-        // The topmost point (minY) is (0, 0), which should shift by -2.5 in X to (-2.5, 0)
+        // seamToPrevUp starts as a vertical line "M 0 0 L 0 50" from (0,0) to (0,50)
+        // The topmost point (minY) at (0, 0) should shift by -2.5 in X to (-2.5, 0)
         List<Pt> prevUpPoints = resizedPanel.getSeamToPrevUp().getPoints();
         Pt prevUpTop = prevUpPoints.stream()
             .min((a, b) -> Double.compare(a.getY(), b.getY()))
@@ -155,8 +155,8 @@ class PanelResizerTest {
         assertEquals(-2.5, prevUpTop.getX(), 0.1, "PrevUp top endpoint X should shift by -2.5mm");
         assertEquals(0.0, prevUpTop.getY(), 0.1, "PrevUp top endpoint Y should remain at 0");
         
-        // seamToNextUp is a vertical line "M 0 0 L 0 50" from (0,0) to (0,50)
-        // The topmost point (minY) is (0, 0), which should shift by +2.5 in X to (2.5, 0)
+        // seamToNextUp also starts as a vertical line "M 0 0 L 0 50" from (0,0) to (0,50)
+        // The topmost point (minY) at (0, 0) should shift by +2.5 in X to (2.5, 0)
         List<Pt> nextUpPoints = resizedPanel.getSeamToNextUp().getPoints();
         Pt nextUpTop = nextUpPoints.stream()
             .min((a, b) -> Double.compare(a.getY(), b.getY()))
