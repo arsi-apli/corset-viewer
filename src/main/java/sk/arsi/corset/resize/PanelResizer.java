@@ -44,12 +44,23 @@ public final class PanelResizer {
         for (PanelCurves panel : originalPanels) {
             PanelCurves resizedPanel;
 
-            if (mode == ResizeMode.TOP) {
-                resizedPanel = resizeTopMode(panel, sideShiftMm);
-            } else if (mode == ResizeMode.GLOBAL) {
-                resizedPanel = resizeGlobalMode(panel, sideShiftMm);
-            } else {
+            if (null == mode) {
                 resizedPanel = panel; // Should not happen
+            } else {
+                switch (mode) {
+                    case TOP:
+                        resizedPanel = resizeTopMode(panel, sideShiftMm);
+                        break;
+                    case BOTTOM:
+                        resizedPanel = resizeBottomMode(panel, sideShiftMm);
+                        break;
+                    case GLOBAL:
+                        resizedPanel = resizeGlobalMode(panel, sideShiftMm);
+                        break;
+                    default:
+                        resizedPanel = panel; // Should not happen
+                        break;
+                }
             }
 
             resized.add(resizedPanel);
@@ -168,6 +179,21 @@ public final class PanelResizer {
         return resampleCurve(curve.getId(), modified);
     }
 
+    private Curve2D resizeSeamDown(Curve2D curve, double shiftX) {
+        String d = curve.getD();
+        if (d == null || d.trim().isEmpty()) {
+            return curve;
+        }
+
+        int maxYIndex = SvgPathEditor.findMaxYEndpoint(d);
+        if (maxYIndex < 0) {
+            return curve;
+        }
+
+        String modified = SvgPathEditor.modifyEndpoint(d, maxYIndex, shiftX, 0.0);
+        return resampleCurve(curve.getId(), modified);
+    }
+
     /**
      * Resize horizontal edge (top, bottom, waist): shift leftmost and rightmost
      * endpoints.
@@ -241,5 +267,25 @@ public final class PanelResizer {
      */
     private Curve2D resampleCurve(String id, String d) {
         return sampler.samplePath(id, d, flatnessMm, resampleStepMm);
+    }
+
+    private PanelCurves resizeBottomMode(PanelCurves panel, double sideShiftMm) {
+        Curve2D bottom = resizeHorizontalEdge(panel.getBottom(), sideShiftMm);
+
+        // Resize UP seams: shift minY endpoint
+        Curve2D seamToPrevDown = resizeSeamDown(panel.getSeamToPrevDown(), -sideShiftMm);
+        Curve2D seamToNextUDown = resizeSeamDown(panel.getSeamToNextDown(), sideShiftMm);
+
+        // Keep waist, bottom, and DOWN seams unchanged
+        return new PanelCurves(
+                panel.getPanelId(),
+                panel.getTop(),
+                bottom,
+                panel.getWaist(),
+                panel.getSeamToPrevUp(),
+                seamToPrevDown,
+                panel.getSeamToNextUp(),
+                seamToNextUDown
+        );
     }
 }

@@ -317,7 +317,7 @@ public final class Canvas2DView {
         this.resizeDeltaMm = 0.0;
 
         this.resizeModeCombo = new ComboBox<>();
-        this.resizeModeCombo.getItems().addAll(ResizeMode.DISABLED, ResizeMode.TOP, ResizeMode.GLOBAL);
+        this.resizeModeCombo.getItems().addAll(ResizeMode.DISABLED, ResizeMode.GLOBAL, ResizeMode.TOP, ResizeMode.BOTTOM);
         this.resizeModeCombo.setValue(ResizeMode.DISABLED);
         this.resizeModeCombo.valueProperty().addListener((obs, oldV, newV) -> {
             if (newV != null) {
@@ -1530,17 +1530,17 @@ public final class Canvas2DView {
         }
 
         this.panels = applyResizeToOriginals();
-        
+
         rebuildLayout();
-        
+
         // Recompute cached measurements
         this.cachedMeasurements = SeamMeasurementService.computeAllSeamMeasurements(this.panels);
-        
+
         // Invalidate notch cache
         this.cachedNotches = null;
         this.cachedNotchCount = -1;
         this.cachedNotchLength = -1.0;
-        
+
         updateSliderRange();
         redraw();
     }
@@ -1555,7 +1555,7 @@ public final class Canvas2DView {
 
         PathSampler sampler = new PathSampler();
         PanelResizer resizer = new PanelResizer(sampler, RESIZE_FLATNESS_MM, RESIZE_RESAMPLE_STEP_MM);
-        
+
         return resizer.resize(panelsOriginal, resizeMode, resizeDeltaMm);
     }
 
