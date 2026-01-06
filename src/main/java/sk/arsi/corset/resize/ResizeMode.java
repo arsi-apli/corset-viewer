@@ -5,5 +5,6 @@ public enum ResizeMode {
     GLOBAL,
     TOP,
     BOTTOM,
-    HIP
+    HIP,
+    WAIST
 }

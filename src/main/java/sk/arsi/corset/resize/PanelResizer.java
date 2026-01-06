@@ -61,6 +61,9 @@ public final class PanelResizer {
                     case HIP:
                         resizedPanel = resizeHipMode(panel, sideShiftMm);
                         break;
+                    case WAIST:
+                        resizedPanel = resizeWaistMode(panel, sideShiftMm);
+                        break;
                     default:
                         resizedPanel = panel; // Should not happen
                         break;
@@ -117,6 +120,28 @@ public final class PanelResizer {
                 panel.getPanelId(),
                 top,
                 bottom,
+                waist,
+                seamToPrevUp,
+                seamToPrevDown,
+                seamToNextUp,
+                seamToNextDown
+        );
+    }
+
+    private PanelCurves resizeWaistMode(PanelCurves panel, double sideShiftMm) {
+        // Resize horizontal edges (top, bottom, waist): shift left/right endpoints
+        Curve2D waist = resizeHorizontalEdge(panel.getWaist(), sideShiftMm);
+
+        // Resize vertical seams: shift all endpoints
+        Curve2D seamToPrevUp = resizeSeamDown(panel.getSeamToPrevUp(), -sideShiftMm);
+        Curve2D seamToPrevDown = resizeSeamUp(panel.getSeamToPrevDown(), -sideShiftMm);
+        Curve2D seamToNextUp = resizeSeamDown(panel.getSeamToNextUp(), sideShiftMm);
+        Curve2D seamToNextDown = resizeSeamUp(panel.getSeamToNextDown(), sideShiftMm);
+
+        return new PanelCurves(
+                panel.getPanelId(),
+                panel.getTop(),
+                panel.getBottom(),
                 waist,
                 seamToPrevUp,
                 seamToPrevDown,
