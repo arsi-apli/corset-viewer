@@ -15,7 +15,9 @@ public enum ResizeMode {
     GLOBAL,
     
     /**
-     * Top resize - affects top portion only (not implemented yet).
+     * Top resize - affects top portion only.
+     * Shifts only the minY point of UP seams and the endpoints of the TOP edge curve.
+     * Leaves waist, bottom, and DOWN seams unchanged.
      */
     TOP,
     
