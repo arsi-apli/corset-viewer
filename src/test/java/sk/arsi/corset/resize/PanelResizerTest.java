@@ -104,6 +104,68 @@ class PanelResizerTest {
         assertNotSame(originalPanel.getSeamToNextDown(), resizedPanel.getSeamToNextDown());
     }
 
+    @Test
+    void testTopMode_TopEdgeEndpointsMoved() {
+        List<PanelCurves> originalPanels = createTestPanels();
+        PanelCurves originalPanel = originalPanels.get(0);
+        
+        // For 1 panel, deltaMm=10, sideShiftMm = 10/(4*1) = 2.5
+        List<PanelCurves> resized = resizer.resize(originalPanels, ResizeMode.TOP, 10.0);
+        PanelCurves resizedPanel = resized.get(0);
+        
+        // Get original and resized top edge points
+        List<Pt> originalTopPoints = originalPanel.getTop().getPoints();
+        List<Pt> resizedTopPoints = resizedPanel.getTop().getPoints();
+        
+        // Original top edge is "M 0 0 L 100 0", so left endpoint is (0,0), right is (100,0)
+        // After resize with sideShift=2.5: left should move to (-2.5, 0), right to (102.5, 0)
+        
+        // Find leftmost and rightmost points in resized top
+        Pt resizedLeft = resizedTopPoints.stream()
+            .min((a, b) -> Double.compare(a.getX(), b.getX()))
+            .orElseThrow();
+        Pt resizedRight = resizedTopPoints.stream()
+            .max((a, b) -> Double.compare(a.getX(), b.getX()))
+            .orElseThrow();
+        
+        // Verify the X coordinates have shifted by approximately ±2.5mm
+        assertEquals(-2.5, resizedLeft.getX(), 0.1, "Left endpoint X should shift by -2.5mm");
+        assertEquals(102.5, resizedRight.getX(), 0.1, "Right endpoint X should shift by +2.5mm");
+        
+        // Verify Y coordinate unchanged
+        assertEquals(0.0, resizedLeft.getY(), 0.1, "Left endpoint Y should remain at 0");
+        assertEquals(0.0, resizedRight.getY(), 0.1, "Right endpoint Y should remain at 0");
+    }
+
+    @Test
+    void testTopMode_UpSeamEndpointsMoved() {
+        List<PanelCurves> originalPanels = createTestPanels();
+        
+        // For 1 panel, deltaMm=10, sideShiftMm = 10/(4*1) = 2.5
+        List<PanelCurves> resized = resizer.resize(originalPanels, ResizeMode.TOP, 10.0);
+        PanelCurves resizedPanel = resized.get(0);
+        
+        // seamToPrevUp is "M 0 0 L 0 50", minY endpoint is (0, 0)
+        // Should shift by -2.5 in X: (-2.5, 0)
+        List<Pt> prevUpPoints = resizedPanel.getSeamToPrevUp().getPoints();
+        Pt prevUpTop = prevUpPoints.stream()
+            .min((a, b) -> Double.compare(a.getY(), b.getY()))
+            .orElseThrow();
+        
+        assertEquals(-2.5, prevUpTop.getX(), 0.1, "PrevUp top endpoint X should shift by -2.5mm");
+        assertEquals(0.0, prevUpTop.getY(), 0.1, "PrevUp top endpoint Y should remain at 0");
+        
+        // seamToNextUp is "M 0 0 L 0 50", minY endpoint is (0, 0)
+        // Should shift by +2.5 in X: (2.5, 0)
+        List<Pt> nextUpPoints = resizedPanel.getSeamToNextUp().getPoints();
+        Pt nextUpTop = nextUpPoints.stream()
+            .min((a, b) -> Double.compare(a.getY(), b.getY()))
+            .orElseThrow();
+        
+        assertEquals(2.5, nextUpTop.getX(), 0.1, "NextUp top endpoint X should shift by +2.5mm");
+        assertEquals(0.0, nextUpTop.getY(), 0.1, "NextUp top endpoint Y should remain at 0");
+    }
+
     private List<PanelCurves> createTestPanels() {
         // Create simple test panel with SVG path data
         String topD = "M 0 0 L 100 0";
