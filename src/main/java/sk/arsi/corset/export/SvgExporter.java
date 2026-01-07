@@ -18,7 +18,12 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Exports panel curves with seam allowances to SVG.
@@ -613,6 +618,89 @@ public final class SvgExporter {
     private static void clearElement(Element element) {
         while (element.hasChildNodes()) {
             element.removeChild(element.getFirstChild());
+        }
+    }
+
+    /**
+     * Export panels by preserving the original SVG text and only updating d attributes
+     * for curves that were modified by resize (effective panels).
+     * Does not export allowances or notches.
+     * 
+     * @param svgPath Path to original SVG file
+     * @param svgDocument Original SVG document (DOM) for reference
+     * @param effectivePanels Panels with effective (resized) curves
+     * @param outputFile Output SVG file
+     * @throws Exception if export fails
+     */
+    public static void exportCurvesOnly(
+            Path svgPath,
+            SvgDocument svgDocument,
+            List<PanelCurves> effectivePanels,
+            File outputFile) throws Exception {
+        
+        if (svgPath == null) {
+            throw new IllegalArgumentException("svgPath is required");
+        }
+        if (svgDocument == null) {
+            throw new IllegalArgumentException("svgDocument is required");
+        }
+        if (effectivePanels == null || effectivePanels.isEmpty()) {
+            throw new IllegalArgumentException("No panels to export");
+        }
+
+        // Read original SVG file as UTF-8 text
+        String originalSvgText = Files.readString(svgPath, StandardCharsets.UTF_8);
+
+        // Build map of changed paths
+        Map<String, String> changedPaths = new HashMap<>();
+        
+        for (PanelCurves panel : effectivePanels) {
+            // Check all curves in the panel
+            checkAndAddChangedCurve(changedPaths, svgDocument, panel.getTop());
+            checkAndAddChangedCurve(changedPaths, svgDocument, panel.getBottom());
+            checkAndAddChangedCurve(changedPaths, svgDocument, panel.getWaist());
+            checkAndAddChangedCurve(changedPaths, svgDocument, panel.getSeamToPrevUp());
+            checkAndAddChangedCurve(changedPaths, svgDocument, panel.getSeamToPrevDown());
+            checkAndAddChangedCurve(changedPaths, svgDocument, panel.getSeamToNextUp());
+            checkAndAddChangedCurve(changedPaths, svgDocument, panel.getSeamToNextDown());
+        }
+
+        // Apply replacements to original text
+        String modifiedSvgText = SvgTextDReplacer.replaceMany(originalSvgText, changedPaths);
+
+        // Write to output file
+        Files.writeString(outputFile.toPath(), modifiedSvgText, StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Check if a curve has been modified compared to the original and add to map if so.
+     */
+    private static void checkAndAddChangedCurve(
+            Map<String, String> changedPaths,
+            SvgDocument svgDocument,
+            Curve2D curve) {
+        
+        if (curve == null) {
+            return;
+        }
+        
+        String id = curve.getId();
+        String effectiveD = curve.getD();
+        
+        // Get original d from DOM
+        Element originalElement = svgDocument.getElementsById().get(id);
+        if (originalElement == null) {
+            throw new IllegalStateException("Path element with id=\"" + id + "\" not found in original SVG document");
+        }
+        
+        String originalD = originalElement.getAttribute("d");
+        if (originalD == null || originalD.isEmpty()) {
+            throw new IllegalStateException("Path element with id=\"" + id + "\" has no d attribute in original SVG");
+        }
+        
+        // Only include if different
+        if (effectiveD != null && !effectiveD.equals(originalD)) {
+            changedPaths.put(id, effectiveD);
         }
     }
 }
