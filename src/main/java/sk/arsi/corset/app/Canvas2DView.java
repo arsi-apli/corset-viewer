@@ -17,6 +17,7 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 import javafx.stage.FileChooser;
@@ -38,6 +39,8 @@ import sk.arsi.corset.util.SeamAllowanceComputer;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -52,6 +55,22 @@ public final class Canvas2DView {
         TOP,
         WAIST,
         BOTTOM
+    }
+
+    /**
+     * Snapshot for undo history (future feature).
+     * Stores the base geometry and UI state at a point in time.
+     */
+    private static final class Snapshot {
+        private final List<PanelCurves> panelsOriginal;
+        private final ResizeMode resizeMode;
+        private final double resizeDeltaMm;
+
+        private Snapshot(List<PanelCurves> panelsOriginal, ResizeMode resizeMode, double resizeDeltaMm) {
+            this.panelsOriginal = panelsOriginal;
+            this.resizeMode = resizeMode;
+            this.resizeDeltaMm = resizeDeltaMm;
+        }
     }
 
     private static final class Transform2D {
@@ -205,7 +224,9 @@ public final class Canvas2DView {
     private final Canvas canvas;
     private final BorderPane root;
     private final HBox toolbar;
-    private final HBox toolbarBottom;
+    private final VBox toolbarBottomContainer;
+    private final HBox toolbarBottomRow1;
+    private final HBox toolbarBottomRow2;
 
     // host pane for canvas so we bind to center area size (prevents huge textures)
     private final StackPane canvasHost;
@@ -233,6 +254,9 @@ public final class Canvas2DView {
     private List<RenderedPanel> rendered;
     private MeasurementsView measurementsView;
     private List<SeamMeasurementData> cachedMeasurements;
+
+    // Undo history for Apply/Reset workflow
+    private Deque<Snapshot> undoHistory;
 
     // view transform (world -> screen)
     private double scale;
@@ -268,7 +292,9 @@ public final class Canvas2DView {
         this.canvas = new Canvas(1200, 700);
         this.root = new BorderPane();
         this.toolbar = new HBox(8.0);
-        this.toolbarBottom = new HBox(8.0);
+        this.toolbarBottomContainer = new VBox(4.0);
+        this.toolbarBottomRow1 = new HBox(8.0);
+        this.toolbarBottomRow2 = new HBox(8.0);
 
         this.canvasHost = new StackPane(canvas);
 
@@ -331,6 +357,7 @@ public final class Canvas2DView {
         this.panels = new ArrayList<PanelCurves>();
         this.rendered = new ArrayList<RenderedPanel>();
         this.cachedMeasurements = new ArrayList<>();
+        this.undoHistory = new ArrayDeque<>();
 
         this.scale = 2.0;
         this.offsetX = 80.0;
@@ -509,25 +536,42 @@ public final class Canvas2DView {
         Button btnExportCurvesOnly = new Button("Export SVG (curves only)");
         btnExportCurvesOnly.setOnAction(e -> exportSvgCurvesOnly());
 
+        // Apply and Reset buttons for resize workflow
+        Button btnApply = new Button("Apply");
+        btnApply.setOnAction(e -> applyResizeChanges());
+        
+        Button btnResetResize = new Button("Reset");
+        btnResetResize.setOnAction(e -> resetToOriginalSvg());
+
         toolbar.getChildren().addAll(
                 btnTop, btnWaist, btnBottom,
                 new javafx.scene.control.Separator(javafx.geometry.Orientation.VERTICAL),
                 sliderLabel, circumferenceSlider, dySpinner, btnReset, dyLabel, circumferenceLabel
         );
-        toolbarBottom.getChildren().addAll(
+        
+        // Row 1: allowances, notches, export
+        toolbarBottomRow1.getChildren().addAll(
                 showAllowancesCheckBox, allowanceLabel, allowanceSpinner,
                 showNotchesCheckBox, notchCountLabel, notchCountSpinner,
                 notchLengthLabel, notchLengthSpinner,
-                new javafx.scene.control.Separator(javafx.geometry.Orientation.VERTICAL),
-                new Label("Resize:"), resizeModeCombo,
-                new Label("Delta (mm):"), resizeDeltaSpinner,
                 btnExport, btnExportCurvesOnly
         );
+        
+        // Row 2: resize controls
+        toolbarBottomRow2.getChildren().addAll(
+                new Label("Resize mode:"), resizeModeCombo,
+                new Label("Delta (mm):"), resizeDeltaSpinner,
+                btnApply, btnResetResize
+        );
+        
+        toolbarBottomContainer.getChildren().addAll(toolbarBottomRow1, toolbarBottomRow2);
+        
         toolbar.setPadding(new Insets(8.0));
-        toolbarBottom.setPadding(new Insets(8.0));
+        toolbarBottomRow1.setPadding(new Insets(8.0));
+        toolbarBottomRow2.setPadding(new Insets(8.0));
 
         root.setTop(toolbar);
-        root.setBottom(toolbarBottom);
+        root.setBottom(toolbarBottomContainer);
         // --- Center ---
         root.setCenter(canvasHost);
     }
@@ -1665,5 +1709,153 @@ public final class Canvas2DView {
         alert.setHeaderText(null);
         alert.setContentText(message);
         alert.showAndWait();
+    }
+
+    /**
+     * Deep copy a list of PanelCurves, ensuring all curves and points are independent.
+     */
+    private List<PanelCurves> deepCopyPanels(List<PanelCurves> source) {
+        if (source == null) {
+            return null;
+        }
+        
+        List<PanelCurves> copy = new ArrayList<>();
+        for (PanelCurves panel : source) {
+            PanelCurves copiedPanel = new PanelCurves(
+                panel.getPanelId(),
+                deepCopyCurve(panel.getTop()),
+                deepCopyCurve(panel.getBottom()),
+                deepCopyCurve(panel.getWaist()),
+                deepCopyCurve(panel.getSeamToPrevUp()),
+                deepCopyCurve(panel.getSeamToPrevDown()),
+                deepCopyCurve(panel.getSeamToNextUp()),
+                deepCopyCurve(panel.getSeamToNextDown())
+            );
+            copy.add(copiedPanel);
+        }
+        return copy;
+    }
+
+    /**
+     * Deep copy a single Curve2D.
+     */
+    private Curve2D deepCopyCurve(Curve2D source) {
+        if (source == null) {
+            return null;
+        }
+        
+        // Copy points list
+        List<Pt> copiedPoints = new ArrayList<>();
+        for (Pt pt : source.getPoints()) {
+            copiedPoints.add(new Pt(pt.getX(), pt.getY()));
+        }
+        
+        // Create new Curve2D with copied data
+        return new Curve2D(source.getId(), source.getD(), copiedPoints);
+    }
+
+    /**
+     * Apply current resize changes: commit effective panels to base geometry.
+     * This allows stacking/combining multiple resize operations.
+     */
+    private void applyResizeChanges() {
+        if (panels == null || panels.isEmpty()) {
+            showAlert(Alert.AlertType.WARNING, "No panels loaded", 
+                "Cannot apply: no panels loaded.");
+            return;
+        }
+        
+        // Push current base to undo history
+        Snapshot snapshot = new Snapshot(
+            deepCopyPanels(panelsOriginal),
+            resizeMode,
+            resizeDeltaMm
+        );
+        undoHistory.push(snapshot);
+        
+        // Replace base geometry with current effective geometry
+        panelsOriginal = deepCopyPanels(panels);
+        
+        // Reset resize controls to neutral
+        isUpdatingControls = true;
+        resizeModeCombo.setValue(ResizeMode.DISABLED);
+        resizeDeltaSpinner.getValueFactory().setValue(0.0);
+        resizeMode = ResizeMode.DISABLED;
+        resizeDeltaMm = 0.0;
+        isUpdatingControls = false;
+        
+        // Recompute effective panels (should be same as base now)
+        panels = applyResizeToOriginals();
+        
+        // Refresh everything
+        rebuildLayout();
+        fitToContent();
+        cachedMeasurements = SeamMeasurementService.computeAllSeamMeasurements(panels);
+        cachedNotches = null;
+        cachedNotchCount = -1;
+        cachedNotchLength = -1.0;
+        updateSliderRange();
+        redraw();
+        
+        log.info("Applied resize changes. Undo history size: {}", undoHistory.size());
+    }
+
+    /**
+     * Reset to original SVG from disk, discarding all resize changes.
+     */
+    private void resetToOriginalSvg() {
+        if (svgPath == null) {
+            showAlert(Alert.AlertType.WARNING, "No SVG loaded",
+                "Cannot reset: no SVG file loaded. Please open an SVG file first.");
+            return;
+        }
+        
+        try {
+            // Reload SVG document
+            sk.arsi.corset.svg.SvgLoader loader = new sk.arsi.corset.svg.SvgLoader();
+            SvgDocument newSvgDoc = loader.load(svgPath);
+            
+            // Reload panels using same sampling parameters
+            sk.arsi.corset.io.SvgPanelLoader panelLoader = 
+                new sk.arsi.corset.io.SvgPanelLoader(RESIZE_FLATNESS_MM, RESIZE_RESAMPLE_STEP_MM);
+            List<PanelCurves> newPanels = panelLoader.loadPanelsWithRetry(svgPath, 3, 100);
+            
+            // Update document and panels
+            this.svgDocument = newSvgDoc;
+            this.panelsOriginal = newPanels;
+            
+            // Clear undo history
+            undoHistory.clear();
+            
+            // Reset resize UI to neutral
+            isUpdatingControls = true;
+            resizeModeCombo.setValue(ResizeMode.DISABLED);
+            resizeDeltaSpinner.getValueFactory().setValue(0.0);
+            resizeMode = ResizeMode.DISABLED;
+            resizeDeltaMm = 0.0;
+            isUpdatingControls = false;
+            
+            // Apply neutral resize (which just returns originals)
+            panels = applyResizeToOriginals();
+            
+            // Refresh everything (same as setPanels does)
+            didInitialFit = false;
+            rebuildLayout();
+            fitToContent();
+            cachedMeasurements = SeamMeasurementService.computeAllSeamMeasurements(panels);
+            cachedNotches = null;
+            cachedNotchCount = -1;
+            cachedNotchLength = -1.0;
+            updateSliderRange();
+            redraw();
+            
+            log.info("Reset to original SVG from: {}", svgPath);
+            showAlert(Alert.AlertType.INFORMATION, "Reset successful",
+                "Reloaded original geometry from SVG file.");
+        } catch (Exception e) {
+            log.error("Failed to reset to original SVG", e);
+            showAlert(Alert.AlertType.ERROR, "Reset failed",
+                "Failed to reload SVG: " + e.getMessage());
+        }
     }
 }
