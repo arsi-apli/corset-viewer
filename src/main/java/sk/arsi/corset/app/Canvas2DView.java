@@ -317,7 +317,7 @@ public final class Canvas2DView {
         this.resizeDeltaMm = 0.0;
 
         this.resizeModeCombo = new ComboBox<>();
-        this.resizeModeCombo.getItems().addAll(ResizeMode.DISABLED, ResizeMode.GLOBAL, ResizeMode.TOP, ResizeMode.BOTTOM, ResizeMode.HIP, ResizeMode.WAIST);
+        this.resizeModeCombo.getItems().addAll(ResizeMode.DISABLED, ResizeMode.GLOBAL, ResizeMode.TOP, ResizeMode.BOTTOM, ResizeMode.HIP, ResizeMode.HIP1, ResizeMode.RIB, ResizeMode.RIB1, ResizeMode.WAIST);
         this.resizeModeCombo.setValue(ResizeMode.DISABLED);
         this.resizeModeCombo.valueProperty().addListener((obs, oldV, newV) -> {
             if (newV != null) {
@@ -1610,7 +1610,8 @@ public final class Canvas2DView {
     }
 
     /**
-     * Export SVG with curves only (preserves original SVG, updates only modified d attributes).
+     * Export SVG with curves only (preserves original SVG, updates only
+     * modified d attributes).
      */
     private void exportSvgCurvesOnly() {
         if (panels == null || panels.isEmpty()) {

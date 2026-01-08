@@ -61,6 +61,15 @@ public final class PanelResizer {
                     case HIP:
                         resizedPanel = resizeHipMode(panel, sideShiftMm);
                         break;
+                    case HIP1:
+                        resizedPanel = resizeHipMode1(panel, sideShiftMm);
+                        break;
+                    case RIB:
+                        resizedPanel = resizeRibMode(panel, sideShiftMm);
+                        break;
+                    case RIB1:
+                        resizedPanel = resizeRibMode1(panel, sideShiftMm);
+                        break;
                     case WAIST:
                         resizedPanel = resizeWaistMode(panel, sideShiftMm);
                         break;
@@ -412,4 +421,141 @@ public final class PanelResizer {
         }
 
     }
+
+    private PanelCurves resizeHipMode1(PanelCurves panel, double sideShiftMm) {
+        if (panel.getPanelId() != PanelId.B && panel.getPanelId() != PanelId.C && panel.getPanelId() != PanelId.D && panel.getPanelId() != PanelId.E) {
+            return panel;
+        }
+        if (panel.getPanelId() == PanelId.C || panel.getPanelId() == PanelId.D) {
+            Curve2D bottom = resizeHorizontalEdge(panel.getBottom(), sideShiftMm);
+            Curve2D seamToNextUDown = resizeSeamDown(panel.getSeamToNextDown(), sideShiftMm);
+            Curve2D seamToPrevUDown = resizeSeamDown(panel.getSeamToPrevDown(), -sideShiftMm);
+            return new PanelCurves(
+                    panel.getPanelId(),
+                    panel.getTop(),
+                    bottom,
+                    panel.getWaist(),
+                    panel.getSeamToPrevUp(),
+                    seamToPrevUDown,
+                    panel.getSeamToNextUp(),
+                    seamToNextUDown
+            );
+        } else if (panel.getPanelId() == PanelId.E) {
+            //panel D
+            Curve2D bottom = resizeHorizontalEdgeMin(panel.getBottom(), sideShiftMm);
+            Curve2D seamToPrevDown = resizeSeamDown(panel.getSeamToPrevDown(), -sideShiftMm);
+            return new PanelCurves(
+                    panel.getPanelId(),
+                    panel.getTop(),
+                    bottom,
+                    panel.getWaist(),
+                    panel.getSeamToPrevUp(),
+                    seamToPrevDown,
+                    panel.getSeamToNextUp(),
+                    panel.getSeamToNextDown()
+            );
+        } else {
+            //panel B
+            Curve2D bottom = resizeHorizontalEdgeMax(panel.getBottom(), sideShiftMm);
+            Curve2D seamToNextUDown = resizeSeamDown(panel.getSeamToNextDown(), sideShiftMm);
+            return new PanelCurves(
+                    panel.getPanelId(),
+                    panel.getTop(),
+                    bottom,
+                    panel.getWaist(),
+                    panel.getSeamToPrevUp(),
+                    panel.getSeamToPrevDown(),
+                    panel.getSeamToNextUp(),
+                    seamToNextUDown
+            );
+        }
+
+    }
+
+    //--
+    private PanelCurves resizeRibMode(PanelCurves panel, double sideShiftMm) {
+        if (panel.getPanelId() != PanelId.C && panel.getPanelId() != PanelId.D) {
+            return panel;
+        }
+        if (panel.getPanelId() == PanelId.C) {
+            Curve2D top = resizeHorizontalEdgeMax(panel.getTop(), sideShiftMm);
+            Curve2D seamToNextUUp = resizeSeamUp(panel.getSeamToNextUp(), sideShiftMm);
+            return new PanelCurves(
+                    panel.getPanelId(),
+                    top,
+                    panel.getBottom(),
+                    panel.getWaist(),
+                    panel.getSeamToPrevUp(),
+                    panel.getSeamToPrevDown(),
+                    seamToNextUUp,
+                    panel.getSeamToNextDown()
+            );
+        } else {
+            //panel D
+            Curve2D top = resizeHorizontalEdgeMin(panel.getTop(), sideShiftMm);
+            Curve2D seamToPrevUp = resizeSeamUp(panel.getSeamToPrevUp(), -sideShiftMm);
+            return new PanelCurves(
+                    panel.getPanelId(),
+                    top,
+                    panel.getBottom(),
+                    panel.getWaist(),
+                    seamToPrevUp,
+                    panel.getSeamToPrevDown(),
+                    panel.getSeamToNextUp(),
+                    panel.getSeamToNextDown()
+            );
+        }
+
+    }
+
+    private PanelCurves resizeRibMode1(PanelCurves panel, double sideShiftMm) {
+        if (panel.getPanelId() != PanelId.B && panel.getPanelId() != PanelId.C && panel.getPanelId() != PanelId.D && panel.getPanelId() != PanelId.E) {
+            return panel;
+        }
+        if (panel.getPanelId() == PanelId.C || panel.getPanelId() == PanelId.D) {
+            Curve2D top = resizeHorizontalEdge(panel.getTop(), sideShiftMm);
+            Curve2D seamToNextUp = resizeSeamUp(panel.getSeamToNextUp(), sideShiftMm);
+            Curve2D seamToPrevUp = resizeSeamUp(panel.getSeamToPrevUp(), -sideShiftMm);
+            return new PanelCurves(
+                    panel.getPanelId(),
+                    top,
+                    panel.getBottom(),
+                    panel.getWaist(),
+                    seamToPrevUp,
+                    panel.getSeamToPrevDown(),
+                    seamToNextUp,
+                    panel.getSeamToNextDown()
+            );
+        } else if (panel.getPanelId() == PanelId.E) {
+            //panel D
+            Curve2D top = resizeHorizontalEdgeMin(panel.getTop(), sideShiftMm);
+            Curve2D seamToPrevUp = resizeSeamUp(panel.getSeamToPrevUp(), -sideShiftMm);
+            return new PanelCurves(
+                    panel.getPanelId(),
+                    top,
+                    panel.getBottom(),
+                    panel.getWaist(),
+                    seamToPrevUp,
+                    panel.getSeamToPrevDown(),
+                    panel.getSeamToNextUp(),
+                    panel.getSeamToNextDown()
+            );
+        } else {
+            //panel B
+            Curve2D top = resizeHorizontalEdgeMax(panel.getTop(), sideShiftMm);
+            Curve2D seamToNextUp = resizeSeamUp(panel.getSeamToNextUp(), sideShiftMm);
+            return new PanelCurves(
+                    panel.getPanelId(),
+                    top,
+                    panel.getBottom(),
+                    panel.getWaist(),
+                    panel.getSeamToPrevUp(),
+                    panel.getSeamToPrevDown(),
+                    seamToNextUp,
+                    panel.getSeamToNextDown()
+            );
+        }
+
+    }
+
 }
