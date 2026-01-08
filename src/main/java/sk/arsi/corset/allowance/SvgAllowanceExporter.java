@@ -4,7 +4,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
-import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import sk.arsi.corset.model.Curve2D;
 import sk.arsi.corset.model.PanelCurves;
@@ -31,7 +30,7 @@ public final class SvgAllowanceExporter {
     private static final Logger LOG = LoggerFactory.getLogger(SvgAllowanceExporter.class);
     private static final String ALLOWANCES_GROUP_ID = "allowances";
     private static final String INKSCAPE_NS = "http://www.inkscape.org/namespaces/inkscape";
-    
+
     private final SeamAllowanceGenerator generator;
     private final PatternContract contract;
 
@@ -42,7 +41,7 @@ public final class SvgAllowanceExporter {
 
     /**
      * Export SVG with allowances for all vertical seams in the panels.
-     * 
+     *
      * @param inputPath Input SVG path
      * @param outputPath Output SVG path
      * @param panels List of panel curves
@@ -63,33 +62,149 @@ public final class SvgAllowanceExporter {
 
         // Write to output file
         writeDocument(doc, outputPath);
-        
+
         LOG.info("Exported SVG with {} allowance curves to {}", allowanceCurves.size(), outputPath);
     }
 
     /**
      * Generate allowance curves for all vertical seams in all panels.
+     *
+     * NOTE: Previously this code hard-coded offset direction: - seamToPrev =>
+     * offsetToLeft=true - seamToNext => offsetToLeft=false That breaks if the
+     * seam polyline direction reverses (which can happen after
+     * resize/resampling), causing allowances to jump inside the panel. We now
+     * choose the side dynamically to ensure the allowance is generated
+     * "outside" of the panel, based on a simple panel centroid test.
      */
     private List<Curve2D> generateAllowanceCurves(List<PanelCurves> panels, double allowanceMm) {
         List<Curve2D> allowances = new ArrayList<>();
 
         for (PanelCurves panel : panels) {
-            // Left seam (seamToPrev): offset to the left (outside of panel)
-            Curve2D leftUpAllowance = generator.generateOffset(panel.getSeamToPrevUp(), allowanceMm, true);
-            allowances.add(leftUpAllowance);
-            
-            Curve2D leftDownAllowance = generator.generateOffset(panel.getSeamToPrevDown(), allowanceMm, true);
-            allowances.add(leftDownAllowance);
+            Pt centroid = computePanelCentroid(panel);
 
-            // Right seam (seamToNext): offset to the right (outside of panel)
-            Curve2D rightUpAllowance = generator.generateOffset(panel.getSeamToNextUp(), allowanceMm, false);
-            allowances.add(rightUpAllowance);
-            
-            Curve2D rightDownAllowance = generator.generateOffset(panel.getSeamToNextDown(), allowanceMm, false);
-            allowances.add(rightDownAllowance);
+            // seamToPrev (left side of panel in nominal orientation)
+            Curve2D seamPrevUp = panel.getSeamToPrevUp();
+            if (seamPrevUp != null) {
+                boolean offsetToLeft = shouldOffsetToLeftOutside(seamPrevUp, centroid);
+                allowances.add(generator.generateOffset(seamPrevUp, allowanceMm, offsetToLeft));
+            }
+
+            Curve2D seamPrevDown = panel.getSeamToPrevDown();
+            if (seamPrevDown != null) {
+                boolean offsetToLeft = shouldOffsetToLeftOutside(seamPrevDown, centroid);
+                allowances.add(generator.generateOffset(seamPrevDown, allowanceMm, offsetToLeft));
+            }
+
+            // seamToNext (right side of panel in nominal orientation)
+            Curve2D seamNextUp = panel.getSeamToNextUp();
+            if (seamNextUp != null) {
+                boolean offsetToLeft = shouldOffsetToLeftOutside(seamNextUp, centroid);
+                allowances.add(generator.generateOffset(seamNextUp, allowanceMm, offsetToLeft));
+            }
+
+            Curve2D seamNextDown = panel.getSeamToNextDown();
+            if (seamNextDown != null) {
+                boolean offsetToLeft = shouldOffsetToLeftOutside(seamNextDown, centroid);
+                allowances.add(generator.generateOffset(seamNextDown, allowanceMm, offsetToLeft));
+            }
         }
 
         return allowances;
+    }
+
+    /**
+     * Computes a simple centroid of the panel by averaging all points from all
+     * available curves. This doesn't need to be a geometric polygon centroid;
+     * it just provides a stable reference point that lies roughly inside the
+     * panel.
+     */
+    private static Pt computePanelCentroid(PanelCurves panel) {
+        double sx = 0.0;
+        double sy = 0.0;
+        int n = 0;
+
+        for (Curve2D c : new Curve2D[]{
+            panel.getTop(),
+            panel.getBottom(),
+            panel.getWaist(),
+            panel.getSeamToPrevUp(),
+            panel.getSeamToPrevDown(),
+            panel.getSeamToNextUp(),
+            panel.getSeamToNextDown()
+        }) {
+            if (c == null) {
+                continue;
+            }
+            for (Pt p : c.getPoints()) {
+                sx += p.getX();
+                sy += p.getY();
+                n++;
+            }
+        }
+
+        if (n == 0) {
+            return new Pt(0.0, 0.0);
+        }
+        return new Pt(sx / n, sy / n);
+    }
+
+    /**
+     * Decide whether we should offset to the left (direction-of-travel) so that
+     * the result goes outside of the panel.
+     *
+     * We estimate an "outward" direction by checking which of the two normals
+     * (left/right) points further away from the panel centroid.
+     *
+     * This makes allowance generation robust even if the seam point order
+     * reverses after resize/resampling.
+     */
+    private static boolean shouldOffsetToLeftOutside(Curve2D seam, Pt centroid) {
+        List<Pt> pts = seam.getPoints();
+        if (pts.size() < 2) {
+            return true;
+        }
+
+        final double EPS = 1e-12;
+
+        // Find a non-degenerate segment to determine direction.
+        Pt a = null;
+        Pt b = null;
+        for (int i = 0; i < pts.size() - 1; i++) {
+            Pt p0 = pts.get(i);
+            Pt p1 = pts.get(i + 1);
+            double dx = p1.getX() - p0.getX();
+            double dy = p1.getY() - p0.getY();
+            if (dx * dx + dy * dy > EPS) {
+                a = p0;
+                b = p1;
+                break;
+            }
+        }
+        if (a == null) {
+            return true;
+        }
+
+        double dx = b.getX() - a.getX();
+        double dy = b.getY() - a.getY();
+        double len = Math.sqrt(dx * dx + dy * dy);
+        if (len < EPS) {
+            return true;
+        }
+
+        // Unit left normal (CCW)
+        double nxL = -dy / len;
+        double nyL = dx / len;
+
+        // Representative point: middle of polyline
+        Pt mid = pts.get(pts.size() / 2);
+
+        // Vector from centroid to the seam point (roughly points outward)
+        double vx = mid.getX() - centroid.getX();
+        double vy = mid.getY() - centroid.getY();
+
+        // If left normal points away from centroid -> left is outside
+        double dotLeft = nxL * vx + nyL * vy;
+        return dotLeft >= 0.0;
     }
 
     /**
@@ -115,9 +230,10 @@ public final class SvgAllowanceExporter {
 
     /**
      * Find existing allowances group or create a new one.
-     * 
-     * Note: Inkscape namespace attributes are added without explicit namespace declaration.
-     * The XML serializer will handle namespace declarations automatically when writing the document.
+     *
+     * Note: Inkscape namespace attributes are added without explicit namespace
+     * declaration. The XML serializer will handle namespace declarations
+     * automatically when writing the document.
      */
     private Element findOrCreateAllowancesGroup(Document doc, Element root) {
         // Look for existing group with id="allowances"
@@ -135,7 +251,7 @@ public final class SvgAllowanceExporter {
         group.setAttributeNS(INKSCAPE_NS, "inkscape:label", "Allowances");
         group.setAttributeNS(INKSCAPE_NS, "inkscape:groupmode", "layer");
         root.appendChild(group);
-        
+
         return group;
     }
 
@@ -160,7 +276,7 @@ public final class SvgAllowanceExporter {
         }
 
         StringBuilder sb = new StringBuilder();
-        
+
         // Move to first point
         Pt first = points.get(0);
         sb.append("M ").append(formatCoord(first.getX())).append(",").append(formatCoord(first.getY()));
@@ -192,7 +308,7 @@ public final class SvgAllowanceExporter {
             transformer.setOutputProperty(OutputKeys.INDENT, "yes");
             transformer.setOutputProperty(OutputKeys.METHOD, "xml");
             transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
-            
+
             DOMSource source = new DOMSource(doc);
             StreamResult result = new StreamResult(outputPath.toFile());
             transformer.transform(source, result);
