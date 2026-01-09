@@ -19,6 +19,8 @@ It reads specific `<path>` elements by their `id` attributes, samples them into 
 - **SVG Export with Notches**: Export patterns with sewing notches for fabric alignment (NEW!)
 - **ID Assignment Wizard**: Interactive tool to assign required IDs to SVG elements
 
+## Manual
+https://github.com/arsi-apli/corset-viewer/wiki/Reverse%E2%80%90Engineering-a-Corset-Pattern-in-Inkscape
 ## Downloads
 
 Prebuilt portable packages are published on the **Releases** page:
