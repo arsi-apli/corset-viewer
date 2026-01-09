@@ -515,7 +515,7 @@ public final class Canvas2DView {
 
         // Notch length spinner
         Label notchLengthLabel = new Label("Length (mm):");
-        notchLengthSpinner = new Spinner<>(new SpinnerValueFactory.DoubleSpinnerValueFactory(3.0, 5.0, 4.0, 0.5));
+        notchLengthSpinner = new Spinner<>(new SpinnerValueFactory.DoubleSpinnerValueFactory(3.0, 30.0, 4.0, 0.5));
         notchLengthSpinner.setEditable(true);
         notchLengthSpinner.setPrefWidth(70.0);
         notchLengthSpinner.valueProperty().addListener((obs, oldV, newV) -> {
