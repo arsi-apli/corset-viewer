@@ -1225,40 +1225,14 @@ public final class Canvas2DView {
         if (id == null) {
             return null;
         }
-        switch (id) {
-            case B:
-                return PanelId.A;
-            case C:
-                return PanelId.B;
-            case D:
-                return PanelId.C;
-            case E:
-                return PanelId.D;
-            case F:
-                return PanelId.E;
-            default:
-                return null;
-        }
+        return id.prev();
     }
 
     private PanelId getNextPanelId(PanelId id) {
         if (id == null) {
             return null;
         }
-        switch (id) {
-            case A:
-                return PanelId.B;
-            case B:
-                return PanelId.C;
-            case C:
-                return PanelId.D;
-            case D:
-                return PanelId.E;
-            case E:
-                return PanelId.F;
-            default:
-                return null;
-        }
+        return id.next();
     }
 
     private void strokeCurve(GraphicsContext g, RenderedPanel rp, Curve2D curve, Color color, double width) {

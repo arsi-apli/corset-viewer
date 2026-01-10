@@ -1,9 +1,9 @@
 package sk.arsi.corset.svg;
 
 import org.w3c.dom.Element;
+import sk.arsi.corset.model.Curve2D;
 import sk.arsi.corset.model.PanelCurves;
 import sk.arsi.corset.model.PanelId;
-import sk.arsi.corset.model.Curve2D;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -23,15 +23,12 @@ public final class PatternExtractor {
     }
 
     public List<PanelCurves> extractPanels(SvgDocument doc, double flatnessMm, double resampleStepMm) {
-        List<PanelCurves> out = new ArrayList<PanelCurves>();
+        List<PanelCurves> out = new ArrayList<>();
 
-        PanelId[] panels = new PanelId[]{
-            PanelId.A, PanelId.B, PanelId.C, PanelId.D, PanelId.E, PanelId.F
-        };
+        // Previously hardcoded A..F. Now driven by the contract maxPanel (default F).
+        List<PanelId> panels = PanelId.rangeInclusive(contract.getMaxPanel());
 
-        for (int i = 0; i < panels.length; i++) {
-            PanelId panelId = panels[i];
-
+        for (PanelId panelId : panels) {
             String topId = contract.topId(panelId);
             String bottomId = contract.bottomId(panelId);
             String waistId = contract.waistId(panelId);
@@ -41,7 +38,6 @@ public final class PatternExtractor {
             Curve2D waist = readPath(doc, waistId, flatnessMm, resampleStepMm);
 
             // seams: "left seam to prev" + "right seam to next"
-            // A: AA, AB ; B: BA, BC ; C: CB, CD ; D: DC, DE ; E: ED, EF ; F: FE, FF
             String seamToPrevId = contract.seamToPrevId(panelId);
             String seamToNextId = contract.seamToNextId(panelId);
 

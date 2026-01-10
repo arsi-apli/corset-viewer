@@ -2,7 +2,32 @@ package sk.arsi.corset.svg;
 
 import sk.arsi.corset.model.PanelId;
 
+/**
+ * Generates SVG IDs according to the naming contract. Now supports a variable
+ * panel range A..maxPanel.
+ */
 public final class PatternContract {
+
+    private final char maxPanel; // 'F','G','H',...
+
+    public PatternContract(char maxPanel) {
+        char up = Character.toUpperCase(maxPanel);
+        if (up < 'A' || up > 'Z') {
+            throw new IllegalArgumentException("maxPanel must be A..Z, got: " + maxPanel);
+        }
+        this.maxPanel = up;
+    }
+
+    /**
+     * Backward-compatible default: A..F
+     */
+    public PatternContract() {
+        this('F');
+    }
+
+    public char getMaxPanel() {
+        return maxPanel;
+    }
 
     public String topId(PanelId panelId) {
         return panelId.name() + "_TOP";
@@ -16,48 +41,32 @@ public final class PatternContract {
         return panelId.name() + "_WAIST";
     }
 
+    /**
+     * e.g. for panel C: "CB"; for panel A: "AA"
+     */
     public String seamToPrevId(PanelId panelId) {
-        if (panelId == PanelId.A) {
-            return "AA"; // busk side for A
+        if (panelId.letter() == 'A') {
+            return "AA";
         }
-        if (panelId == PanelId.B) {
-            return "BA";
+        PanelId prev = panelId.prev();
+        if (prev == null) {
+            throw new IllegalStateException("prev is null for " + panelId);
         }
-        if (panelId == PanelId.C) {
-            return "CB";
-        }
-        if (panelId == PanelId.D) {
-            return "DC";
-        }
-        if (panelId == PanelId.E) {
-            return "ED";
-        }
-        if (panelId == PanelId.F) {
-            return "FE";
-        }
-        throw new IllegalArgumentException("Unknown panel: " + panelId);
+        return panelId.name() + prev.name();
     }
 
+    /**
+     * e.g. for panel C: "CD"; for last panel H: "HH"
+     */
     public String seamToNextId(PanelId panelId) {
-        if (panelId == PanelId.A) {
-            return "AB";
+        if (panelId.letter() == maxPanel) {
+            return "" + maxPanel + maxPanel;
         }
-        if (panelId == PanelId.B) {
-            return "BC";
+        PanelId next = panelId.next();
+        if (next == null) {
+            throw new IllegalStateException("next is null for " + panelId);
         }
-        if (panelId == PanelId.C) {
-            return "CD";
-        }
-        if (panelId == PanelId.D) {
-            return "DE";
-        }
-        if (panelId == PanelId.E) {
-            return "EF";
-        }
-        if (panelId == PanelId.F) {
-            return "FF"; // lacing side for F
-        }
-        throw new IllegalArgumentException("Unknown panel: " + panelId);
+        return panelId.name() + next.name();
     }
 
     public String seamUpId(String seam) {

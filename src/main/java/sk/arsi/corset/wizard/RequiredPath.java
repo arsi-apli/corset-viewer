@@ -1,103 +1,60 @@
 package sk.arsi.corset.wizard;
 
-import sk.arsi.corset.model.PanelId;
-import sk.arsi.corset.svg.PatternContract;
-
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Objects;
 
 /**
- * Represents all required path IDs in deterministic wizard order.
+ * Represents one required SVG path ID in the wizard flow. Previously an enum
+ * with 42 values (A..F). Now a dynamic step object.
  */
-public enum RequiredPath {
-    A_TOP, A_WAIST, A_BOTTOM,
-    AA_UP, AA_DOWN, AB_UP, AB_DOWN,
-    
-    B_TOP, B_WAIST, B_BOTTOM,
-    BA_UP, BA_DOWN, BC_UP, BC_DOWN,
-    
-    C_TOP, C_WAIST, C_BOTTOM,
-    CB_UP, CB_DOWN, CD_UP, CD_DOWN,
-    
-    D_TOP, D_WAIST, D_BOTTOM,
-    DC_UP, DC_DOWN, DE_UP, DE_DOWN,
-    
-    E_TOP, E_WAIST, E_BOTTOM,
-    ED_UP, ED_DOWN, EF_UP, EF_DOWN,
-    
-    F_TOP, F_WAIST, F_BOTTOM,
-    FE_UP, FE_DOWN, FF_UP, FF_DOWN;
+public final class RequiredPath {
 
+    private final String svgId;
+
+    // wizard assignment state (was previously stored in enum singleton)
     private SvgPathCandidate assignedCandidate;
 
-    /**
-     * Get the SVG id string for this required path.
-     */
+    public RequiredPath(String svgId) {
+        if (svgId == null || svgId.isBlank()) {
+            throw new IllegalArgumentException("svgId must be non-empty");
+        }
+        this.svgId = svgId;
+    }
+
     public String svgId() {
-        return name();
+        return svgId;
     }
 
-    /**
-     * Get the assigned candidate, or null if not yet assigned.
-     */
-    public SvgPathCandidate getAssignedCandidate() {
-        return assignedCandidate;
-    }
-
-    /**
-     * Set the assigned candidate.
-     */
-    void setAssignedCandidate(SvgPathCandidate candidate) {
-        this.assignedCandidate = candidate;
-    }
-
-    /**
-     * Reset assignment.
-     */
-    public void resetAssignment() {
-        this.assignedCandidate = null;
-    }
-
-    /**
-     * Check if this required path has been assigned.
-     */
     public boolean isAssigned() {
         return assignedCandidate != null;
     }
 
-    /**
-     * Get all required paths in deterministic wizard order.
-     */
-    public static List<RequiredPath> steps() {
-        List<RequiredPath> result = new ArrayList<>();
-        PatternContract contract = new PatternContract();
-        PanelId[] panels = new PanelId[]{PanelId.A, PanelId.B, PanelId.C, PanelId.D, PanelId.E, PanelId.F};
-        
-        for (PanelId panelId : panels) {
-            // Add panel curves
-            result.add(valueOf(contract.topId(panelId)));
-            result.add(valueOf(contract.waistId(panelId)));
-            result.add(valueOf(contract.bottomId(panelId)));
-            
-            // Add seam curves
-            String seamToPrevId = contract.seamToPrevId(panelId);
-            String seamToNextId = contract.seamToNextId(panelId);
-            
-            result.add(valueOf(contract.seamUpId(seamToPrevId)));
-            result.add(valueOf(contract.seamDownId(seamToPrevId)));
-            result.add(valueOf(contract.seamUpId(seamToNextId)));
-            result.add(valueOf(contract.seamDownId(seamToNextId)));
-        }
-        
-        return result;
+    public SvgPathCandidate getAssignedCandidate() {
+        return assignedCandidate;
     }
 
-    /**
-     * Reset all assignments.
-     */
-    public static void resetAllAssignments() {
-        for (RequiredPath path : values()) {
-            path.resetAssignment();
+    public void setAssignedCandidate(SvgPathCandidate candidate) {
+        this.assignedCandidate = candidate;
+    }
+
+    public void resetAssignment() {
+        this.assignedCandidate = null;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof RequiredPath)) {
+            return false;
         }
+        return Objects.equals(svgId, ((RequiredPath) o).svgId);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(svgId);
+    }
+
+    @Override
+    public String toString() {
+        return svgId;
     }
 }

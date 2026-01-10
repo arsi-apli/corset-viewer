@@ -15,7 +15,7 @@ public final class NotchGenerator {
 
     /**
      * Generate notches for all panels.
-     * 
+     *
      * @param panels List of panel curves
      * @param notchCount Number of notches per seam (e.g., 3)
      * @param notchLengthMm Length of each notch tick in mm (e.g., 4.0)
@@ -25,31 +25,31 @@ public final class NotchGenerator {
             List<PanelCurves> panels,
             int notchCount,
             double notchLengthMm) {
-        
+
         List<PanelNotches> allNotches = new ArrayList<>();
-        
+
         for (PanelCurves panel : panels) {
             List<Notch> panelNotches = generatePanelNotches(panel, notchCount, notchLengthMm);
             allNotches.add(new PanelNotches(panel.getPanelId(), panelNotches));
         }
-        
+
         return allNotches;
     }
 
     /**
-     * Generate notches for a single panel.
-     * Generates notches for both left (toPrev) and right (toNext) seams.
+     * Generate notches for a single panel. Generates notches for both left
+     * (toPrev) and right (toNext) seams.
      */
     private static List<Notch> generatePanelNotches(
             PanelCurves panel,
             int notchCount,
             double notchLengthMm) {
-        
+
         List<Notch> notches = new ArrayList<>();
-        
+
         // Compute panel interior reference point
         Pt interior = GeometryUtils.computePanelInterior(panel.getWaist());
-        
+
         // Generate notches for left seam (toPrev)
         List<Notch> leftNotches = generateSeamNotches(
                 panel.getSeamToPrevUp(),
@@ -61,7 +61,7 @@ public final class NotchGenerator {
                 getPrevPanelName(panel.getPanelId())
         );
         notches.addAll(leftNotches);
-        
+
         // Generate notches for right seam (toNext)
         List<Notch> rightNotches = generateSeamNotches(
                 panel.getSeamToNextUp(),
@@ -73,14 +73,14 @@ public final class NotchGenerator {
                 getNextPanelName(panel.getPanelId())
         );
         notches.addAll(rightNotches);
-        
+
         return notches;
     }
 
     /**
-     * Generate notches for a single seam.
-     * Notches are generated separately for UP and DOWN curves.
-     * Each curve gets N notches independently positioned at i/(N+1) along its length.
+     * Generate notches for a single seam. Notches are generated separately for
+     * UP and DOWN curves. Each curve gets N notches independently positioned at
+     * i/(N+1) along its length.
      */
     private static List<Notch> generateSeamNotches(
             Curve2D upCurve,
@@ -90,9 +90,9 @@ public final class NotchGenerator {
             double notchLengthMm,
             String panelName,
             String neighborName) {
-        
+
         List<Notch> notches = new ArrayList<>();
-        
+
         // Generate notches for UP curve
         if (upCurve != null && upCurve.getPoints() != null && !upCurve.getPoints().isEmpty()) {
             List<Notch> upNotches = generateCurveNotches(
@@ -106,7 +106,7 @@ public final class NotchGenerator {
             );
             notches.addAll(upNotches);
         }
-        
+
         // Generate notches for DOWN curve
         if (downCurve != null && downCurve.getPoints() != null && !downCurve.getPoints().isEmpty()) {
             List<Notch> downNotches = generateCurveNotches(
@@ -120,7 +120,7 @@ public final class NotchGenerator {
             );
             notches.addAll(downNotches);
         }
-        
+
         return notches;
     }
 
@@ -135,41 +135,41 @@ public final class NotchGenerator {
             String panelName,
             String neighborName,
             String segment) {
-        
+
         List<Notch> notches = new ArrayList<>();
-        
+
         if (curvePoints == null || curvePoints.isEmpty()) {
             return notches;
         }
-        
+
         // Generate notch positions
         List<Double> positions = GeometryUtils.generateNotchPositions(notchCount);
-        
+
         // Generate a notch at each position
         for (int i = 0; i < positions.size(); i++) {
             double percentage = positions.get(i);
-            
+
             // Find point on curve at this percentage
             Pt seamPoint = GeometryUtils.pointAtArcLength(curvePoints, percentage);
             if (seamPoint == null) {
                 continue;
             }
-            
+
             // Find tangent at this position
             Pt tangent = GeometryUtils.tangentAtArcLength(curvePoints, percentage);
             if (tangent == null) {
                 continue;
             }
-            
+
             // Compute inward normal
             Pt inwardNormal = GeometryUtils.computeInwardNormal(seamPoint, tangent, interior);
-            
+
             // Create notch tick: from seam point inward by notchLengthMm
             Pt notchEnd = new Pt(
                     seamPoint.getX() + inwardNormal.getX() * notchLengthMm,
                     seamPoint.getY() + inwardNormal.getY() * notchLengthMm
             );
-            
+
             // Generate notch ID with segment identifier (UP or DOWN)
             int percentInt = (int) Math.round(percentage * 100);
             String notchId = String.format("%s_NOTCH_%s_%s_%d",
@@ -177,10 +177,10 @@ public final class NotchGenerator {
                     neighborName != null ? neighborName : "EDGE",
                     segment,
                     percentInt);
-            
+
             notches.add(new Notch(seamPoint, notchEnd, notchId));
         }
-        
+
         return notches;
     }
 
@@ -191,22 +191,10 @@ public final class NotchGenerator {
         if (id == null) {
             return null;
         }
-        switch (id) {
-            case A:
-                return "A"; // AA - outer edge
-            case B:
-                return "A";
-            case C:
-                return "B";
-            case D:
-                return "C";
-            case E:
-                return "D";
-            case F:
-                return "E";
-            default:
-                return null;
+        if (id.letter() == 'A') {
+            return id.name();  // A -> A (outer edge AA)
         }
+        return id.prev().name();
     }
 
     /**
@@ -216,21 +204,9 @@ public final class NotchGenerator {
         if (id == null) {
             return null;
         }
-        switch (id) {
-            case A:
-                return "B";
-            case B:
-                return "C";
-            case C:
-                return "D";
-            case D:
-                return "E";
-            case E:
-                return "F";
-            case F:
-                return "F"; // FF - outer edge
-            default:
-                return null;
+        if (id.letter() == 'F') {
+            return id.name();
         }
+        return id.next().name();
     }
 }

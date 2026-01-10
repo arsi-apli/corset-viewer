@@ -37,8 +37,10 @@ public final class FxApp extends Application {
     private static final Logger LOG = LoggerFactory.getLogger(FxApp.class);
     private static final String PREF_NODE = "sk.arsi.corset-viewer";
     private static final String PREF_LAST_DIR = "lastSvgDir";
-    
-    /** Suffix for wizard-generated SVG files */
+
+    /**
+     * Suffix for wizard-generated SVG files
+     */
     public static final String CORSET_VIEWER_SUFFIX = "_corset_viewer.svg";
 
     private Canvas2DView view2d;
@@ -214,42 +216,42 @@ public final class FxApp extends Application {
     }
 
     /**
-     * Try to load panels, launch wizard if required IDs are missing.
-     * Returns null if user cancelled wizard.
-     * Also sets the svgDocument field for export functionality.
+     * Try to load panels, launch wizard if required IDs are missing. Returns
+     * null if user cancelled wizard. Also sets the svgDocument field for export
+     * functionality.
      */
     private List<PanelCurves> loadPanelsOrLaunchWizard(Stage stage, Path path) {
         try {
             // Load the SVG document
             SvgLoader loader = new SvgLoader();
             svgDocument = loader.load(path);
-            
+
             // Extract panels from the document
-            PatternContract contract = new PatternContract();
+            PatternContract contract = new PatternContract('F');
             PathSampler sampler = new PathSampler();
             PatternExtractor extractor = new PatternExtractor(contract, sampler);
-            
+
             return extractor.extractPanels(svgDocument, 0.2, 0.5);
         } catch (Exception e) {
             // Check if this is a missing ID exception
-            if (e instanceof IllegalStateException && e.getMessage() != null && 
-                e.getMessage().contains("Missing required SVG element id=")) {
-                
+            if (e instanceof IllegalStateException && e.getMessage() != null
+                    && e.getMessage().contains("Missing required SVG element id=")) {
+
                 // Launch wizard
                 boolean success = launchWizard(stage, path);
                 if (!success) {
                     return null;
                 }
-                
+
                 // Try loading again with the new file
                 try {
                     SvgLoader loader = new SvgLoader();
                     svgDocument = loader.load(svgPath);
-                    
+
                     PatternContract contract = new PatternContract();
                     PathSampler sampler = new PathSampler();
                     PatternExtractor extractor = new PatternExtractor(contract, sampler);
-                    
+
                     return extractor.extractPanels(svgDocument, 0.2, 0.5);
                 } catch (Exception ex) {
                     showError("Failed to load SVG after wizard completion", ex.getMessage());
@@ -264,41 +266,41 @@ public final class FxApp extends Application {
     }
 
     /**
-     * Launch the ID assignment wizard.
-     * Returns true if wizard completed successfully, false if cancelled.
+     * Launch the ID assignment wizard. Returns true if wizard completed
+     * successfully, false if cancelled.
      */
     private boolean launchWizard(Stage stage, Path path) {
         try {
             // Load SVG document
             SvgLoader loader = new SvgLoader();
             SvgDocument doc = loader.load(path);
-            
+
             // Create wizard session
-            IdWizardSession session = new IdWizardSession(doc.getDocument());
-            
+            IdWizardSession session = new IdWizardSession(doc.getDocument(), 'F');
+
             // Check if there are actually missing steps
             if (session.totalMissing() == 0) {
                 // No missing IDs, shouldn't have gotten here
                 return true;
             }
-            
+
             // Show wizard dialog
             IdAssignmentWizard wizard = new IdAssignmentWizard(session);
             Optional<Boolean> result = wizard.showAndWait();
-            
+
             if (result.isPresent() && result.get()) {
                 // Wizard completed - save modified SVG
                 String originalName = path.getFileName().toString();
                 String baseName = originalName.replaceFirst("\\.svg$", "");
                 String newName = baseName + CORSET_VIEWER_SUFFIX;
                 Path newPath = path.getParent().resolve(newName);
-                
+
                 SvgTextEditor editor = new SvgTextEditor();
                 editor.saveWithAssignments(path, newPath, session);
-                
+
                 // Update svgPath to the new file
                 svgPath = newPath;
-                
+
                 return true;
             } else {
                 // User cancelled

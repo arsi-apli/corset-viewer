@@ -8,33 +8,35 @@ import sk.arsi.corset.model.Pt;
 import java.util.List;
 
 /**
- * Detects panel order (A→F vs F→A) from SVG geometry.
- * Uses panel A seams to determine orientation.
+ * Detects panel order (A→max vs max→A) from SVG geometry. Uses panel A seams to
+ * determine orientation.
  */
 public final class PanelOrderDetector {
 
     /**
      * Detect panel order from a list of panels.
-     * 
+     *
      * @param panels List of panels (expected to contain panel A)
-     * @return true if order is A→F, false if F→A
+     * @return true if order is A→..., false if ...→A
      */
     public boolean detectOrderAtoF(List<PanelCurves> panels) {
+        // Method name kept for backward compatibility; behavior is now A→max vs max→A.
         if (panels == null || panels.isEmpty()) {
-            return true; // default to A→F
+            return true; // default to A→...
         }
 
         // Find panel A
         PanelCurves panelA = null;
         for (PanelCurves p : panels) {
-            if (p.getPanelId() == PanelId.A) {
+            PanelId id = (p == null) ? null : p.getPanelId();
+            if (id != null && id.letter() == 'A') {
                 panelA = p;
                 break;
             }
         }
 
         if (panelA == null) {
-            return true; // default to A→F if panel A not found
+            return true; // default to A→... if panel A not found
         }
 
         // Get seams AA (seamToPrev) and AB (seamToNext)
@@ -42,14 +44,14 @@ public final class PanelOrderDetector {
         Curve2D seamAB = panelA.getSeamToNextUp();
 
         if (seamAA == null || seamAB == null) {
-            return true; // default to A→F if seams not found
+            return true; // default if seams not found
         }
 
         // Compute average X position for each seam
         double avgXAA = computeAverageX(seamAA);
         double avgXAB = computeAverageX(seamAB);
 
-        // If AB is to the right of AA, order is A→F; otherwise F→A
+        // If AB is to the right of AA, order is A→...; otherwise ...→A
         return avgXAB > avgXAA;
     }
 
