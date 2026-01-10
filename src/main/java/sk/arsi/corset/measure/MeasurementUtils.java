@@ -415,10 +415,15 @@ public final class MeasurementUtils {
     
     // Minimum step size for dy range computation in mm
     private static final double MIN_STEP_SIZE = 0.5;
+    
+    // Dead-zone around waist where measurements may be unreliable due to seam intersection issues.
+    // Matches the dead-zone used in computeFullCircumference to ensure consistency.
+    private static final double DEAD_ZONE_MM = 5.0;
 
     /**
      * Computes the valid dy range where ALL panels have measurable width.
-     * Samples dy in small steps from 0 outward until any panel width becomes empty.
+     * Skips a dead-zone around the waist (±DEAD_ZONE_MM) to avoid unreliable measurements
+     * near dy=0 where seam intersection may be unstable but works at larger distances.
      * 
      * @param panels List of panels to measure
      * @param stepMm Step size for sampling (default 2mm recommended)
@@ -433,8 +438,13 @@ public final class MeasurementUtils {
         stepMm = Math.max(MIN_STEP_SIZE, Math.abs(stepMm));
 
         // Find maximum upward range (positive dyMm)
+        // Start search at max(DEAD_ZONE_MM, stepMm) to skip the unreliable region near waist
+        double startDyUp = Math.max(DEAD_ZONE_MM, stepMm);
         double maxUpDy = 0.0;
-        for (double dy = stepMm; dy <= MAX_DY_SEARCH_DISTANCE; dy += stepMm) {
+        boolean foundValidUp = false;
+        
+        // First, find the first valid dy >= DEAD_ZONE_MM
+        for (double dy = startDyUp; dy <= MAX_DY_SEARCH_DISTANCE; dy += stepMm) {
             boolean allValid = true;
             for (PanelCurves panel : panels) {
                 OptionalDouble width = computePanelWidthAtDy(panel, dy);
@@ -444,15 +454,39 @@ public final class MeasurementUtils {
                 }
             }
             if (allValid) {
+                foundValidUp = true;
                 maxUpDy = dy;
-            } else {
-                break; // Stop at first invalid step
+                break;
+            }
+        }
+        
+        // If we found a valid point, continue scanning to find the maximum valid range
+        if (foundValidUp) {
+            for (double dy = maxUpDy + stepMm; dy <= MAX_DY_SEARCH_DISTANCE; dy += stepMm) {
+                boolean allValid = true;
+                for (PanelCurves panel : panels) {
+                    OptionalDouble width = computePanelWidthAtDy(panel, dy);
+                    if (width.isEmpty()) {
+                        allValid = false;
+                        break;
+                    }
+                }
+                if (allValid) {
+                    maxUpDy = dy;
+                } else {
+                    break; // Stop at first invalid step
+                }
             }
         }
 
         // Find maximum downward range (negative dyMm)
+        // Start search at min(-DEAD_ZONE_MM, -stepMm) to skip the unreliable region near waist
+        double startDyDown = -Math.max(DEAD_ZONE_MM, stepMm);
         double maxDownDy = 0.0;
-        for (double dy = -stepMm; dy >= -MAX_DY_SEARCH_DISTANCE; dy -= stepMm) {
+        boolean foundValidDown = false;
+        
+        // First, find the first valid dy <= -DEAD_ZONE_MM
+        for (double dy = startDyDown; dy >= -MAX_DY_SEARCH_DISTANCE; dy -= stepMm) {
             boolean allValid = true;
             for (PanelCurves panel : panels) {
                 OptionalDouble width = computePanelWidthAtDy(panel, dy);
@@ -462,9 +496,28 @@ public final class MeasurementUtils {
                 }
             }
             if (allValid) {
-                maxDownDy = Math.abs(dy); // Store as positive
-            } else {
-                break; // Stop at first invalid step
+                foundValidDown = true;
+                maxDownDy = Math.abs(dy);
+                break;
+            }
+        }
+        
+        // If we found a valid point, continue scanning to find the maximum valid range
+        if (foundValidDown) {
+            for (double dy = -maxDownDy - stepMm; dy >= -MAX_DY_SEARCH_DISTANCE; dy -= stepMm) {
+                boolean allValid = true;
+                for (PanelCurves panel : panels) {
+                    OptionalDouble width = computePanelWidthAtDy(panel, dy);
+                    if (width.isEmpty()) {
+                        allValid = false;
+                        break;
+                    }
+                }
+                if (allValid) {
+                    maxDownDy = Math.abs(dy); // Store as positive
+                } else {
+                    break; // Stop at first invalid step
+                }
             }
         }
 
