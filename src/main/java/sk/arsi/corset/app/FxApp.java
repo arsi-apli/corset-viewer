@@ -222,18 +222,23 @@ public final class FxApp extends Application {
      * functionality.
      */
     private List<PanelCurves> loadPanelsOrLaunchWizard(Stage stage, Path path) {
+        // Load the SVG document
+        SvgLoader loader = new SvgLoader();
         try {
-            // Load the SVG document
-            SvgLoader loader = new SvgLoader();
             svgDocument = loader.load(path);
-            
-            // Determine max panel: metadata first, then ask user if missing
-            char maxPanel = determineMaxPanel(stage, svgDocument);
-            if (maxPanel == 0) {
-                // User cancelled panel selection
-                return null;
-            }
+        } catch (Exception e) {
+            showError("Failed to load SVG", e.getMessage());
+            return null;
+        }
+        
+        // Determine max panel once: metadata first, then ask user if missing
+        char maxPanel = determineMaxPanel(stage, svgDocument);
+        if (maxPanel == 0) {
+            // User cancelled panel selection
+            return null;
+        }
 
+        try {
             // Extract panels from the document
             PatternContract contract = new PatternContract(maxPanel);
             PathSampler sampler = new PathSampler();
@@ -245,12 +250,7 @@ public final class FxApp extends Application {
             if (e instanceof IllegalStateException && e.getMessage() != null
                     && e.getMessage().contains("Missing required SVG element id=")) {
 
-                // Launch wizard with the determined max panel
-                char maxPanel = determineMaxPanel(stage, svgDocument);
-                if (maxPanel == 0) {
-                    return null;
-                }
-                
+                // Launch wizard with the already-determined max panel
                 boolean success = launchWizard(stage, path, maxPanel);
                 if (!success) {
                     return null;
@@ -261,11 +261,8 @@ public final class FxApp extends Application {
                     SvgLoader loader2 = new SvgLoader();
                     svgDocument = loader2.load(svgPath);
                     
-                    // After wizard, metadata should be present
-                    char maxPanel2 = determineMaxPanel(stage, svgDocument);
-                    if (maxPanel2 == 0) {
-                        maxPanel2 = maxPanel; // Fallback to previously selected
-                    }
+                    // After wizard, use metadata if present, otherwise fall back to original maxPanel
+                    char maxPanel2 = svgDocument.readMaxPanelMetadata().orElse(maxPanel);
 
                     PatternContract contract = new PatternContract(maxPanel2);
                     PathSampler sampler = new PathSampler();
