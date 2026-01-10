@@ -357,14 +357,21 @@ public final class MeasurementUtils {
     }
 
     public static double computeFullCircumference(List<PanelCurves> panels, double dyMm) {
-        // At exactly waist level (dyMm == 0, including -0.0), use waist curve length
-        // Note: In Java, 0.0 == -0.0 is true (they compare equal with ==),
-        // but Double.compare(0.0, -0.0) != 0 (treats them as distinct).
-        // We use == here to treat both 0.0 and -0.0 as waist level.
-        if (dyMm == 0.0) {
+        // Use waist curve length for measurements within ±5mm of the waist.
+        // This dead-zone provides stability near the waist where seam intersection
+        // results can be unreliable due to numerical precision issues and nearly-
+        // horizontal curve segments around dy ≈ 0.
+        // 
+        // Rationale:
+        // - For some SVG patterns, measurements are unreliable for small |dy| values
+        //   (users report fluctuations of ±4mm) but stabilize at larger distances.
+        // - Using the waist curve length directly for |dy| < 5mm ensures consistent
+        //   measurements in this critical region while maintaining intersection-based
+        //   accuracy elsewhere.
+        if (Math.abs(dyMm) < 5.0) {
             return computeFullWaistCircumference(panels);
         }
-        // Otherwise, use existing strict intersection-based circumference
+        // For |dy| >= 5mm, use intersection-based circumference
         return 2.0 * computeHalfCircumference(panels, dyMm);
     }
 
