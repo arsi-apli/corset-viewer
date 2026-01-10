@@ -97,7 +97,8 @@ If your SVG contains transforms, you should “apply” them into the path data 
 `Extensions → Modify Path → Apply Transform`
 
 **A wizard has been added that allows visual assignment of element IDs.**
-<img width="820" height="836" alt="image" src="https://github.com/user-attachments/assets/c6e31e81-7110-4ad2-a95b-433f5d7cb882" />
+![panelWizard](https://github.com/user-attachments/assets/c62a96de-449f-444a-80b4-eeefca209629)
+
 
 
 ### 2) Panels A–F
