@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import sk.arsi.corset.io.SvgFileWatcher;
 import sk.arsi.corset.io.SvgPanelLoader;
 import sk.arsi.corset.model.PanelCurves;
+import sk.arsi.corset.svg.PanelDetector;
 import sk.arsi.corset.svg.PathSampler;
 import sk.arsi.corset.svg.PatternContract;
 import sk.arsi.corset.svg.PatternExtractor;
@@ -225,9 +226,16 @@ public final class FxApp extends Application {
             // Load the SVG document
             SvgLoader loader = new SvgLoader();
             svgDocument = loader.load(path);
+            
+            // Determine max panel: metadata first, then ask user if missing
+            char maxPanel = determineMaxPanel(stage, svgDocument);
+            if (maxPanel == 0) {
+                // User cancelled panel selection
+                return null;
+            }
 
             // Extract panels from the document
-            PatternContract contract = new PatternContract('F');
+            PatternContract contract = new PatternContract(maxPanel);
             PathSampler sampler = new PathSampler();
             PatternExtractor extractor = new PatternExtractor(contract, sampler);
 
@@ -237,18 +245,29 @@ public final class FxApp extends Application {
             if (e instanceof IllegalStateException && e.getMessage() != null
                     && e.getMessage().contains("Missing required SVG element id=")) {
 
-                // Launch wizard
-                boolean success = launchWizard(stage, path);
+                // Launch wizard with the determined max panel
+                char maxPanel = determineMaxPanel(stage, svgDocument);
+                if (maxPanel == 0) {
+                    return null;
+                }
+                
+                boolean success = launchWizard(stage, path, maxPanel);
                 if (!success) {
                     return null;
                 }
 
                 // Try loading again with the new file
                 try {
-                    SvgLoader loader = new SvgLoader();
-                    svgDocument = loader.load(svgPath);
+                    SvgLoader loader2 = new SvgLoader();
+                    svgDocument = loader2.load(svgPath);
+                    
+                    // After wizard, metadata should be present
+                    char maxPanel2 = determineMaxPanel(stage, svgDocument);
+                    if (maxPanel2 == 0) {
+                        maxPanel2 = maxPanel; // Fallback to previously selected
+                    }
 
-                    PatternContract contract = new PatternContract();
+                    PatternContract contract = new PatternContract(maxPanel2);
                     PathSampler sampler = new PathSampler();
                     PatternExtractor extractor = new PatternExtractor(contract, sampler);
 
@@ -264,19 +283,55 @@ public final class FxApp extends Application {
             }
         }
     }
+    
+    /**
+     * Determine max panel letter from metadata or user selection.
+     * 
+     * @param stage the stage for dialog display
+     * @param doc the SVG document
+     * @return max panel letter, or 0 if user cancelled
+     */
+    private char determineMaxPanel(Stage stage, SvgDocument doc) {
+        // Try to read metadata
+        Optional<Character> metadata = doc.readMaxPanelMetadata();
+        if (metadata.isPresent()) {
+            LOG.info("Using max panel from metadata: {}", metadata.get());
+            return metadata.get();
+        }
+        
+        // Metadata missing - detect from IDs and ask user
+        char detected = PanelDetector.detectMaxPanel(doc);
+        LOG.info("Detected max panel from IDs: {}", detected);
+        
+        PanelSelectionDialog dialog = new PanelSelectionDialog(detected);
+        Optional<Character> selected = dialog.showAndGetResult();
+        
+        if (selected.isPresent()) {
+            LOG.info("User selected max panel: {}", selected.get());
+            return selected.get();
+        } else {
+            LOG.info("User cancelled panel selection");
+            return 0; // Cancelled
+        }
+    }
 
     /**
      * Launch the ID assignment wizard. Returns true if wizard completed
      * successfully, false if cancelled.
+     * 
+     * @param stage the stage for dialog display
+     * @param path the SVG file path
+     * @param maxPanel the max panel letter to use
+     * @return true if wizard completed, false if cancelled
      */
-    private boolean launchWizard(Stage stage, Path path) {
+    private boolean launchWizard(Stage stage, Path path, char maxPanel) {
         try {
             // Load SVG document
             SvgLoader loader = new SvgLoader();
             SvgDocument doc = loader.load(path);
 
-            // Create wizard session
-            IdWizardSession session = new IdWizardSession(doc.getDocument(), 'F');
+            // Create wizard session with specified max panel
+            IdWizardSession session = new IdWizardSession(doc.getDocument(), maxPanel);
 
             // Check if there are actually missing steps
             if (session.totalMissing() == 0) {
@@ -297,6 +352,9 @@ public final class FxApp extends Application {
 
                 SvgTextEditor editor = new SvgTextEditor();
                 editor.saveWithAssignments(path, newPath, session);
+                
+                // Write metadata to the new file
+                editor.writeMaxPanelMetadata(newPath, maxPanel);
 
                 // Update svgPath to the new file
                 svgPath = newPath;
