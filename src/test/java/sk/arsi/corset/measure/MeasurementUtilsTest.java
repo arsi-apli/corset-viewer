@@ -199,4 +199,115 @@ class MeasurementUtilsTest {
         assertEquals(intersection5_01, result5_01, 0.001,
                 "dyMm=5.01 should be outside dead-zone");
     }
+
+    /**
+     * Create a panel with seams that are invalid near the waist but valid at larger distances.
+     * This simulates the problem where seam intersection fails at small |dy| but works at larger |dy|.
+     * 
+     * The panel is designed such that:
+     * - Waist is at y=0
+     * - UP seams (for positive dyMm, measuring upward) extend from y=-100 to y=-8
+     * - DOWN seams (for negative dyMm, measuring downward) extend from y=8 to y=100
+     * - There's a gap from y=-8 to y=8 where intersections would fail
+     * - This means measurements fail for |dy| < 8mm but work for |dy| >= 10mm
+     */
+    private PanelCurves createPanelWithInvalidNearWaist() {
+        // Waist curve: horizontal line at y=0, from x=0 to x=100
+        List<Pt> waistPoints = new ArrayList<>();
+        waistPoints.add(new Pt(0, 0));
+        waistPoints.add(new Pt(100, 0));
+        Curve2D waist = new Curve2D("test-waist", waistPoints);
+
+        // Left seam UP: vertical line at x=0, from y=-100 to y=-8 (for positive dyMm, measuring at negative y)
+        List<Pt> leftUpPoints = new ArrayList<>();
+        leftUpPoints.add(new Pt(0, -100));
+        leftUpPoints.add(new Pt(0, -8));
+        Curve2D leftSeamUp = new Curve2D("test-left-up", leftUpPoints);
+
+        // Left seam DOWN: vertical line at x=0, from y=8 to y=100 (for negative dyMm, measuring at positive y)
+        List<Pt> leftDownPoints = new ArrayList<>();
+        leftDownPoints.add(new Pt(0, 8));
+        leftDownPoints.add(new Pt(0, 100));
+        Curve2D leftSeamDown = new Curve2D("test-left-down", leftDownPoints);
+
+        // Right seam UP: vertical line at x=100, from y=-100 to y=-8
+        List<Pt> rightUpPoints = new ArrayList<>();
+        rightUpPoints.add(new Pt(100, -100));
+        rightUpPoints.add(new Pt(100, -8));
+        Curve2D rightSeamUp = new Curve2D("test-right-up", rightUpPoints);
+
+        // Right seam DOWN: vertical line at x=100, from y=8 to y=100
+        List<Pt> rightDownPoints = new ArrayList<>();
+        rightDownPoints.add(new Pt(100, 8));
+        rightDownPoints.add(new Pt(100, 100));
+        Curve2D rightSeamDown = new Curve2D("test-right-down", rightDownPoints);
+
+        // Top and bottom curves
+        List<Pt> topPoints = new ArrayList<>();
+        topPoints.add(new Pt(0, -100));
+        topPoints.add(new Pt(100, -100));
+        Curve2D top = new Curve2D("test-top", topPoints);
+
+        List<Pt> bottomPoints = new ArrayList<>();
+        bottomPoints.add(new Pt(0, 100));
+        bottomPoints.add(new Pt(100, 100));
+        Curve2D bottom = new Curve2D("test-bottom", bottomPoints);
+
+        return new PanelCurves(
+                PanelId.of('A'),
+                top,
+                bottom,
+                waist,
+                leftSeamUp,
+                leftSeamDown,
+                rightSeamUp,
+                rightSeamDown
+        );
+    }
+
+    @Test
+    void testComputeValidDyRange_WithDeadZone() {
+        // Test that computeValidDyRange correctly skips the dead-zone and finds valid range
+        List<PanelCurves> panels = new ArrayList<>();
+        panels.add(createPanelWithInvalidNearWaist());
+
+        // With stepMm = 2.0, the method should:
+        // 1. Skip the dead-zone (first check at dy >= 5.0)
+        // 2. Find that dy=10 or dy=12 is the first valid upward measurement (curves start at y=8)
+        // 3. Continue until dy=100 (the extent of our test panel)
+        MeasurementUtils.DyRange range = MeasurementUtils.computeValidDyRange(panels, 2.0);
+
+        // Should find valid range starting from around 10mm upward (first intersection point)
+        // The gap is from y=-8 to y=8, so measurements are invalid for |dy| < 8
+        // With stepMm=2, scanning starts at 5mm, then 7mm (still in gap), then 9mm (still in gap),
+        // then 11mm (valid, since y = -11 is below -8)
+        assertTrue(range.getMaxUpDy() >= 8.0,
+                "Should find valid upward range >= 8mm despite invalid measurements near waist");
+        
+        // Should find valid range starting from around -10mm downward
+        assertTrue(range.getMaxDownDy() >= 8.0,
+                "Should find valid downward range >= 8mm despite invalid measurements near waist");
+
+        // Verify we get a reasonable range, not just zero
+        assertTrue(range.getMaxUpDy() > 0.0, "maxUpDy should be greater than 0");
+        assertTrue(range.getMaxDownDy() > 0.0, "maxDownDy should be greater than 0");
+    }
+
+    @Test
+    void testComputeValidDyRange_WithoutDeadZone() {
+        // Test with a normal panel (no gap near waist) to ensure we still get good results
+        List<PanelCurves> panels = new ArrayList<>();
+        panels.add(createTestPanel());
+
+        MeasurementUtils.DyRange range = MeasurementUtils.computeValidDyRange(panels, 2.0);
+
+        // For a panel with continuous seams, should find valid range
+        assertTrue(range.getMaxUpDy() > 0.0, "maxUpDy should be greater than 0");
+        assertTrue(range.getMaxDownDy() > 0.0, "maxDownDy should be greater than 0");
+        
+        // Should find range up to the panel extent (100mm in each direction)
+        assertTrue(range.getMaxUpDy() >= 90.0, "Should find most of upward range");
+        assertTrue(range.getMaxDownDy() >= 90.0, "Should find most of downward range");
+    }
 }
+
