@@ -7,6 +7,7 @@ import sk.arsi.corset.svg.*;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
 
 public final class CorsetViewerMain {
 
@@ -22,8 +23,20 @@ public final class CorsetViewerMain {
 
         SvgLoader loader = new SvgLoader();
         SvgDocument doc = loader.load(svgPath);
+        
+        // Read max panel from metadata, default to F if missing
+        Optional<Character> maxPanelOpt = doc.readMaxPanelMetadata();
+        char maxPanel = maxPanelOpt.orElse('F');
+        
+        if (!maxPanelOpt.isPresent()) {
+            LOG.warn("No panel count metadata found in SVG. Using default: A-{}", maxPanel);
+            LOG.warn("Add '{}=\"{}\"' attribute to the <svg> root element to set panel range.", 
+                SvgDocument.ATTR_MAX_PANEL, maxPanel);
+        } else {
+            LOG.info("Panel count from metadata: A-{}", maxPanel);
+        }
 
-        PatternContract contract = new PatternContract();
+        PatternContract contract = new PatternContract(maxPanel);
         PathSampler sampler = new PathSampler();
         PatternExtractor extractor = new PatternExtractor(contract, sampler);
 

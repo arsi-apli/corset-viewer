@@ -2,6 +2,7 @@ package sk.arsi.corset.io;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
 import sk.arsi.corset.model.PanelCurves;
 import sk.arsi.corset.svg.PathSampler;
 import sk.arsi.corset.svg.PatternContract;
@@ -26,8 +27,12 @@ public final class SvgPanelLoader {
             try {
                 SvgLoader loader = new SvgLoader();
                 SvgDocument doc = loader.load(svgPath);
+                
+                // Read max panel from metadata, default to F if missing
+                Optional<Character> maxPanelOpt = doc.readMaxPanelMetadata();
+                char maxPanel = maxPanelOpt.orElse('F');
 
-                PatternContract contract = new PatternContract();
+                PatternContract contract = new PatternContract(maxPanel);
                 PathSampler sampler = new PathSampler();
                 PatternExtractor extractor = new PatternExtractor(contract, sampler);
 

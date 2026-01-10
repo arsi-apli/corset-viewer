@@ -1,5 +1,7 @@
 package sk.arsi.corset.wizard;
 
+import sk.arsi.corset.svg.SvgDocument;
+
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -103,5 +105,44 @@ public final class SvgTextEditor {
             // Fallback: couldn't find the path
             throw new IllegalStateException("Could not find path element with d=" + dAttr.substring(0, Math.min(50, dAttr.length())) + "...");
         }
+    }
+    
+    /**
+     * Write or update the max panel metadata attribute on the SVG root element.
+     * 
+     * @param svgPath path to the SVG file
+     * @param maxPanel the max panel letter (A-Z)
+     * @throws IOException if file operations fail
+     */
+    public void writeMaxPanelMetadata(Path svgPath, char maxPanel) throws IOException {
+        String content = Files.readString(svgPath, StandardCharsets.UTF_8);
+        
+        // Find the opening <svg> tag
+        Pattern svgPattern = Pattern.compile("(<svg[^>]*?)(/?>)", Pattern.DOTALL);
+        Matcher matcher = svgPattern.matcher(content);
+        
+        if (!matcher.find()) {
+            throw new IllegalStateException("Could not find <svg> root element");
+        }
+        
+        String svgOpenTag = matcher.group(1);
+        String svgClose = matcher.group(2);
+        
+        // Check if attribute already exists
+        String attrName = SvgDocument.ATTR_MAX_PANEL;
+        Pattern attrPattern = Pattern.compile("\\b" + Pattern.quote(attrName) + "\\s*=\\s*\"[^\"]*\"");
+        Matcher attrMatcher = attrPattern.matcher(svgOpenTag);
+        
+        String updatedSvgOpenTag;
+        if (attrMatcher.find()) {
+            // Update existing attribute
+            updatedSvgOpenTag = attrMatcher.replaceFirst(attrName + "=\"" + maxPanel + "\"");
+        } else {
+            // Insert new attribute before the closing > or />
+            updatedSvgOpenTag = svgOpenTag + "\n   " + attrName + "=\"" + maxPanel + "\"";
+        }
+        
+        String updatedContent = matcher.replaceFirst(updatedSvgOpenTag + svgClose);
+        Files.writeString(svgPath, updatedContent, StandardCharsets.UTF_8);
     }
 }
