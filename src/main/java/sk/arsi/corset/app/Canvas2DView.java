@@ -331,7 +331,7 @@ public final class Canvas2DView {
 
         // Resize controls
         SpinnerValueFactory<Double> resizeDeltaFactory = new SpinnerValueFactory.DoubleSpinnerValueFactory(
-                -300.0, 300.0, 0.0, 1.0);
+                -1000.0, 1000.0, 0.0, 1.0);
         this.resizeDeltaSpinner = new Spinner<>(resizeDeltaFactory);
         this.resizeDeltaSpinner.setEditable(true);
         this.resizeDeltaSpinner.setPrefWidth(80.0);

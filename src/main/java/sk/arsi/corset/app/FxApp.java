@@ -29,9 +29,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.prefs.Preferences;
+import org.w3c.dom.Document;
+import sk.arsi.corset.svg.SvgTransformChecker;
 
 public final class FxApp extends Application {
 
@@ -73,11 +76,19 @@ public final class FxApp extends Application {
 
         // Try to load panels, launch wizard if required IDs are missing
         List<PanelCurves> panels = loadPanelsOrLaunchWizard(stage, svgPath);
+        Document doc = SvgTransformChecker.parseSvgFile(svgPath.toFile());
+        Set<String> relevant = SvgTransformChecker.collectRelevantPathIdsFromPanels(panels);
+        SvgTransformChecker.promptUserIfTransforms(doc, relevant, apply -> {
+            if (apply) {
+                Platform.exit();
+            }
+        });
         if (panels == null) {
             // User cancelled wizard or error occurred
             Platform.exit();
             return;
         }
+        MeasurementDebug.debugAllPanels(panels, 1);
 
         // --- Measurements ---
         viewMeasurements = new MeasurementsView();
@@ -230,7 +241,7 @@ public final class FxApp extends Application {
             showError("Failed to load SVG", e.getMessage());
             return null;
         }
-        
+
         // Determine max panel once: metadata first, then ask user if missing
         char maxPanel = determineMaxPanel(stage, svgDocument);
         if (maxPanel == 0) {
@@ -260,7 +271,7 @@ public final class FxApp extends Application {
                 try {
                     SvgLoader loader2 = new SvgLoader();
                     svgDocument = loader2.load(svgPath);
-                    
+
                     // After wizard, use metadata if present, otherwise fall back to original maxPanel
                     char maxPanel2 = svgDocument.readMaxPanelMetadata().orElse(maxPanel);
 
@@ -280,10 +291,10 @@ public final class FxApp extends Application {
             }
         }
     }
-    
+
     /**
      * Determine max panel letter from metadata or user selection.
-     * 
+     *
      * @param stage the stage for dialog display
      * @param doc the SVG document
      * @return max panel letter, or 0 if user cancelled
@@ -295,14 +306,14 @@ public final class FxApp extends Application {
             LOG.info("Using max panel from metadata: {}", metadata.get());
             return metadata.get();
         }
-        
+
         // Metadata missing - detect from IDs and ask user
         char detected = PanelDetector.detectMaxPanel(doc);
         LOG.info("Detected max panel from IDs: {}", detected);
-        
+
         PanelSelectionDialog dialog = new PanelSelectionDialog(detected);
         Optional<Character> selected = dialog.showAndGetResult();
-        
+
         if (selected.isPresent()) {
             LOG.info("User selected max panel: {}", selected.get());
             return selected.get();
@@ -315,7 +326,7 @@ public final class FxApp extends Application {
     /**
      * Launch the ID assignment wizard. Returns true if wizard completed
      * successfully, false if cancelled.
-     * 
+     *
      * @param stage the stage for dialog display
      * @param path the SVG file path
      * @param maxPanel the max panel letter to use
@@ -349,7 +360,7 @@ public final class FxApp extends Application {
 
                 SvgTextEditor editor = new SvgTextEditor();
                 editor.saveWithAssignments(path, newPath, session);
-                
+
                 // Write metadata to the new file
                 editor.writeMaxPanelMetadata(newPath, maxPanel);
 

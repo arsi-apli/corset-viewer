@@ -196,7 +196,7 @@ public final class PanelResizer {
             modified = SvgPathEditor.modifyEndpoint(modified, leftIndex, -shift, 0.0);
         }
 
-        return resampleCurve(curve.getId(), modified);
+        return resampleCurve(curve, modified);
     }
 
     /**
@@ -214,7 +214,7 @@ public final class PanelResizer {
         }
 
         String modified = SvgPathEditor.modifyEndpoint(d, minYIndex, shiftX, 0.0);
-        return resampleCurve(curve.getId(), modified);
+        return resampleCurve(curve, modified);
     }
 
     private Curve2D resizeSeamDown(Curve2D curve, double shiftX) {
@@ -229,7 +229,7 @@ public final class PanelResizer {
         }
 
         String modified = SvgPathEditor.modifyEndpoint(d, maxYIndex, shiftX, 0.0);
-        return resampleCurve(curve.getId(), modified);
+        return resampleCurve(curve, modified);
     }
 
     /**
@@ -265,7 +265,7 @@ public final class PanelResizer {
             modified = SvgPathEditor.modifyEndpoint(modified, leftIndex, -shift, 0.0);
         }
 
-        return resampleCurve(curve.getId(), modified);
+        return resampleCurve(curve, modified);
     }
 
     private Curve2D resizeHorizontalEdgeMin(Curve2D curve, double shift) {
@@ -292,7 +292,7 @@ public final class PanelResizer {
         // shift only left endpoint
         modified = SvgPathEditor.modifyEndpoint(modified, leftIndex, -shift, 0.0);
 
-        return resampleCurve(curve.getId(), modified);
+        return resampleCurve(curve, modified);
     }
 
     private Curve2D resizeHorizontalEdgeMax(Curve2D curve, double shift) {
@@ -319,7 +319,7 @@ public final class PanelResizer {
         // shift only right endpoint
         modified = SvgPathEditor.modifyEndpoint(modified, rightIndex, shift, 0.0);
 
-        return resampleCurve(curve.getId(), modified);
+        return resampleCurve(curve, modified);
     }
 
     /**
@@ -351,14 +351,43 @@ public final class PanelResizer {
             modified = SvgPathEditor.modifyEndpoint(modified, maxYIndex, shiftX, 0.0);
         }
 
-        return resampleCurve(curve.getId(), modified);
+        return resampleCurve(curve, modified);
     }
 
     /**
      * Re-sample modified path data to create new Curve2D.
+     *
+     * This variant accepts the original Curve2D so that on failure it can
+     * return the original curve (avoiding exceptions when sampler returns < 2
+     * points).
      */
-    private Curve2D resampleCurve(String id, String d) {
-        return sampler.samplePath(id, d, flatnessMm, resampleStepMm);
+    private Curve2D resampleCurve(Curve2D original, String d) {
+        if (original == null) {
+            return null;
+        }
+        if (d == null || d.trim().isEmpty()) {
+            return original;
+        }
+
+        // Normalize path before sampling to stabilize input
+        String normalized = d;
+        try {
+            normalized = SvgPathEditor.normalizePath(d);
+        } catch (Throwable ignored) {
+            // ignore normalization failure; still try to sample original d
+        }
+
+        try {
+            Curve2D sampled = sampler.samplePath(original.getId(), normalized, flatnessMm, resampleStepMm);
+            if (sampled == null || sampled.getPoints() == null || sampled.getPoints().size() < 2) {
+                // Sampler produced an invalid curve — keep original to avoid crashing UI
+                return original;
+            }
+            return sampled;
+        } catch (Exception ex) {
+            // On any error we must not throw to the JavaFX thread — return original as fallback
+            return original;
+        }
     }
 
     private PanelCurves resizeBottomMode(PanelCurves panel, double sideShiftMm) {

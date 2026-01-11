@@ -1,33 +1,57 @@
 package sk.arsi.corset.measure;
 
+import sk.arsi.corset.jts.SvgPathToJts;
 import sk.arsi.corset.model.Curve2D;
 import sk.arsi.corset.model.PanelCurves;
 import sk.arsi.corset.model.Pt;
+import sk.arsi.corset.resize.SvgPathEditor;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.OptionalDouble;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+/**
+ * Measurement utilities with analytic SVG path intersection.
+ *
+ * This version uses SvgPathEditor.normalizePath(...) to normalize path 'd'
+ * strings (absolute coordinates, implicit L -> explicit L) before any analytic
+ * or JTS-based processing. That prevents implicit-L truncation issues and
+ * improves stability near the waist.
+ *
+ * Supported analytic segment types: M/m (with implicit L), L/l, Q/q, C/c, Z/z.
+ *
+ * Fallback: if analytic solver or JTS fails, falls back to polyline sampling
+ * using Curve2D.points.
+ */
 public final class MeasurementUtils {
-
-    // Small epsilon for floating-point comparisons in intersection calculations.
-    // This helps handle numerical precision issues and cases where segment endpoints
-    // are very close to (but not exactly at) the measurement line.
-    private static final double EPSILON = 1e-6;
 
     private MeasurementUtils() {
     }
 
+    // Numerical tolerance
+    private static final double EPS = 1e-9;
+
+    // Dead-zone around waist to use waist curve length
+    private static final double DEAD_ZONE_MM = 0.1;
+
+    private static final double MAX_DY_SEARCH_DISTANCE = 1000.0;
+    private static final double MIN_STEP_SIZE = 0.5;
+
+    // flatness and tolerances for JTS fallback when used
+    private static final double FLATNESS_MM = 0.5;
+    private static final double JTS_NEAREST_TOLERANCE_MM = 0.5;
+
     public enum SeamSide {
-        TO_PREV, // e.g. B->A
-        TO_NEXT  // e.g. A->B
+        TO_PREV, TO_NEXT
     }
 
     public static final class SeamSplit {
 
-        public final double above; // from waist upwards (y < waistY)
-        public final double below; // from waist downwards (y >= waistY)
+        public final double above;
+        public final double below;
 
         public SeamSplit(double above, double below) {
             this.above = above;
@@ -49,7 +73,6 @@ public final class MeasurementUtils {
         if (yValues.isEmpty()) {
             return 0.0;
         }
-
         Collections.sort(yValues);
         int n = yValues.size();
         if (n % 2 == 1) {
@@ -59,181 +82,527 @@ public final class MeasurementUtils {
     }
 
     // -------------------- Curve length --------------------
-    /**
-     * Compute the total length of a curve as a polyline.
-     * 
-     * @param curve The curve to measure
-     * @return Total length of the curve, or 0.0 if invalid
-     */
     public static double computeCurveLength(Curve2D curve) {
-        if (curve == null || curve.getPoints() == null || curve.getPoints().size() < 2) {
+        if (curve == null) {
+            return 0.0;
+        }
+        String d = curve.getD();
+        if (d != null && !d.trim().isEmpty()) {
+            try {
+                String norm = SvgPathEditor.normalizePath(d);
+                return SvgPathToJts.pathDToGeometry(norm, FLATNESS_MM).getLength();
+            } catch (Throwable t) {
+                // fall through to polyline-based length
+            }
+        }
+        if (curve.getPoints() == null || curve.getPoints().size() < 2) {
+            return 0.0;
+        }
+        double sum = 0.0;
+        List<Pt> pts = curve.getPoints();
+        for (int i = 0; i < pts.size() - 1; ++i) {
+            Pt a = pts.get(i);
+            Pt b = pts.get(i + 1);
+            if (a == null || b == null) {
+                continue;
+            }
+            double dx = b.getX() - a.getX();
+            double dy = b.getY() - a.getY();
+            sum += Math.hypot(dx, dy);
+        }
+        return sum;
+    }
+
+    // -------------------- Curve length portion --------------------
+    public static double computeCurveLengthPortion(Curve2D curve, double waistY, boolean above) {
+        if (curve == null) {
             return 0.0;
         }
 
-        List<Pt> points = curve.getPoints();
-        double length = 0.0;
+        // Prefer JTS-based calculation from normalized 'd' if available
+        String d = curve.getD();
+        if (d != null && !d.trim().isEmpty()) {
+            try {
+                String norm = SvgPathEditor.normalizePath(d);
+                double[] extent = computeCurveXExtent(curve);
+                double minX = extent[0] - 1000.0;
+                double maxX = extent[1] + 1000.0;
+                return SvgPathToJts.lengthOfCurveInHalfPlane(norm, waistY, above, minX, maxX, FLATNESS_MM);
+            } catch (Throwable t) {
+                // fallback to sampled method below
+            }
+        }
 
-        for (int i = 0; i < points.size() - 1; i++) {
-            Pt p0 = points.get(i);
-            Pt p1 = points.get(i + 1);
+        // Fallback: sample segments and compute portion
+        if (curve.getPoints() == null || curve.getPoints().size() < 2) {
+            return 0.0;
+        }
+        List<Pt> pts = curve.getPoints();
+        double length = 0.0;
+        for (int i = 0; i < pts.size() - 1; ++i) {
+            Pt p0 = pts.get(i), p1 = pts.get(i + 1);
             if (p0 == null || p1 == null) {
                 continue;
             }
-
             double x0 = p0.getX(), y0 = p0.getY();
             double x1 = p1.getX(), y1 = p1.getY();
             if (!Double.isFinite(x0) || !Double.isFinite(y0) || !Double.isFinite(x1) || !Double.isFinite(y1)) {
                 continue;
             }
-
-            double dx = x1 - x0;
-            double dy = y1 - y0;
-            length += Math.sqrt(dx * dx + dy * dy);
+            boolean a0 = y0 < waistY;
+            boolean a1 = y1 < waistY;
+            if (a0 == a1) {
+                if (a0 == above) {
+                    length += Math.hypot(x1 - x0, y1 - y0);
+                }
+            } else {
+                double t = (waistY - y0) / (y1 - y0);
+                double xs = x0 + t * (x1 - x0);
+                if (a0 == above) {
+                    length += Math.hypot(xs - x0, waistY - y0);
+                } else {
+                    length += Math.hypot(x1 - xs, y1 - waistY);
+                }
+            }
         }
-
         return length;
     }
 
-    // -------------------- Curve length split --------------------
-    public static double computeCurveLengthPortion(Curve2D curve, double waistY, boolean above) {
-        if (curve == null || curve.getPoints() == null || curve.getPoints().size() < 2) {
-            return 0.0;
+    private static double[] computeCurveXExtent(Curve2D curve) {
+        if (curve == null || curve.getPoints() == null || curve.getPoints().isEmpty()) {
+            return new double[]{-1e6, 1e6};
         }
-
-        List<Pt> points = curve.getPoints();
-        double length = 0.0;
-
-        for (int i = 0; i < points.size() - 1; i++) {
-            Pt p0 = points.get(i);
-            Pt p1 = points.get(i + 1);
-            if (p0 == null || p1 == null) {
+        double min = Double.POSITIVE_INFINITY, max = Double.NEGATIVE_INFINITY;
+        for (Pt p : curve.getPoints()) {
+            if (p == null) {
                 continue;
             }
-
-            double x0 = p0.getX(), y0 = p0.getY();
-            double x1 = p1.getX(), y1 = p1.getY();
-            if (!Double.isFinite(x0) || !Double.isFinite(y0) || !Double.isFinite(x1) || !Double.isFinite(y1)) {
+            double x = p.getX();
+            if (!Double.isFinite(x)) {
                 continue;
             }
-
-            boolean p0Above = y0 < waistY;
-            boolean p1Above = y1 < waistY;
-
-            if (p0Above == p1Above) {
-                if (p0Above == above) {
-                    double dx = x1 - x0;
-                    double dy = y1 - y0;
-                    length += Math.sqrt(dx * dx + dy * dy);
-                }
-            } else {
-                // split at waistY
-                double t = (waistY - y0) / (y1 - y0);
-                double xs = x0 + t * (x1 - x0);
-
-                if (p0Above == above) {
-                    double dx = xs - x0;
-                    double dy = waistY - y0;
-                    length += Math.sqrt(dx * dx + dy * dy);
-                } else {
-                    double dx = x1 - xs;
-                    double dy = y1 - waistY;
-                    length += Math.sqrt(dx * dx + dy * dy);
-                }
-            }
+            min = Math.min(min, x);
+            max = Math.max(max, x);
         }
-
-        return length;
+        if (min == Double.POSITIVE_INFINITY) {
+            return new double[]{-1e6, 1e6};
+        }
+        return new double[]{min - 1.0, max + 1.0};
     }
 
     private static Curve2D pickSeamCurve(PanelCurves p, SeamSide side, boolean upCurve) {
         if (p == null) {
             return null;
         }
-
         if (side == SeamSide.TO_NEXT) {
             return upCurve ? p.getSeamToNextUp() : p.getSeamToNextDown();
-        } else {
-            return upCurve ? p.getSeamToPrevUp() : p.getSeamToPrevDown();
         }
+        return upCurve ? p.getSeamToPrevUp() : p.getSeamToPrevDown();
     }
 
-    /**
-     * Measures one seam curve on one panel, split at that panel's waist.
-     *
-     * @param panel panel
-     * @param side TO_NEXT (A->B) or TO_PREV (B->A)
-     * @param upCurve true = use ...Up curve, false = use ...Down curve
-     */
     public static SeamSplit measureSeamSplitAtWaist(PanelCurves panel, SeamSide side, boolean upCurve) {
         if (panel == null) {
             return new SeamSplit(0.0, 0.0);
         }
-
         double waistY = computePanelWaistY0(panel.getWaist());
         Curve2D seam = pickSeamCurve(panel, side, upCurve);
-
         double above = computeCurveLengthPortion(seam, waistY, true);
         double below = computeCurveLengthPortion(seam, waistY, false);
         return new SeamSplit(above, below);
     }
 
-    // -------------------- Circumference (A..F * 2) --------------------
-    private static Curve2D preferNonEmpty(Curve2D primary, Curve2D fallback) {
-        if (primary != null && primary.getPoints() != null && !primary.getPoints().isEmpty()) {
-            return primary;
+    // -------------------- Analytic intersection from 'd' --------------------
+    // Lightweight parser for analytic intersection
+    private static final Pattern CMD_PATTERN = Pattern.compile("([MmLlQqCcZz])([^MmLlQqCcZz]*)");
+
+    private static class Cmd {
+
+        final char type;
+        final double[] coords;
+
+        Cmd(char type, double[] coords) {
+            this.type = type;
+            this.coords = coords;
         }
-        if (fallback != null && fallback.getPoints() != null && !fallback.getPoints().isEmpty()) {
-            return fallback;
+    }
+
+    private static List<Cmd> parsePath(String d) {
+        List<Cmd> out = new ArrayList<>();
+        if (d == null || d.trim().isEmpty()) {
+            return out;
         }
-        return null;
+        Matcher m = CMD_PATTERN.matcher(d);
+        while (m.find()) {
+            char cmd = m.group(1).charAt(0);
+            String coordsStr = m.group(2).trim();
+            double[] coords = parseCoords(coordsStr);
+            out.add(new Cmd(cmd, coords));
+        }
+        return out;
+    }
+
+    private static double[] parseCoords(String coordsStr) {
+        if (coordsStr == null || coordsStr.trim().isEmpty()) {
+            return new double[0];
+        }
+        String[] parts = coordsStr.trim().split("[,\\s]+");
+        List<Double> vals = new ArrayList<>();
+        for (String p : parts) {
+            if (p.isEmpty()) {
+                continue;
+            }
+            try {
+                vals.add(Double.parseDouble(p));
+            } catch (NumberFormatException ex) {
+                // ignore invalid token
+            }
+        }
+        double[] arr = new double[vals.size()];
+        for (int i = 0; i < vals.size(); ++i) {
+            arr[i] = vals.get(i);
+        }
+        return arr;
     }
 
     /**
-     * Intersect polyline with horizontal line Y=y and return all X
-     * intersections. Horizontal segments are ignored.
-     * Uses epsilon tolerance to handle floating-point precision issues.
+     * Analytically compute X intersections for path string d with horizontal
+     * line y. Returns sorted X coordinates. Uses SvgPathEditor.normalizePath to
+     * ensure the 'd' string uses absolute commands and explicit L segments.
+     */
+    public static List<Double> intersectHorizontalXsFromPathDAnalytic(String d, double y) {
+        List<Double> xs = new ArrayList<>();
+        if (d == null || d.trim().isEmpty()) {
+            return xs;
+        }
+
+        String norm;
+        try {
+            norm = SvgPathEditor.normalizePath(d);
+        } catch (Throwable t) {
+            // fallback: use original d
+            norm = d;
+        }
+
+        List<Cmd> cmds = parsePath(norm);
+        double curX = 0.0, curY = 0.0;
+        double startX = Double.NaN, startY = Double.NaN;
+        boolean haveCurrent = false;
+
+        for (Cmd cmd : cmds) {
+            char type = cmd.type;
+            double[] c = cmd.coords;
+
+            switch (type) {
+                case 'M': {
+                    int idx = 0;
+                    while (idx + 1 < c.length) {
+                        double nx = c[idx], ny = c[idx + 1];
+                        if (!haveCurrent) {
+                            curX = nx;
+                            curY = ny;
+                            startX = curX;
+                            startY = curY;
+                            haveCurrent = true;
+                        } else {
+                            processLineIntersections(curX, curY, nx, ny, y, xs);
+                            curX = nx;
+                            curY = ny;
+                        }
+                        idx += 2;
+                    }
+                    break;
+                }
+
+                case 'L': {
+                    int idx = 0;
+                    while (idx + 1 < c.length) {
+                        double nx = c[idx], ny = c[idx + 1];
+                        if (!haveCurrent) {
+                            curX = nx;
+                            curY = ny;
+                            startX = curX;
+                            startY = curY;
+                            haveCurrent = true;
+                        } else {
+                            processLineIntersections(curX, curY, nx, ny, y, xs);
+                            curX = nx;
+                            curY = ny;
+                        }
+                        idx += 2;
+                    }
+                    break;
+                }
+
+                case 'Q': {
+                    int idx = 0;
+                    while (idx + 3 < c.length) {
+                        double x1 = c[idx], y1 = c[idx + 1], x2 = c[idx + 2], y2 = c[idx + 3];
+                        if (!haveCurrent) {
+                            curX = x2;
+                            curY = y2;
+                            startX = curX;
+                            startY = curY;
+                            haveCurrent = true;
+                        } else {
+                            processQuadraticIntersections(curX, curY, x1, y1, x2, y2, y, xs);
+                            curX = x2;
+                            curY = y2;
+                        }
+                        idx += 4;
+                    }
+                    break;
+                }
+
+                case 'C': {
+                    int idx = 0;
+                    while (idx + 5 < c.length) {
+                        double x1 = c[idx], y1 = c[idx + 1],
+                                x2 = c[idx + 2], y2 = c[idx + 3],
+                                x3 = c[idx + 4], y3 = c[idx + 5];
+                        if (!haveCurrent) {
+                            curX = x3;
+                            curY = y3;
+                            startX = curX;
+                            startY = curY;
+                            haveCurrent = true;
+                        } else {
+                            processCubicIntersections(curX, curY, x1, y1, x2, y2, x3, y3, y, xs);
+                            curX = x3;
+                            curY = y3;
+                        }
+                        idx += 6;
+                    }
+                    break;
+                }
+
+                case 'Z': {
+                    if (haveCurrent && !Double.isNaN(startX)) {
+                        processLineIntersections(curX, curY, startX, startY, y, xs);
+                        curX = startX;
+                        curY = startY;
+                    }
+                    break;
+                }
+
+                default:
+                    // unsupported commands are ignored (normalize should have removed most)
+                    break;
+            }
+        }
+
+        Collections.sort(xs);
+        return xs;
+    }
+
+    // -------------------- segment intersection helpers --------------------
+    private static void processLineIntersections(double x0, double y0, double x1, double y1,
+            double y, List<Double> out) {
+        if (!Double.isFinite(y0) || !Double.isFinite(y1)) {
+            return;
+        }
+        if (Math.abs(y1 - y0) < EPS) {
+            return;
+        }
+        double t = (y - y0) / (y1 - y0);
+        if (t >= -1e-12 && t <= 1.0 + 1e-12) {
+            double x = x0 + t * (x1 - x0);
+            if (Double.isFinite(x)) {
+                out.add(x);
+            }
+        }
+    }
+
+    private static void processQuadraticIntersections(double x0, double y0,
+            double x1, double y1,
+            double x2, double y2,
+            double y, List<Double> out) {
+        double ay = y0 - 2 * y1 + y2;
+        double by = -2 * y0 + 2 * y1;
+        double cy = y0 - y;
+        double[] roots = solveQuadratic(ay, by, cy);
+        for (double t : roots) {
+            if (t >= -1e-12 && t <= 1.0 + 1e-12) {
+                double tx = evalQuadratic(x0, x1, x2, t);
+                if (Double.isFinite(tx)) {
+                    out.add(tx);
+                }
+            }
+        }
+    }
+
+    private static void processCubicIntersections(double x0, double y0,
+            double x1, double y1,
+            double x2, double y2,
+            double x3, double y3,
+            double y, List<Double> out) {
+        double a = -y0 + 3 * y1 - 3 * y2 + y3;
+        double b = 3 * y0 - 6 * y1 + 3 * y2;
+        double c = -3 * y0 + 3 * y1;
+        double d = y0 - y;
+        double[] roots = solveCubic(a, b, c, d);
+        for (double t : roots) {
+            if (t >= -1e-12 && t <= 1.0 + 1e-12) {
+                double tx = evalCubic(x0, x1, x2, x3, t);
+                if (Double.isFinite(tx)) {
+                    out.add(tx);
+                }
+            }
+        }
+    }
+
+    private static double evalQuadratic(double x0, double x1, double x2, double t) {
+        double mt = 1.0 - t;
+        return mt * mt * x0 + 2 * mt * t * x1 + t * t * x2;
+    }
+
+    private static double evalCubic(double x0, double x1, double x2, double x3, double t) {
+        double mt = 1.0 - t;
+        return mt * mt * mt * x0
+                + 3 * mt * mt * t * x1
+                + 3 * mt * t * t * x2
+                + t * t * t * x3;
+    }
+
+    // -------------------- polynomial solvers --------------------
+    private static double[] solveQuadratic(double a, double b, double c) {
+        if (Math.abs(a) < 1e-14) {
+            if (Math.abs(b) < 1e-14) {
+                return new double[0];
+            }
+            return new double[]{-c / b};
+        }
+        double disc = b * b - 4 * a * c;
+        if (disc < -1e-12) {
+            return new double[0];
+        }
+        if (Math.abs(disc) < 1e-12) {
+            return new double[]{-b / (2 * a)};
+        }
+        double sd = Math.sqrt(Math.max(0.0, disc));
+        double t1 = (-b + sd) / (2 * a);
+        double t2 = (-b - sd) / (2 * a);
+        return new double[]{t1, t2};
+    }
+
+    private static double[] solveCubic(double a, double b, double c, double d) {
+        if (Math.abs(a) < 1e-14) {
+            return solveQuadratic(b, c, d);
+        }
+        double an = b / a;
+        double bn = c / a;
+        double cn = d / a;
+        double Q = (3.0 * bn - an * an) / 9.0;
+        double R = (9.0 * an * bn - 27.0 * cn - 2.0 * an * an * an) / 54.0;
+        double D = Q * Q * Q + R * R;
+        List<Double> roots = new ArrayList<>();
+        if (D >= -1e-14) {
+            double sqrtD = Math.sqrt(Math.max(0.0, D));
+            double S = cbrt(R + sqrtD);
+            double T = cbrt(R - sqrtD);
+            double x = -an / 3.0 + (S + T);
+            roots.add(x);
+            double realPart = -an / 3.0 - (S + T) / 2.0;
+            double imagPart = Math.abs(Math.sqrt(3.0) * (S - T) / 2.0);
+            if (Math.abs(imagPart) < 1e-12) {
+                roots.add(realPart);
+                roots.add(realPart);
+            }
+        } else {
+            double theta = Math.acos(Math.max(-1.0, Math.min(1.0, R / Math.sqrt(-Q * Q * Q))));
+            double twoSqrtQ = 2.0 * Math.sqrt(-Q);
+            double x1 = -an / 3.0 + twoSqrtQ * Math.cos(theta / 3.0);
+            double x2 = -an / 3.0 + twoSqrtQ * Math.cos((theta + 2.0 * Math.PI) / 3.0);
+            double x3 = -an / 3.0 + twoSqrtQ * Math.cos((theta + 4.0 * Math.PI) / 3.0);
+            roots.add(x1);
+            roots.add(x2);
+            roots.add(x3);
+        }
+        return roots.stream().filter(r -> Double.isFinite(r)).mapToDouble(Double::doubleValue).toArray();
+    }
+
+    private static double cbrt(double v) {
+        if (v >= 0.0) {
+            return Math.pow(v, 1.0 / 3.0);
+        } else {
+            return -Math.pow(-v, 1.0 / 3.0);
+        }
+    }
+
+    // -------------------- High-level intersection API --------------------
+    /**
+     * Intersect polyline/path with horizontal line y and return sorted X
+     * intersections. Prefer analytic 'd' solver; fallback to SvgPathToJts and
+     * then to sampled-points.
      */
     public static List<Double> intersectHorizontalXs(Curve2D curve, double y) {
-        if (curve == null || curve.getPoints() == null || curve.getPoints().size() < 2) {
+        if (curve == null) {
             return List.of();
         }
 
-        List<Pt> pts = curve.getPoints();
-        List<Double> xs = new ArrayList<>();
+        // 1) Analytic from normalized d if available
+        String d = curve.getD();
+        if (d != null && !d.trim().isEmpty()) {
+            try {
+                List<Double> res = intersectHorizontalXsFromPathDAnalytic(d, y);
+                if (!res.isEmpty()) {
+                    return res;
+                }
+                // if empty, continue to JTS fallback to catch overlapping segments etc.
+            } catch (Throwable t) {
+                // fall through to next method
+            }
+        }
 
-        for (int i = 0; i < pts.size() - 1; i++) {
-            Pt a = pts.get(i);
-            Pt b = pts.get(i + 1);
+        // 2) Try SvgPathToJts intersection with nearest fallback (if available)
+        if (d != null && !d.trim().isEmpty()) {
+            try {
+                String norm = SvgPathEditor.normalizePath(d);
+                double[] extent = computeCurveXExtent(curve);
+                double[] results = SvgPathToJts.intersectHorizontalXsFromPathDWithNearestFallback(
+                        norm, y, FLATNESS_MM, extent[0] - 100.0, extent[1] + 100.0, JTS_NEAREST_TOLERANCE_MM);
+                if (results != null && results.length > 0) {
+                    List<Double> xs = new ArrayList<>();
+                    for (double v : results) {
+                        xs.add(v);
+                    }
+                    Collections.sort(xs);
+                    return xs;
+                }
+            } catch (Throwable t) {
+                // ignore and fallback
+            }
+        }
+
+        // 3) Fallback: sample polyline points stored in Curve2D
+        if (curve.getPoints() == null || curve.getPoints().size() < 2) {
+            return List.of();
+        }
+        List<Double> xs = new ArrayList<>();
+        List<Pt> pts = curve.getPoints();
+        for (int i = 0; i < pts.size() - 1; ++i) {
+            Pt a = pts.get(i), b = pts.get(i + 1);
             if (a == null || b == null) {
                 continue;
             }
-
-            double y0 = a.getY();
-            double y1 = b.getY();
+            double y0 = a.getY(), y1 = b.getY();
             if (!Double.isFinite(y0) || !Double.isFinite(y1)) {
                 continue;
             }
-            
-            // Skip horizontal segments (within epsilon)
-            if (Math.abs(y1 - y0) < EPSILON) {
+            if (Math.abs(y1 - y0) < EPS) {
                 continue;
             }
-            
-            // Check if y is between y0 and y1 (with epsilon tolerance)
-            double minY = Math.min(y0, y1) - EPSILON;
-            double maxY = Math.max(y0, y1) + EPSILON;
-            boolean between = y >= minY && y <= maxY;
-            if (!between) {
+            double minY = Math.min(y0, y1);
+            double maxY = Math.max(y0, y1);
+            if (y < minY - 1e-12 || y > maxY + 1e-12) {
                 continue;
             }
-
             double t = (y - y0) / (y1 - y0);
             double x = a.getX() + t * (b.getX() - a.getX());
             if (Double.isFinite(x)) {
                 xs.add(x);
             }
         }
-
+        Collections.sort(xs);
         return xs;
     }
 
@@ -261,14 +630,45 @@ public final class MeasurementUtils {
         return OptionalDouble.of(m);
     }
 
+    private static Curve2D preferNonEmpty(Curve2D primary, Curve2D fallback) {
+        if (primary != null && primary.getPoints() != null && !primary.getPoints().isEmpty()) {
+            return primary;
+        }
+        if (fallback != null && fallback.getPoints() != null && !fallback.getPoints().isEmpty()) {
+            return fallback;
+        }
+        return primary != null ? primary : fallback;
+    }
+
+    /**
+     * Try to obtain an X coordinate on the left side (wantMin=true) or right
+     * side (wantMin=false) by trying preferred curve and then fallback curve.
+     */
+    private static OptionalDouble findXForSide(Curve2D preferred, Curve2D fallback, double y, boolean wantMin) {
+        if (preferred != null) {
+            OptionalDouble v = wantMin ? minXAtY(preferred, y) : maxXAtY(preferred, y);
+            if (v.isPresent()) {
+                return v;
+            }
+        }
+        if (fallback != null) {
+            OptionalDouble v2 = wantMin ? minXAtY(fallback, y) : maxXAtY(fallback, y);
+            if (v2.isPresent()) {
+                return v2;
+            }
+        }
+        return OptionalDouble.empty();
+    }
+
     /**
      * Width of one panel at dyMm (0 at waist, + up, - down). Width = xRight -
      * xLeft at y = waistY - dyMm.
      *
      * Left boundary = seamToPrev (prefer based on direction) Right boundary =
-     * seamToNext (prefer based on direction)
-     * For positive dyMm (upwards): prefer UP curves, fallback to DOWN
-     * For negative dyMm (downwards): prefer DOWN curves, fallback to UP
+     * seamToNext (prefer based on direction) For positive dyMm (upwards):
+     * prefer UP curves, fallback to DOWN (but only if preferred yields no
+     * intersections) For negative dyMm (downwards): prefer DOWN curves,
+     * fallback to UP
      */
     public static OptionalDouble computePanelWidthAtDy(PanelCurves panel, double dyMm) {
         if (panel == null) {
@@ -278,26 +678,26 @@ public final class MeasurementUtils {
         double waistY = computePanelWaistY0(panel.getWaist());
         double y = waistY - dyMm;
 
-        // Choose curves based on direction:
-        // For positive dyMm (measuring upwards), prefer UP curves
-        // For negative dyMm (measuring downwards), prefer DOWN curves
-        Curve2D left, right;
-        if (dyMm >= 0) {
-            // Measuring upwards: prefer UP curves
-            left = preferNonEmpty(panel.getSeamToPrevUp(), panel.getSeamToPrevDown());
-            right = preferNonEmpty(panel.getSeamToNextUp(), panel.getSeamToNextDown());
+        // raw candidates (both up/down on both sides)
+        Curve2D leftUp = panel.getSeamToPrevUp();
+        Curve2D leftDown = panel.getSeamToPrevDown();
+        Curve2D rightUp = panel.getSeamToNextUp();
+        Curve2D rightDown = panel.getSeamToNextDown();
+
+        // decide preference based on measurement direction
+        boolean preferUp = dyMm >= 0;
+
+        OptionalDouble xL;
+        OptionalDouble xR;
+
+        if (preferUp) {
+            xL = findXForSide(leftUp, leftDown, y, true);   // left: want min X
+            xR = findXForSide(rightUp, rightDown, y, false); // right: want max X
         } else {
-            // Measuring downwards: prefer DOWN curves
-            left = preferNonEmpty(panel.getSeamToPrevDown(), panel.getSeamToPrevUp());
-            right = preferNonEmpty(panel.getSeamToNextDown(), panel.getSeamToNextUp());
-        }
-        
-        if (left == null || right == null) {
-            return OptionalDouble.empty();
+            xL = findXForSide(leftDown, leftUp, y, true);
+            xR = findXForSide(rightDown, rightUp, y, false);
         }
 
-        OptionalDouble xL = minXAtY(left, y);
-        OptionalDouble xR = maxXAtY(right, y);
         if (xL.isEmpty() || xR.isEmpty()) {
             return OptionalDouble.empty();
         }
@@ -306,14 +706,11 @@ public final class MeasurementUtils {
         return OptionalDouble.of(Math.abs(w));
     }
 
-    /**
-     * Half circumference (sum of panel widths). Full circumference = 2 * half.
-     */
+    // -------------------- Circumference & range helpers --------------------
     public static double computeHalfCircumference(List<PanelCurves> panels, double dyMm) {
         if (panels == null || panels.isEmpty()) {
             return 0.0;
         }
-
         double sum = 0.0;
         for (PanelCurves p : panels) {
             OptionalDouble w = computePanelWidthAtDy(p, dyMm);
@@ -324,18 +721,10 @@ public final class MeasurementUtils {
         return sum;
     }
 
-    /**
-     * Compute half waist circumference by summing the lengths of all panel waist curves.
-     * This is used when measuring exactly at the waist (dyMm == 0).
-     * 
-     * @param panels List of panels
-     * @return Sum of waist curve lengths
-     */
     public static double computeHalfWaistCircumference(List<PanelCurves> panels) {
         if (panels == null || panels.isEmpty()) {
             return 0.0;
         }
-
         double sum = 0.0;
         for (PanelCurves p : panels) {
             if (p != null && p.getWaist() != null) {
@@ -345,178 +734,106 @@ public final class MeasurementUtils {
         return sum;
     }
 
-    /**
-     * Compute full waist circumference (2 × sum of panel waist curve lengths).
-     * This is used when measuring exactly at the waist (dyMm == 0).
-     * 
-     * @param panels List of panels
-     * @return Full waist circumference
-     */
     public static double computeFullWaistCircumference(List<PanelCurves> panels) {
         return 2.0 * computeHalfWaistCircumference(panels);
     }
 
     public static double computeFullCircumference(List<PanelCurves> panels, double dyMm) {
-        // Use waist curve length for measurements within ±5mm of the waist.
-        // This dead-zone provides stability near the waist where seam intersection
-        // results can be unreliable due to numerical precision issues and nearly-
-        // horizontal curve segments around dy ≈ 0.
-        // 
-        // Rationale:
-        // - For some SVG patterns, measurements are unreliable for small |dy| values
-        //   (users report fluctuations of ±4mm) but stabilize at larger distances.
-        // - Using the waist curve length directly for |dy| < 5mm ensures consistent
-        //   measurements in this critical region while maintaining intersection-based
-        //   accuracy elsewhere.
-        if (Math.abs(dyMm) < 5.0) {
+        if (Math.abs(dyMm) < DEAD_ZONE_MM) {
             return computeFullWaistCircumference(panels);
         }
-        // For |dy| >= 5mm, use intersection-based circumference
         return 2.0 * computeHalfCircumference(panels, dyMm);
     }
 
-    /**
-     * Represents the valid range for dyMm measurements.
-     * 
-     * This immutable class encapsulates the maximum measurable distances
-     * from the waist where all panels in a corset have measurable widths.
-     * The range is asymmetric because UP curves (above waist) and DOWN curves
-     * (below waist) may have different extents.
-     * 
-     * This class is part of the public API and is returned by
-     * {@link #computeValidDyRange(List, double)}.
-     */
     public static final class DyRange {
-        private final double maxUpDy;    // Maximum positive dyMm (upwards)
-        private final double maxDownDy;  // Maximum absolute negative dyMm (downwards, stored as positive)
+
+        private final double maxUpDy;
+        private final double maxDownDy;
 
         public DyRange(double maxUpDy, double maxDownDy) {
             this.maxUpDy = maxUpDy;
             this.maxDownDy = maxDownDy;
         }
 
-        /**
-         * @return Maximum distance upward from waist where measurements are valid (positive value in mm)
-         */
         public double getMaxUpDy() {
             return maxUpDy;
         }
 
-        /**
-         * @return Maximum distance downward from waist where measurements are valid (positive value in mm)
-         */
         public double getMaxDownDy() {
             return maxDownDy;
         }
     }
 
-    // Maximum distance to search for valid measurement range in mm
-    private static final double MAX_DY_SEARCH_DISTANCE = 1000.0;
-    
-    // Minimum step size for dy range computation in mm
-    private static final double MIN_STEP_SIZE = 0.5;
-    
-    // Dead-zone around waist where measurements may be unreliable due to seam intersection issues.
-    // Matches the dead-zone used in computeFullCircumference to ensure consistency.
-    private static final double DEAD_ZONE_MM = 5.0;
-
-    /**
-     * Computes the valid dy range where ALL panels have measurable width.
-     * Skips a dead-zone around the waist (±DEAD_ZONE_MM) to avoid unreliable measurements
-     * near dy=0 where seam intersection may be unstable but works at larger distances.
-     * 
-     * @param panels List of panels to measure
-     * @param stepMm Step size for sampling (default 2mm recommended)
-     * @return DyRange with maxUpDy (positive) and maxDownDy (absolute value of max negative)
-     */
     public static DyRange computeValidDyRange(List<PanelCurves> panels, double stepMm) {
         if (panels == null || panels.isEmpty()) {
             return new DyRange(0.0, 0.0);
         }
-
-        // Ensure step is positive and reasonable
         stepMm = Math.max(MIN_STEP_SIZE, Math.abs(stepMm));
 
-        // Find maximum upward range (positive dyMm)
-        // Start search at max(DEAD_ZONE_MM, stepMm) to skip the unreliable region near waist
-        double startDyUp = Math.max(DEAD_ZONE_MM, stepMm);
+        double startUp = Math.max(DEAD_ZONE_MM, stepMm);
         double maxUpDy = 0.0;
-        boolean foundValidUp = false;
-        
-        // First, find the first valid dy >= DEAD_ZONE_MM
-        for (double dy = startDyUp; dy <= MAX_DY_SEARCH_DISTANCE; dy += stepMm) {
-            boolean allValid = true;
-            for (PanelCurves panel : panels) {
-                OptionalDouble width = computePanelWidthAtDy(panel, dy);
-                if (width.isEmpty()) {
-                    allValid = false;
+        boolean foundUp = false;
+        for (double dy = startUp; dy <= MAX_DY_SEARCH_DISTANCE; dy += stepMm) {
+            boolean ok = true;
+            for (PanelCurves p : panels) {
+                if (computePanelWidthAtDy(p, dy).isEmpty()) {
+                    ok = false;
                     break;
                 }
             }
-            if (allValid) {
-                foundValidUp = true;
+            if (ok) {
+                foundUp = true;
                 maxUpDy = dy;
                 break;
             }
         }
-        
-        // If we found a valid point, continue scanning to find the maximum valid range
-        if (foundValidUp) {
+        if (foundUp) {
             for (double dy = maxUpDy + stepMm; dy <= MAX_DY_SEARCH_DISTANCE; dy += stepMm) {
-                boolean allValid = true;
-                for (PanelCurves panel : panels) {
-                    OptionalDouble width = computePanelWidthAtDy(panel, dy);
-                    if (width.isEmpty()) {
-                        allValid = false;
+                boolean ok = true;
+                for (PanelCurves p : panels) {
+                    if (computePanelWidthAtDy(p, dy).isEmpty()) {
+                        ok = false;
                         break;
                     }
                 }
-                if (allValid) {
+                if (ok) {
                     maxUpDy = dy;
                 } else {
-                    break; // Stop at first invalid step
+                    break;
                 }
             }
         }
 
-        // Find maximum downward range (negative dyMm)
-        // Start search at min(-DEAD_ZONE_MM, -stepMm) to skip the unreliable region near waist
-        double startDyDown = -Math.max(DEAD_ZONE_MM, stepMm);
+        double startDown = -Math.max(DEAD_ZONE_MM, stepMm);
         double maxDownDy = 0.0;
-        boolean foundValidDown = false;
-        
-        // First, find the first valid dy <= -DEAD_ZONE_MM
-        for (double dy = startDyDown; dy >= -MAX_DY_SEARCH_DISTANCE; dy -= stepMm) {
-            boolean allValid = true;
-            for (PanelCurves panel : panels) {
-                OptionalDouble width = computePanelWidthAtDy(panel, dy);
-                if (width.isEmpty()) {
-                    allValid = false;
+        boolean foundDown = false;
+        for (double dy = startDown; dy >= -MAX_DY_SEARCH_DISTANCE; dy -= stepMm) {
+            boolean ok = true;
+            for (PanelCurves p : panels) {
+                if (computePanelWidthAtDy(p, dy).isEmpty()) {
+                    ok = false;
                     break;
                 }
             }
-            if (allValid) {
-                foundValidDown = true;
+            if (ok) {
+                foundDown = true;
                 maxDownDy = Math.abs(dy);
                 break;
             }
         }
-        
-        // If we found a valid point, continue scanning to find the maximum valid range
-        if (foundValidDown) {
+        if (foundDown) {
             for (double dy = -maxDownDy - stepMm; dy >= -MAX_DY_SEARCH_DISTANCE; dy -= stepMm) {
-                boolean allValid = true;
-                for (PanelCurves panel : panels) {
-                    OptionalDouble width = computePanelWidthAtDy(panel, dy);
-                    if (width.isEmpty()) {
-                        allValid = false;
+                boolean ok = true;
+                for (PanelCurves p : panels) {
+                    if (computePanelWidthAtDy(p, dy).isEmpty()) {
+                        ok = false;
                         break;
                     }
                 }
-                if (allValid) {
-                    maxDownDy = Math.abs(dy); // Store as positive
+                if (ok) {
+                    maxDownDy = Math.abs(dy);
                 } else {
-                    break; // Stop at first invalid step
+                    break;
                 }
             }
         }
@@ -524,9 +841,6 @@ public final class MeasurementUtils {
         return new DyRange(maxUpDy, maxDownDy);
     }
 
-    /**
-     * Computes the valid dy range with default step size of 2mm.
-     */
     public static DyRange computeValidDyRange(List<PanelCurves> panels) {
         return computeValidDyRange(panels, 2.0);
     }
