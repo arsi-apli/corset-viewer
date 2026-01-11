@@ -12,7 +12,7 @@ Corset Viewer is a small JavaFX tool for viewing and validating corset panel geo
 It reads specific `<path>` elements by their `id` attributes, samples them into polylines, and renders the result in 2D (and a pseudo‑3D chained view).
 
 ## Features
-
+-  **Support for 6, 7, and 8 panel corsets**
 - **Pattern Visualization**: View corset patterns in 2D and pseudo-3D modes
 - **Measurements**: Calculate circumferences at different heights from the waist
 - **Seam Validation**: Highlight seam mismatches that exceed tolerance
