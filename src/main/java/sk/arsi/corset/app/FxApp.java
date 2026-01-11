@@ -63,6 +63,7 @@ public final class FxApp extends Application {
     });
 
     private final SvgPanelLoader panelLoader = new SvgPanelLoader(0.2, 0.5);
+    public static char MAX_PANEL;
 
     @Override
     public void start(Stage stage) throws Exception {
@@ -243,15 +244,15 @@ public final class FxApp extends Application {
         }
 
         // Determine max panel once: metadata first, then ask user if missing
-        char maxPanel = determineMaxPanel(stage, svgDocument);
-        if (maxPanel == 0) {
+        MAX_PANEL = determineMaxPanel(stage, svgDocument);
+        if (MAX_PANEL == 0) {
             // User cancelled panel selection
             return null;
         }
 
         try {
             // Extract panels from the document
-            PatternContract contract = new PatternContract(maxPanel);
+            PatternContract contract = new PatternContract(MAX_PANEL);
             PathSampler sampler = new PathSampler();
             PatternExtractor extractor = new PatternExtractor(contract, sampler);
 
@@ -262,7 +263,7 @@ public final class FxApp extends Application {
                     && e.getMessage().contains("Missing required SVG element id=")) {
 
                 // Launch wizard with the already-determined max panel
-                boolean success = launchWizard(stage, path, maxPanel);
+                boolean success = launchWizard(stage, path, MAX_PANEL);
                 if (!success) {
                     return null;
                 }
@@ -273,7 +274,7 @@ public final class FxApp extends Application {
                     svgDocument = loader2.load(svgPath);
 
                     // After wizard, use metadata if present, otherwise fall back to original maxPanel
-                    char maxPanel2 = svgDocument.readMaxPanelMetadata().orElse(maxPanel);
+                    char maxPanel2 = svgDocument.readMaxPanelMetadata().orElse(MAX_PANEL);
 
                     PatternContract contract = new PatternContract(maxPanel2);
                     PathSampler sampler = new PathSampler();

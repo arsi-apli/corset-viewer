@@ -6,6 +6,7 @@ import sk.arsi.corset.model.Pt;
 
 import java.util.ArrayList;
 import java.util.List;
+import sk.arsi.corset.app.FxApp;
 
 /**
  * Utility for computing seam allowance offset curves. Ensures offset is always
@@ -36,11 +37,8 @@ public final class SeamAllowanceComputer {
         if (seamId == null) {
             return false;
         }
-        return seamId.startsWith("AB_") || seamId.startsWith("BA_")
-                || seamId.startsWith("BC_") || seamId.startsWith("CB_")
-                || seamId.startsWith("CD_") || seamId.startsWith("DC_")
-                || seamId.startsWith("DE_") || seamId.startsWith("ED_")
-                || seamId.startsWith("EF_") || seamId.startsWith("FE_");
+        String lastId = String.valueOf(FxApp.MAX_PANEL) + String.valueOf(FxApp.MAX_PANEL) + "_";
+        return !seamId.startsWith("AA_") && !seamId.startsWith(lastId);
     }
 
     /**
